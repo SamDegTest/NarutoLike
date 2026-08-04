@@ -2,6 +2,9 @@ import { create } from "zustand";
 import { Ninja, RunNinja, MapNode, PowerUpItem, NodeType } from "@/types/index";
 import { NINJA_MAP } from "@/data/ninjas";
 import { useBattleStore } from "./useBattleStore";
+import { useLanguageStore } from "./useLanguageStore";
+import { TRANSLATIONS } from "@/data/translations";
+import { supabase } from "@/lib/supabaseClient";
 
 interface GameState {
   playerRoster: Ninja[];
@@ -37,6 +40,9 @@ interface GameState {
   advanceToNextLevel: () => void;
   endRun: () => void;
   registerBossDefeat: (bossId: string) => void;
+  saveToCloud: () => Promise<void>;
+  loadCloudSave: () => Promise<void>;
+  clearLocalSave: () => void;
 }
 
 const ALL_BOSS_IDS = ["mizuki", "haku", "zabuza", "orochimaru_shippuden", "itachi_shippuden", "itachi_susanoo", "jiraiya_shippuden", "jiraiya_sage", "tsunade_shippuden", "gaara_kid"];
@@ -141,7 +147,7 @@ function generateLevelMap(sagaId: string, level: number): MapNode[] {
     const row4Types = shuffledPool.slice(7, 10);
     const row5Types = shuffledPool.slice(10, 13);
 
-    const map = [
+    const map: MapNode[] = [
       // Row 0 (Top Start)
       {
         id: "0_start",
@@ -546,14 +552,16 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const nextLevel = currentLevel + 1;
     if (nextLevel > 5) {
+      const lang = useLanguageStore.getState().language;
+      const t = TRANSLATIONS[lang];
       if (activeSagaId === "classic_naruto") {
         set({ shippudenUnlocked: true });
         if (typeof window !== "undefined") {
           localStorage.setItem("shippudenUnlocked", "true");
         }
-        alert("CONGRATULAZIONI! Hai sconfitto Gaara e salvato il Villaggio della Foglia! La modalità Shippuden è ora sbloccata nella Homepage!");
+        alert(t.alertVictoryClassic);
       } else {
-        alert("COMPLIMENTI! Hai completato la saga di Naruto Shippuden!");
+        alert(t.alertVictoryShippuden);
       }
       get().endRun();
       return;
@@ -591,4 +599,86 @@ export const useGameStore = create<GameState>((set, get) => ({
       localStorage.setItem("defeatedBosses", JSON.stringify(updated));
     }
   },
+
+  saveToCloud: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const state = get();
+    await supabase.from("game_saves").upsert({
+      id: session.user.id,
+      updated_at: new Date(),
+      active_saga_id: state.activeSagaId,
+      current_level: state.currentLevel,
+      currentNodeId: state.currentNodeId,
+      is_run_active: state.isRunActive,
+      run_team: state.runTeam,
+      active_map: state.activeMap,
+      active_power_ups: state.activePowerUps,
+      defeated_bosses: state.defeatedBosses
+    });
+
+    await supabase.from("profiles").upsert({
+      id: session.user.id,
+      max_level_reached: state.shippudenUnlocked ? 6 : state.currentLevel,
+      updated_at: new Date()
+    });
+  },
+
+  loadCloudSave: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const { data: save } = await supabase
+      .from("game_saves")
+      .select("*")
+      .eq("id", session.user.id)
+      .single();
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", session.user.id)
+      .single();
+
+    if (save) {
+      set({
+        activeSagaId: save.active_saga_id || null,
+        currentLevel: save.current_level || 1,
+        currentNodeId: save.currentNodeId || null,
+        isRunActive: save.is_run_active || false,
+        runTeam: save.run_team || [],
+        activeMap: save.active_map || [],
+        activePowerUps: save.active_power_ups || [],
+        defeatedBosses: save.defeated_bosses || [],
+        shippudenUnlocked: profile?.max_level_reached >= 5 || false
+      });
+    }
+  },
+
+  clearLocalSave: () => {
+    set({
+      isRunActive: false,
+      currentNodeId: null,
+      activeMap: [],
+      playerTeam: [],
+      activeSagaId: null,
+      startingChoices: null,
+      pendingJutsuToLearn: null,
+      availableRecruitChoices: null,
+      defeatedBosses: [],
+      shippudenUnlocked: false
+    });
+  },
 }));
+
+// Auto-sync store subscription
+let saveTimeout: NodeJS.Timeout;
+useGameStore.subscribe((state) => {
+  if (typeof window !== "undefined") {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      state.saveToCloud();
+    }, 1000);
+  }
+});

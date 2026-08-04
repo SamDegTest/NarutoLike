@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { Ninja, RunNinja, Jutsu } from "@/types/index";
 import { JUTSU_MAP } from "@/data/jutsus";
 import { useGameStore } from "./useGameStore";
+import { useLanguageStore } from "./useLanguageStore";
+import { TRANSLATIONS, JUTSU_TRANSLATIONS, translateNinjaName } from "@/data/translations";
 
 export interface BattleStep {
   playerTeam: RunNinja[];
@@ -107,12 +109,15 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       }
     };
 
-    const logs: string[] = ["⚡ Scontro automatico iniziato!"];
+    const lang = useLanguageStore.getState().language;
+    const t = TRANSLATIONS[lang];
+
+    const logs: string[] = [t.battleLogStart];
     const steps: BattleStep[] = [
       {
         playerTeam: pTeam.map((p) => ({ ...p })),
         opponentTeam: oppTeam.map((o) => ({ ...o })),
-        log: "⚡ Scontro iniziato!",
+        log: t.battleLogStart,
         attackerId: "",
         targetId: "",
         attackerName: "",
@@ -128,7 +133,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
     let round = 1;
     // Auto-battle loop
     while (pTeam.some((p) => p.currentHp > 0) && oppTeam.some((o) => o.currentHp > 0) && round <= 50) {
-      logs.push(`--- Round ${round} ---`);
+      logs.push(t.battleLogRound.replace("{round}", round.toString()));
 
       // Combine and sort alive fighters by speed
       const fighters = [
@@ -146,15 +151,21 @@ export const useBattleStore = create<BattleState>((set, get) => ({
         const allPlayersDead = pTeam.every((p) => p.currentHp <= 0);
         if (allOpponentsDead || allPlayersDead) break;
 
+        const fighterName = translateNinjaName(fighter.ref.id, fighter.ref.name, lang);
+
         if (fighter.isPlayer) {
           // Player attack choice
           const target = oppTeam.find((o) => o.currentHp > 0);
           if (!target) break;
 
+          const targetName = translateNinjaName(target.id, target.name, lang);
           const jutsu = JUTSU_MAP.get(fighter.ref.activeJutsuId);
+
           if (jutsu && fighter.ref.currentChakra >= jutsu.chakraCost) {
             // Execute Jutsu
             fighter.ref.currentChakra -= jutsu.chakraCost;
+            const jutsuName = JUTSU_TRANSLATIONS[jutsu.id]?.name[lang] || jutsu.name;
+
             if (jutsu.power < 0) {
               // Healing
               const healVal = Math.abs(jutsu.power);
@@ -162,9 +173,16 @@ export const useBattleStore = create<BattleState>((set, get) => ({
                 .filter((p) => p.currentHp > 0)
                 .sort((a, b) => a.currentHp - b.currentHp)[0];
               if (lowestHpTeammate) {
+                const teammateName = translateNinjaName(lowestHpTeammate.id, lowestHpTeammate.name, lang);
                 lowestHpTeammate.currentHp = Math.min(lowestHpTeammate.baseStats.hp, lowestHpTeammate.currentHp + healVal);
-                const actionMsg = `usa ${jutsu.name} e cura ${lowestHpTeammate.name} di ${healVal} HP!`;
-                const stepLog = `🟢 ${fighter.ref.name} ${actionMsg}`;
+                
+                const actionMsg = t.battleLogAttacks
+                  .replace("{attacker}", fighterName)
+                  .replace("{target}", teammateName)
+                  .replace("{jutsu}", jutsuName) + " " +
+                  t.battleLogHeal.replace("{target}", teammateName).replace("{heal}", healVal.toString());
+
+                const stepLog = `🟢 ${actionMsg}`;
                 logs.push(stepLog);
                 steps.push({
                   playerTeam: pTeam.map((p) => ({ ...p })),
@@ -172,9 +190,9 @@ export const useBattleStore = create<BattleState>((set, get) => ({
                   log: stepLog,
                   attackerId: fighter.ref.id,
                   targetId: lowestHpTeammate.id,
-                  attackerName: fighter.ref.name,
-                  targetName: lowestHpTeammate.name,
-                  actionText: jutsu.name,
+                  attackerName: fighterName,
+                  targetName: teammateName,
+                  actionText: jutsuName,
                   damage: healVal,
                   isHealing: true,
                   elementSymbol: "🟢",
@@ -185,8 +203,14 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               // Damage
               const damage = Math.max(5, Math.floor(jutsu.power * (fighter.ref.baseStats.attack / target.baseStats.defense)));
               target.currentHp = Math.max(0, target.currentHp - damage);
-              const actionMsg = `usa ${jutsu.name} infliggendo ${damage} danni a ${target.name}!`;
-              const stepLog = `🔥 ${fighter.ref.name} ${actionMsg}`;
+
+              const actionMsg = t.battleLogAttacks
+                .replace("{attacker}", fighterName)
+                .replace("{target}", targetName)
+                .replace("{jutsu}", jutsuName) + " " +
+                t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString());
+
+              const stepLog = `🔥 ${actionMsg}`;
               logs.push(stepLog);
               steps.push({
                 playerTeam: pTeam.map((p) => ({ ...p })),
@@ -194,20 +218,47 @@ export const useBattleStore = create<BattleState>((set, get) => ({
                 log: stepLog,
                 attackerId: fighter.ref.id,
                 targetId: target.id,
-                attackerName: fighter.ref.name,
-                targetName: target.name,
-                actionText: jutsu.name,
+                attackerName: fighterName,
+                targetName: targetName,
+                actionText: jutsuName,
                 damage: damage,
                 isHealing: false,
                 elementSymbol: getNinjaElementSymbol(fighter.ref.characterId),
                 isPlayerAttacking: true,
               });
+
+              if (target.currentHp <= 0) {
+                const deathLog = `💀 ${t.battleLogDefeated.replace("{target}", targetName)}`;
+                logs.push(deathLog);
+                steps.push({
+                  playerTeam: pTeam.map((p) => ({ ...p })),
+                  opponentTeam: oppTeam.map((o) => ({ ...o })),
+                  log: deathLog,
+                  attackerId: "",
+                  targetId: target.id,
+                  attackerName: "",
+                  targetName: targetName,
+                  actionText: "",
+                  damage: 0,
+                  isHealing: false,
+                  elementSymbol: "",
+                  isPlayerAttacking: true,
+                });
+              }
             }
           } else {
             // Basic Physical Attack
             const damage = Math.max(5, Math.floor(15 * (fighter.ref.baseStats.attack / target.baseStats.defense)));
             target.currentHp = Math.max(0, target.currentHp - damage);
-            const stepLog = `⚔️ ${fighter.ref.name} usa Attacco Fisico infliggendo ${damage} danni a ${target.name}!`;
+            const jutsuName = lang === "it" ? "Attacco Fisico" : "Physical Attack";
+
+            const actionMsg = t.battleLogAttacks
+              .replace("{attacker}", fighterName)
+              .replace("{target}", targetName)
+              .replace("{jutsu}", jutsuName) + " " +
+              t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString());
+
+            const stepLog = `⚔️ ${actionMsg}`;
             logs.push(stepLog);
             steps.push({
               playerTeam: pTeam.map((p) => ({ ...p })),
@@ -215,29 +266,59 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               log: stepLog,
               attackerId: fighter.ref.id,
               targetId: target.id,
-              attackerName: fighter.ref.name,
-              targetName: target.name,
-              actionText: "Attacco Fisico",
+              attackerName: fighterName,
+              targetName: targetName,
+              actionText: jutsuName,
               damage: damage,
               isHealing: false,
               elementSymbol: "👊",
               isPlayerAttacking: true,
             });
+
+            if (target.currentHp <= 0) {
+              const deathLog = `💀 ${t.battleLogDefeated.replace("{target}", targetName)}`;
+              logs.push(deathLog);
+              steps.push({
+                playerTeam: pTeam.map((p) => ({ ...p })),
+                opponentTeam: oppTeam.map((o) => ({ ...o })),
+                log: deathLog,
+                attackerId: "",
+                targetId: target.id,
+                attackerName: "",
+                targetName: targetName,
+                actionText: "",
+                damage: 0,
+                isHealing: false,
+                elementSymbol: "",
+                isPlayerAttacking: true,
+              });
+            }
           }
         } else {
           // Opponent Attack Choice
           const target = pTeam.find((p) => p.currentHp > 0);
           if (!target) break;
 
+          const targetName = translateNinjaName(target.id, target.name, lang);
           const jutsu = JUTSU_MAP.get(fighter.ref.activeJutsuId);
+
           if (jutsu && fighter.ref.currentChakra >= jutsu.chakraCost) {
             // Execute Jutsu
             fighter.ref.currentChakra -= jutsu.chakraCost;
+            const jutsuName = JUTSU_TRANSLATIONS[jutsu.id]?.name[lang] || jutsu.name;
+
             if (jutsu.power < 0) {
               // Healing
               const healVal = Math.abs(jutsu.power);
               fighter.ref.currentHp = Math.min(fighter.ref.baseStats.hp, fighter.ref.currentHp + healVal);
-              const stepLog = `🟢 ${fighter.ref.name} usa ${jutsu.name} curandosi di ${healVal} HP!`;
+
+              const actionMsg = t.battleLogAttacks
+                .replace("{attacker}", fighterName)
+                .replace("{target}", fighterName)
+                .replace("{jutsu}", jutsuName) + " " +
+                t.battleLogHeal.replace("{target}", fighterName).replace("{heal}", healVal.toString());
+
+              const stepLog = `🟢 ${actionMsg}`;
               logs.push(stepLog);
               steps.push({
                 playerTeam: pTeam.map((p) => ({ ...p })),
@@ -245,9 +326,9 @@ export const useBattleStore = create<BattleState>((set, get) => ({
                 log: stepLog,
                 attackerId: fighter.ref.id,
                 targetId: fighter.ref.id,
-                attackerName: fighter.ref.name,
-                targetName: fighter.ref.name,
-                actionText: jutsu.name,
+                attackerName: fighterName,
+                targetName: fighterName,
+                actionText: jutsuName,
                 damage: healVal,
                 isHealing: true,
                 elementSymbol: "🟢",
@@ -257,8 +338,14 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               // Damage
               const damage = Math.max(5, Math.floor(jutsu.power * (fighter.ref.baseStats.attack / target.baseStats.defense)));
               target.currentHp = Math.max(0, target.currentHp - damage);
-              const actionMsg = `usa ${jutsu.name} infliggendo ${damage} danni a ${target.name}!`;
-              const stepLog = `🔴 ${fighter.ref.name} ${actionMsg}`;
+
+              const actionMsg = t.battleLogAttacks
+                .replace("{attacker}", fighterName)
+                .replace("{target}", targetName)
+                .replace("{jutsu}", jutsuName) + " " +
+                t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString());
+
+              const stepLog = `🔴 ${actionMsg}`;
               logs.push(stepLog);
               steps.push({
                 playerTeam: pTeam.map((p) => ({ ...p })),
@@ -266,20 +353,47 @@ export const useBattleStore = create<BattleState>((set, get) => ({
                 log: stepLog,
                 attackerId: fighter.ref.id,
                 targetId: target.id,
-                attackerName: fighter.ref.name,
-                targetName: target.name,
-                actionText: jutsu.name,
+                attackerName: fighterName,
+                targetName: targetName,
+                actionText: jutsuName,
                 damage: damage,
                 isHealing: false,
                 elementSymbol: getNinjaElementSymbol(fighter.ref.characterId),
                 isPlayerAttacking: false,
               });
+
+              if (target.currentHp <= 0) {
+                const deathLog = `💀 ${t.battleLogDefeated.replace("{target}", targetName)}`;
+                logs.push(deathLog);
+                steps.push({
+                  playerTeam: pTeam.map((p) => ({ ...p })),
+                  opponentTeam: oppTeam.map((o) => ({ ...o })),
+                  log: deathLog,
+                  attackerId: "",
+                  targetId: target.id,
+                  attackerName: "",
+                  targetName: targetName,
+                  actionText: "",
+                  damage: 0,
+                  isHealing: false,
+                  elementSymbol: "",
+                  isPlayerAttacking: false,
+                });
+              }
             }
           } else {
             // Basic Physical Attack
             const damage = Math.max(5, Math.floor(15 * (fighter.ref.baseStats.attack / target.baseStats.defense)));
             target.currentHp = Math.max(0, target.currentHp - damage);
-            const stepLog = `⚔️ ${fighter.ref.name} usa Attacco Fisico infliggendo ${damage} danni a ${target.name}!`;
+            const jutsuName = lang === "it" ? "Attacco Fisico" : "Physical Attack";
+
+            const actionMsg = t.battleLogAttacks
+              .replace("{attacker}", fighterName)
+              .replace("{target}", targetName)
+              .replace("{jutsu}", jutsuName) + " " +
+              t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString());
+
+            const stepLog = `⚔️ ${actionMsg}`;
             logs.push(stepLog);
             steps.push({
               playerTeam: pTeam.map((p) => ({ ...p })),
@@ -287,14 +401,33 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               log: stepLog,
               attackerId: fighter.ref.id,
               targetId: target.id,
-              attackerName: fighter.ref.name,
-              targetName: target.name,
-              actionText: "Attacco Fisico",
+              attackerName: fighterName,
+              targetName: targetName,
+              actionText: jutsuName,
               damage: damage,
               isHealing: false,
               elementSymbol: "👊",
               isPlayerAttacking: false,
             });
+
+            if (target.currentHp <= 0) {
+              const deathLog = `💀 ${t.battleLogDefeated.replace("{target}", targetName)}`;
+              logs.push(deathLog);
+              steps.push({
+                playerTeam: pTeam.map((p) => ({ ...p })),
+                opponentTeam: oppTeam.map((o) => ({ ...o })),
+                log: deathLog,
+                attackerId: "",
+                targetId: target.id,
+                attackerName: "",
+                targetName: targetName,
+                actionText: "",
+                damage: 0,
+                isHealing: false,
+                elementSymbol: "",
+                isPlayerAttacking: false,
+              });
+            }
           }
         }
       }
@@ -307,7 +440,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
     let finalStatus: "victory" | "defeat" = "defeat";
     if (allOpponentsDefeated) {
       finalStatus = "victory";
-      const victoryLog = "🎉 Vittoria! Tutti gli avversari sono stati sconfitti.";
+      const victoryLog = t.battleLogVictory;
       logs.push(victoryLog);
       steps.push({
         playerTeam: pTeam.map((p) => ({ ...p })),
@@ -325,7 +458,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       });
     } else if (allPlayersDefeated) {
       finalStatus = "defeat";
-      const defeatLog = "💀 Sconfitta! Tutta la tua squadra è andata K.O.";
+      const defeatLog = t.battleLogDefeat;
       logs.push(defeatLog);
       steps.push({
         playerTeam: pTeam.map((p) => ({ ...p })),
@@ -343,7 +476,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       });
     } else {
       finalStatus = "defeat";
-      const drawLog = "⏳ Scontro in stallo oltre i limiti consentiti.";
+      const drawLog = lang === "it" ? "⏳ Scontro in stallo oltre i limiti consentiti." : "⏳ Battle stalled beyond allowed limit.";
       logs.push(drawLog);
       steps.push({
         playerTeam: pTeam.map((p) => ({ ...p })),
