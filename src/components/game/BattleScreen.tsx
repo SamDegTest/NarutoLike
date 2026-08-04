@@ -3,6 +3,8 @@ import { useBattleStore } from "@/store/useBattleStore";
 import { useGameStore } from "@/store/useGameStore";
 import { NinjaAvatar } from "@/components/game/NinjaAvatar";
 import { JUTSU_MAP } from "@/data/jutsus";
+import { useLanguageStore } from "@/store/useLanguageStore";
+import { TRANSLATIONS, translateNinjaName } from "@/data/translations";
 
 function getElementImage(symbol: string): string {
   switch (symbol) {
@@ -24,6 +26,8 @@ function getElementImage(symbol: string): string {
 export function BattleScreen() {
   const { playerTeam: finalPlayerTeam, opponentTeam: finalOpponentTeam, battleLogs: finalLogs, battleStatus, battleSteps, claimVictory, resetBattle } = useBattleStore();
   const { endRun, selectSaga, activeSagaId } = useGameStore();
+  const { language: lang } = useLanguageStore();
+  const t = TRANSLATIONS[lang];
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [speed, setSpeed] = useState<"normal" | "fast">("normal");
@@ -47,7 +51,7 @@ export function BattleScreen() {
   const currentStep = battleSteps[currentStepIndex] || {
     playerTeam: finalPlayerTeam,
     opponentTeam: finalOpponentTeam,
-    log: "Avvio scontro...",
+    log: t.battleStarting,
     attackerId: "",
     targetId: "",
     elementSymbol: "",
@@ -185,10 +189,10 @@ export function BattleScreen() {
         <header className="bg-orange-600/10 border-b border-orange-500/30 px-6 py-3 flex justify-between items-center shrink-0">
           <div className="flex flex-col">
             <h2 className="text-xl md:text-2xl font-bold tracking-wider text-orange-400 uppercase">
-              RISOLUZIONE DELLO SCONTRO
+              {lang === "it" ? "RISOLUZIONE DELLO SCONTRO" : "BATTLE RESOLUTION"}
             </h2>
             <div className="text-[10px] text-gray-400 uppercase font-mono">
-              Progresso Turni: {currentStepIndex + 1} / {stepsCount}
+              {lang === "it" ? "Progresso Turni" : "Turns Progress"}: {currentStepIndex + 1} / {stepsCount}
             </div>
           </div>
 
@@ -197,9 +201,9 @@ export function BattleScreen() {
             {!isFinished && (
               <button
                 onClick={handleSpeedToggle}
-                className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-orange-350 font-bold border border-gray-700 rounded transition-colors"
+                className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-orange-300 font-bold border border-gray-700 rounded transition-colors"
               >
-                Velocità: {speed === "normal" ? "1x" : "3x ⚡"}
+                {speed === "normal" ? t.speedNormal : t.speedFast}
               </button>
             )}
 
@@ -209,12 +213,14 @@ export function BattleScreen() {
                 onClick={handleSkip}
                 className="px-3 py-1 text-xs bg-gray-800 hover:bg-red-950/60 text-red-400 font-bold border border-gray-700 rounded transition-colors"
               >
-                Salta Scontro ⏩
+                {t.skipBattle} ⏩
               </button>
             )}
 
             <div className="text-xs bg-gray-800 px-3 py-1 rounded border border-gray-700 text-gray-300">
-              Stato: <span className="font-semibold text-orange-450 uppercase">{isFinished ? battleStatus : "In Corso"}</span>
+              {lang === "it" ? "Stato" : "Status"}: <span className="font-semibold text-orange-400 uppercase">
+                {isFinished ? (battleStatus === "victory" ? t.active : t.locked) : (lang === "it" ? "In Corso" : "In Progress")}
+              </span>
             </div>
           </div>
         </header>
@@ -253,8 +259,8 @@ export function BattleScreen() {
           <div className="bg-gray-850 p-4 rounded-xl border border-blue-500/20 flex flex-col justify-between h-full min-h-0">
             <div>
               <h3 className="text-base font-bold text-blue-400 border-b border-blue-500/20 pb-1.5 mb-3 uppercase flex justify-between items-center">
-                <span>I Tuoi Shinobi</span>
-                <span className="text-xs text-gray-500 font-mono">Alleati</span>
+                <span>{lang === "it" ? "I Tuoi Shinobi" : "Your Shinobi"}</span>
+                <span className="text-xs text-gray-500 font-mono">{lang === "it" ? "Alleati" : "Allies"}</span>
               </h3>
               <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
                 {currentStep.playerTeam.map((ninja) => {
@@ -268,6 +274,8 @@ export function BattleScreen() {
                   let stateGlowClass = "";
                   if (isAttacking) stateGlowClass = "pulse-glow-blue scale-[1.02]";
                   else if (isBeingTargeted) stateGlowClass = "pulse-glow-target scale-[1.02]";
+
+                  const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
 
                   return (
                     <div
@@ -284,13 +292,13 @@ export function BattleScreen() {
                       <div className="flex gap-2.5 items-center mb-1.5">
                         <NinjaAvatar
                           src={ninja.sprite}
-                          name={ninja.name}
+                          name={translatedName}
                           className="w-9 h-9 object-contain bg-gray-900 rounded border border-gray-700 p-0.5"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-center">
                             <div className="flex flex-col">
-                              <span className="font-bold text-gray-200 text-xs truncate leading-tight">{ninja.name}</span>
+                              <span className="font-bold text-gray-200 text-xs truncate leading-tight">{translatedName}</span>
                               <span className="text-[9px] text-[#ff9f1c] font-mono leading-none uppercase mt-0.5 font-bold">Lv. {ninja.level}</span>
                             </div>
                             <span className="text-[10px] bg-gray-700/60 px-1.5 py-0.5 rounded text-gray-300 font-mono font-bold">
@@ -311,7 +319,7 @@ export function BattleScreen() {
                       {/* CHAKRA BAR */}
                       <div className="w-full bg-gray-700/60 h-1 rounded-sm overflow-hidden border border-gray-800">
                         <div
-                          className="bg-blue-550 h-full transition-all duration-200"
+                          className="bg-blue-500 h-full transition-all duration-200"
                           style={{ width: `${chakraPercent}%` }}
                         />
                       </div>
@@ -326,8 +334,8 @@ export function BattleScreen() {
           <div className="bg-gray-850 p-4 rounded-xl border border-red-500/20 flex flex-col justify-between h-full min-h-0">
             <div>
               <h3 className="text-base font-bold text-red-400 border-b border-red-500/20 pb-1.5 mb-3 uppercase flex justify-between items-center">
-                <span>Nemici</span>
-                <span className="text-xs text-gray-500 font-mono">Avversari</span>
+                <span>{lang === "it" ? "Nemici" : "Enemies"}</span>
+                <span className="text-xs text-gray-500 font-mono">{lang === "it" ? "Avversari" : "Opponents"}</span>
               </h3>
               <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
                 {currentStep.opponentTeam.map((ninja) => {
@@ -340,6 +348,8 @@ export function BattleScreen() {
                   let stateGlowClass = "";
                   if (isAttacking) stateGlowClass = "pulse-glow-red scale-[1.02]";
                   else if (isBeingTargeted) stateGlowClass = "pulse-glow-target scale-[1.02]";
+
+                  const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
 
                   return (
                     <div
@@ -356,13 +366,13 @@ export function BattleScreen() {
                       <div className="flex gap-2.5 items-center mb-1.5">
                         <NinjaAvatar
                           src={ninja.sprite}
-                          name={ninja.name}
+                          name={translatedName}
                           className="w-9 h-9 object-contain bg-gray-900 rounded border border-gray-700 p-0.5"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-center">
                             <div className="flex flex-col">
-                              <span className="font-bold text-gray-200 text-xs truncate leading-tight">{ninja.name}</span>
+                              <span className="font-bold text-gray-200 text-xs truncate leading-tight">{translatedName}</span>
                               <span className="text-[9px] text-[#ff9f1c] font-mono leading-none uppercase mt-0.5 font-bold">Lv. {ninja.level}</span>
                             </div>
                             <span className="text-[10px] bg-red-950/40 px-1.5 py-0.5 rounded text-red-300 font-mono font-bold">
@@ -387,13 +397,13 @@ export function BattleScreen() {
 
             {/* RESOLUTION ACTIONS (ONLY SHOWN WHEN PLAYBACK REACHES THE END STATE) */}
             {isFinished && battleStatus !== null && (
-              <div className="mt-4 border-t border-gray-850 pt-3 flex flex-col items-center shrink-0">
+              <div className="mt-4 border-t border-gray-800 pt-3 flex flex-col items-center shrink-0">
                 {battleStatus === "victory" && (
                   <button
                     onClick={claimVictory}
                     className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold text-base rounded-lg shadow-lg uppercase tracking-wider transition-all border-b-4 border-green-950"
                   >
-                    Reclama Vittoria
+                    {t.claimVictoryBtn}
                   </button>
                 )}
                 {battleStatus === "defeat" && (
@@ -403,9 +413,9 @@ export function BattleScreen() {
                         resetBattle();
                         endRun();
                       }}
-                      className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-250 font-bold text-xs rounded-lg shadow-lg uppercase tracking-wider transition-all border border-gray-750"
+                      className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold text-xs rounded-lg shadow-lg uppercase tracking-wider transition-all border border-gray-700"
                     >
-                      Homepage
+                      {t.returnHomeBtn}
                     </button>
                     <button
                       onClick={() => {
@@ -418,7 +428,7 @@ export function BattleScreen() {
                       }}
                       className="flex-1 py-2.5 bg-red-700 hover:bg-red-650 text-white font-bold text-xs rounded-lg shadow-lg uppercase tracking-wider transition-all border-b-4 border-red-950"
                     >
-                      Fai un'altra Run
+                      {lang === "it" ? "Fai un'altra Run" : "Run Again"}
                     </button>
                   </div>
                 )}
@@ -429,28 +439,35 @@ export function BattleScreen() {
 
         {/* BATTLE EVENT LOGS */}
         <footer className="bg-gray-950 border-t border-gray-800 p-4 h-40 shrink-0 flex flex-col overflow-hidden">
-          <h4 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Registro di Combattimento</h4>
+          <h4 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">{lang === "it" ? "Registro di Combattimento" : "Battle Logs"}</h4>
           <div className="flex-1 overflow-y-auto space-y-1 font-mono text-xs text-gray-400 pr-1">
-            {visibleLogs.map((log, index) => (
-              <p 
-                key={index} 
-                className={
-                  log.includes("danni") 
-                    ? "text-orange-300" 
-                    : log.includes("usa") 
-                    ? "text-blue-300" 
-                    : log.includes("cura")
-                    ? "text-green-300"
-                    : log.includes("sconfitto") 
-                    ? "text-red-400" 
-                    : log.includes("Round")
-                    ? "text-yellow-500 font-bold border-t border-gray-900 pt-1 mt-1 block"
-                    : "text-gray-400"
-                }
-              >
-                {log}
-              </p>
-            ))}
+            {visibleLogs.map((log, index) => {
+              const isDamage = log.includes("danni") || log.includes("damage");
+              const isHealing = log.includes("cura") || log.includes("heal");
+              const isDefeated = log.includes("sconfitto") || log.includes("defeated");
+              const isRound = log.includes("Round");
+
+              return (
+                <p 
+                  key={index} 
+                  className={
+                    isDamage 
+                      ? "text-orange-300" 
+                      : log.includes("usa") || log.includes("attacks")
+                      ? "text-blue-300" 
+                      : isHealing
+                      ? "text-green-300"
+                      : isDefeated 
+                      ? "text-red-400" 
+                      : isRound
+                      ? "text-yellow-500 font-bold border-t border-gray-900 pt-1 mt-1 block"
+                      : "text-gray-400"
+                  }
+                >
+                  {log}
+                </p>
+              );
+            })}
             <div ref={logsEndRef} />
           </div>
         </footer>
