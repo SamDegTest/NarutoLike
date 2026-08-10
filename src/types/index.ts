@@ -20,6 +20,9 @@ export type ChakraNature =
   | "Taijutsu"  // Taijutsu 👊
   | "YinYang";  // Yin-Yang ☯️
 
+export type NinjaClan = "Uchiha" | "Uzumaki" | "Hyuga" | "Hatake" | "Senju" | "Otsutsuki" | "Nara" | "Akimichi" | "Yamanaka" | "Kazekage" | "Aburame" | "Inuzuka" | "Other";
+export type NinjaTeamGroup = "Team7" | "Team8" | "Team10" | "TeamGuy" | "Sannin" | "Akatsuki" | "SevenSwordsmen" | "Other";
+
 export interface Ninja {
   id: string;             // Unique ID: e.g., "naruto_kid", "naruto_shippuden"
   characterId: string;    // Base character: e.g., "naruto"
@@ -31,6 +34,8 @@ export interface Ninja {
   sprite: string;         // Relative path or filename: "/sprites/naruto_shippuden.png"
   activeJutsuId: string;  // Single active move (replaceable during run)
   jutsuList: string[];    // Ordered list of moves from weakest to strongest
+  clan?: NinjaClan;
+  teamGroup?: NinjaTeamGroup;
 }
 
 export interface RunNinja extends Ninja {

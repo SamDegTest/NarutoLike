@@ -19,6 +19,13 @@ import { CreditsModal } from "@/components/game/CreditsModal";
 import { PatchNotesModal } from "@/components/game/PatchNotesModal";
 import { PrivacyModal } from "@/components/game/PrivacyModal";
 import { ChakraChartModal } from "@/components/game/ChakraChartModal";
+import { UserProfileBadge } from "@/components/game/UserProfileBadge";
+import { UserProfileModal } from "@/components/game/UserProfileModal";
+import { LeaderboardModal } from "@/components/game/LeaderboardModal";
+import { AchievementsModal } from "@/components/game/AchievementsModal";
+import { TrophyUnlockNotification } from "@/components/game/TrophyUnlockNotification";
+import { getActiveSynergies } from "@/lib/synergies";
+import { getUnlockedAchievements, Achievement } from "@/data/achievements";
 
 export default function Home() {
   const {
@@ -51,6 +58,7 @@ export default function Home() {
     defeatedBosses,
     moveNinjaUp,
     moveNinjaDown,
+    setLeaderNinja,
     totalRunsCount,
     classicRunsCount,
     shippudenRunsCount,
@@ -64,13 +72,46 @@ export default function Home() {
   const [showPatchNotesModal, setShowPatchNotesModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showChakraChartModal, setShowChakraChartModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [showAchievementsModal, setShowAchievementsModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const [unlockedTrophy, setUnlockedTrophy] = useState<Achievement | null>(null);
+  const [seenTrophyIds, setSeenTrophyIds] = useState<string[]>([]);
+  const [trophyCheckInitialized, setTrophyCheckInitialized] = useState(false);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
     initAuth();
   }, [initAuth]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const stats = {
+      totalRuns: totalRunsCount,
+      classicRuns: classicRunsCount,
+      shippudenRuns: shippudenRunsCount,
+      maxLevel: currentLevel,
+      defeatedBosses: defeatedBosses || [],
+    };
+    const currentlyUnlocked = getUnlockedAchievements(stats);
+    const currentIds = currentlyUnlocked.map((a) => a.id);
+
+    if (!trophyCheckInitialized) {
+      setSeenTrophyIds(currentIds);
+      setTrophyCheckInitialized(true);
+      return;
+    }
+
+    const newUnlock = currentlyUnlocked.find((a) => !seenTrophyIds.includes(a.id));
+    if (newUnlock) {
+      setUnlockedTrophy(newUnlock);
+      setSeenTrophyIds(currentIds);
+    }
+  }, [totalRunsCount, classicRunsCount, shippudenRunsCount, currentLevel, defeatedBosses, mounted, trophyCheckInitialized, seenTrophyIds]);
 
   const { language: storeLang, setLanguage } = useLanguageStore();
   const lang = mounted ? storeLang : "it";
@@ -96,6 +137,40 @@ export default function Home() {
     if (!current.resolved) return false; // Must resolve current node first
     return current.connections.includes(node.id);
   };
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  // Keyboard shortcuts listener (Spacebar/Enter for map node advance, C for Chakra chart, M for menu)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) return;
+
+      if (e.code === "Space" || e.code === "Enter") {
+        if (isRunActive && !isBattleActive) {
+          const selectable = activeMap.filter((n) => isNodeSelectable(n));
+          if (selectable.length > 0) {
+            e.preventDefault();
+            selectNode(selectable[0].id);
+          }
+        }
+      }
+
+      if (e.key === "c" || e.key === "C") {
+        setShowChakraChartModal((prev) => !prev);
+      }
+
+      if (e.key === "m" || e.key === "M") {
+        setIsMenuOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isRunActive, isBattleActive, activeMap, currentNodeId]);
 
   // BFS to compute which nodes are reachable from the current state
   const getReachableNodeIds = () => {
@@ -224,16 +299,22 @@ export default function Home() {
 
       {/* HEADER */}
       <header className={`text-center border-b-2 sm:border-b-4 border-[#ff9f1c] w-full max-w-6xl shrink-0 relative ${isRunActive ? "mb-1 pb-1" : "mb-2 sm:mb-3 pb-1.5 sm:pb-2"}`}>
-        {/* HAMBURGER MENU BUTTON */}
-        {mounted && (
-          <button 
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-50 text-xl sm:text-2xl text-[#ff9f1c] hover:text-yellow-400 p-1.5 sm:p-2 focus:outline-none transition-all hover:scale-110 active:scale-95 cursor-pointer"
-            title="Menu"
-          >
-            ☰
-          </button>
-        )}
+        {/* TOP RIGHT CONTROLS: USER PROFILE WIDGET & HAMBURGER MENU BUTTON */}
+        <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-3 z-40">
+          <UserProfileBadge
+            onOpenAuthModal={() => setShowAuthModal(true)}
+            onOpenProfileModal={() => setShowProfileModal(true)}
+          />
+          {mounted && (
+            <button 
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="text-xl sm:text-2xl text-[#ff9f1c] hover:text-yellow-400 p-1.5 sm:p-2 focus:outline-none transition-all hover:scale-110 active:scale-95 cursor-pointer bg-[#0f152d]/80 border border-amber-500/40 rounded-xl shadow-lg"
+              title="Menu"
+            >
+              ☰
+            </button>
+          )}
+        </div>
 
         {/* HAMBURGER SIDE DRAWER */}
         {isMenuOpen && (
@@ -267,7 +348,7 @@ export default function Home() {
                           {t.authCloudSaves}
                         </div>
                         <div className="text-sm font-bold text-green-400 font-mono truncate mb-3">
-                          ☁️ {username || "Ninja"}
+                          ☁️ {username || user?.user_metadata?.username || user?.email?.split("@")[0] || "Ninja"}
                         </div>
                         <button
                           onClick={() => {
@@ -360,6 +441,30 @@ export default function Home() {
                     <span className="text-[#ff9f1c]">➔</span>
                   </button>
 
+                  {/* Leaderboard Link */}
+                  <button
+                    onClick={() => {
+                      setShowLeaderboardModal(true);
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-amber-500/30 hover:border-amber-500 p-4 rounded-2xl flex items-center justify-between text-sm text-amber-300 font-bold transition-all cursor-pointer shadow-md"
+                  >
+                    <span>🏆 {lang === "it" ? "Classifica Globale Online" : "Global Online Leaderboard"}</span>
+                    <span className="text-amber-400">➔</span>
+                  </button>
+
+                  {/* Achievements Link */}
+                  <button
+                    onClick={() => {
+                      setShowAchievementsModal(true);
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
+                  >
+                    <span>🎯 {lang === "it" ? "Trofei & Titoli Profilo" : "Trophies & Profile Titles"}</span>
+                    <span className="text-[#ff9f1c]">➔</span>
+                  </button>
+
                   {/* Chakra Chart Link */}
                   <button
                     onClick={() => {
@@ -368,7 +473,7 @@ export default function Home() {
                     }}
                     className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
                   >
-                    <span>☯️ {lang === "it" ? "Efficacia Chakra" : "Chakra Chart"}</span>
+                    <span>📜 {lang === "it" ? "Wiki Shinobi & Guida" : "Shinobi Wiki & Guide"}</span>
                     <span className="text-[#ff9f1c]">➔</span>
                   </button>
 
@@ -383,9 +488,28 @@ export default function Home() {
           </>
         )}
 
-        <h1 className={`font-extrabold text-[#ff9f1c] tracking-widest drop-shadow-md uppercase ${isRunActive ? "text-2xl sm:text-3xl md:text-4xl" : "text-3xl sm:text-4xl md:text-5xl"}`}>
-          {t.title}
-        </h1>
+
+
+        <div className="flex items-center justify-center">
+          <img
+            src="/logo.png"
+            alt="NarutoLike"
+            onError={(e) => {
+              // Fallback to stylized text if logo image is not yet placed in public/
+              (e.target as HTMLElement).style.display = "none";
+              const parent = (e.target as HTMLElement).parentElement;
+              if (parent && !parent.querySelector(".logo-fallback")) {
+                const fallback = document.createElement("h1");
+                fallback.className = `logo-fallback font-extrabold text-[#ff9f1c] tracking-widest drop-shadow-md uppercase ${isRunActive ? "text-2xl sm:text-3xl md:text-4xl" : "text-3xl sm:text-4xl md:text-5xl"}`;
+                fallback.innerText = "NARUTOLIKE";
+                parent.appendChild(fallback);
+              }
+            }}
+            className={`object-contain transition-all drop-shadow-[0_0_25px_rgba(255,159,28,0.6)] ${
+              isRunActive ? "h-10 sm:h-12 md:h-14" : "h-14 sm:h-18 md:h-20"
+            }`}
+          />
+        </div>
         {!isRunActive && (
           <p className="text-gray-400 mt-0.5 sm:mt-1 text-xs sm:text-sm tracking-wide">
             {t.subtitle}
@@ -416,7 +540,7 @@ export default function Home() {
                 {/* Status & Run Badges */}
                 <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
                   <span className="bg-[#070b19]/90 text-[#ff9f1c] text-[10px] px-2 py-0.5 rounded font-bold font-mono border border-[#ff9f1c]/30 shadow-md">
-                    🎮 {t.totalRuns}: {classicRunsCount}
+                    🎮 {t.totalRuns}: {mounted ? classicRunsCount : 0}
                   </span>
                   <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded font-bold shadow-md border border-green-500/30">{t.active}</span>
                 </div>
@@ -448,7 +572,7 @@ export default function Home() {
                   {/* Status & Run Badges */}
                   <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
                     <span className="bg-[#070b19]/90 text-[#ff9f1c] text-[10px] px-2 py-0.5 rounded font-bold font-mono border border-[#ff9f1c]/30 shadow-md">
-                      🎮 {t.totalRuns}: {shippudenRunsCount}
+                      🎮 {t.totalRuns}: {mounted ? shippudenRunsCount : 0}
                     </span>
                     <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded font-bold shadow-md border border-green-500/30">{t.unlocked}</span>
                   </div>
@@ -491,6 +615,17 @@ export default function Home() {
               )}
             </div>
           </div>
+        ) : (!startingChoices || startingChoices.length === 0) ? (
+          /* Fallback if starting choices not generated */
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center py-10">
+            <p className="text-gray-300 text-sm">{lang === "it" ? "Seleziona una saga per iniziare la partita." : "Select a saga to start the game."}</p>
+            <button
+              onClick={() => selectSaga(null)}
+              className="px-6 py-3 bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-extrabold rounded-xl uppercase tracking-wider text-xs shadow-lg transition-all border-b-4 border-amber-700"
+            >
+              {t.backToSagas}
+            </button>
+          </div>
         ) : (
           /* ==================== STARTING CHARACTER CHOICE VIEW ==================== */
           <div className="max-w-5xl w-full flex-1 min-h-0 flex flex-col justify-between animate-fade-in text-center py-1 sm:py-2 px-1">
@@ -512,14 +647,11 @@ export default function Home() {
                 {t.chooseStarterDesc}
               </p>
               <div className="flex flex-wrap justify-center items-center gap-2">
-                <div className="bg-[#070b19]/90 border border-yellow-500/40 rounded-lg py-1 px-3 inline-block text-[10px] sm:text-xs text-yellow-300 font-mono shadow-md">
-                  ⚡ {t.dropRatesNotice}
-                </div>
                 <button
                   onClick={() => setShowChakraChartModal(true)}
-                  className="bg-[#070b19]/90 border border-[#ff9f1c]/50 hover:border-[#ff9f1c] text-[#ff9f1c] hover:text-yellow-300 rounded-lg py-1 px-3 text-[10px] sm:text-xs font-mono font-bold shadow-md transition-all cursor-pointer"
+                  className="bg-[#070b19]/90 border border-[#ff9f1c]/50 hover:border-[#ff9f1c] text-[#ff9f1c] hover:text-yellow-300 rounded-lg py-1 px-3.5 text-xs font-mono font-bold shadow-md transition-all cursor-pointer hover:scale-105"
                 >
-                  ☯️ {lang === "it" ? "Tabella Chakra" : "Chakra Chart"}
+                  📜 {lang === "it" ? "Wiki Shinobi (Tipi Chakra & Probabilità Rank)" : "Shinobi Wiki (Chakra & Drop Rates)"}
                 </button>
               </div>
             </div>
@@ -601,6 +733,32 @@ export default function Home() {
             <h2 className="text-lg font-bold border-b-2 border-gray-800 pb-1 text-[#ff9f1c] uppercase tracking-wider shrink-0">
               {t.team} ({runTeam.length} / 6)
             </h2>
+
+            {/* ACTIVE TEAM SYNERGIES */}
+            {(() => {
+              const activeSyns = getActiveSynergies(runTeam);
+              if (activeSyns.length === 0) return null;
+              return (
+                <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl shrink-0 space-y-1">
+                  <div className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-widest flex items-center justify-between">
+                    <span>🌀 {lang === "it" ? "Sinergie Attive" : "Active Synergies"}</span>
+                    <span className="text-emerald-400">+{activeSyns.length}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {activeSyns.map((syn) => (
+                      <div
+                        key={syn.id}
+                        className={`text-[10px] px-2 py-0.5 rounded-lg border font-bold flex items-center gap-1 ${syn.colorClass} ${syn.borderClass}`}
+                        title={syn.description[lang]}
+                      >
+                        <span>{syn.icon}</span>
+                        <span>{syn.name[lang]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             <div className="space-y-2 flex-1 overflow-y-auto pr-1">
               {runTeam.map((ninja, index) => {
                 const hpPercent = (ninja.currentHp / ninja.baseStats.hp) * 100;
@@ -632,7 +790,7 @@ export default function Home() {
                   >
                     <div className="flex gap-2 items-center mb-1.5">
                       {/* Position Turn Order Badge */}
-                      <span className="text-[10px] font-black font-mono text-[#ff9f1c] bg-black/40 px-1.5 py-0.5 rounded border border-white/10 shrink-0">
+                      <span className="text-xs font-black font-mono text-[#ff9f1c] bg-black/40 px-1.5 py-0.5 rounded border border-white/10 shrink-0">
                         #{index + 1}
                       </span>
 
@@ -640,25 +798,25 @@ export default function Home() {
                         src={ninja.sprite}
                         name={translatedName}
                         rank={ninja.rank}
-                        className="w-10 h-10 object-contain bg-black/30 rounded border border-white/10 p-0.5 shrink-0"
+                        className="w-11 h-11 object-contain bg-black/30 rounded border border-white/10 p-0.5 shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
-                          <div className={`text-xs font-bold truncate ${rarity.textColor}`}>{translatedName}</div>
-                          <span className={`text-[8px] px-1.5 py-0.5 rounded-full ${rarity.badgeBg} ${rarity.badgeTextColor} shrink-0`}>
+                          <div className={`text-xs sm:text-sm font-extrabold truncate ${rarity.textColor}`}>{translatedName}</div>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${rarity.badgeBg} ${rarity.badgeTextColor} shrink-0`}>
                             {rarity.rankSymbol}
                           </span>
                         </div>
-                        <div className="text-[9px] text-[#ff9f1c] uppercase tracking-widest font-mono flex items-center justify-between mt-0.5">
-                          <div className="flex items-center gap-1">
+                        <div className="text-xs text-[#ff9f1c] font-semibold font-mono flex items-center justify-between mt-0.5">
+                          <div className="flex items-center gap-1.5">
                             <span>Lv. {ninja.level}</span>
                             <ChakraNatureBadge nature={ninja.chakraNature} showText={false} />
                           </div>
                           {pendingJutsuToLearn && (
                             isMax ? (
-                              <span className="text-red-400 font-extrabold text-[8px]">{t.maxTech}</span>
+                              <span className="text-red-400 font-extrabold text-xs">{t.maxTech}</span>
                             ) : (
-                              <span className="text-green-400 font-extrabold text-[8px] animate-pulse">{t.useScroll}</span>
+                              <span className="text-green-400 font-extrabold text-xs animate-pulse">{t.useScroll}</span>
                             )
                           )}
                         </div>
@@ -667,6 +825,20 @@ export default function Home() {
                       {/* Reorder Team Turn Order Controls */}
                       {runTeam.length > 1 && (
                         <div className="flex flex-col gap-0.5 ml-0.5 shrink-0">
+                          {index > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLeaderNinja(index);
+                                showToast(lang === "it" ? "Ninja impostato come Leader 👑!" : "Ninja set as Team Leader 👑!");
+                              }}
+                              className="w-5 h-4 text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 rounded flex items-center justify-center transition-all cursor-pointer border border-amber-500/40 active:scale-95 mb-0.5"
+                              title={lang === "it" ? "Imposta come Primo Ninja (Frontliner 👑)" : "Set as Team Leader (Slot 1 👑)"}
+                            >
+                              👑
+                            </button>
+                          )}
                           <button
                             type="button"
                             disabled={index === 0}
@@ -674,7 +846,7 @@ export default function Home() {
                               e.stopPropagation();
                               moveNinjaUp(index);
                             }}
-                            className="w-5 h-4 text-[9px] font-bold bg-black/50 hover:bg-black/80 text-amber-300 rounded flex items-center justify-center disabled:opacity-20 transition-all cursor-pointer border border-white/10 active:scale-95"
+                            className="w-5 h-4 text-[10px] font-bold bg-black/50 hover:bg-black/80 text-amber-300 rounded flex items-center justify-center disabled:opacity-20 transition-all cursor-pointer border border-white/10 active:scale-95"
                             title={lang === "it" ? "Sposta in alto (Ordine Turno)" : "Move Up (Turn Order)"}
                           >
                             ▲
@@ -686,7 +858,7 @@ export default function Home() {
                               e.stopPropagation();
                               moveNinjaDown(index);
                             }}
-                            className="w-5 h-4 text-[9px] font-bold bg-black/50 hover:bg-black/80 text-amber-300 rounded flex items-center justify-center disabled:opacity-20 transition-all cursor-pointer border border-white/10 active:scale-95"
+                            className="w-5 h-4 text-[10px] font-bold bg-black/50 hover:bg-black/80 text-amber-300 rounded flex items-center justify-center disabled:opacity-20 transition-all cursor-pointer border border-white/10 active:scale-95"
                             title={lang === "it" ? "Sposta in basso (Ordine Turno)" : "Move Down (Turn Order)"}
                           >
                             ▼
@@ -697,11 +869,11 @@ export default function Home() {
 
                     {/* HP BAR */}
                     <div className="mb-1.5">
-                      <div className="flex justify-between text-[9px] text-gray-500 mb-0.5">
-                        <span>HP</span>
+                      <div className="flex justify-between text-xs text-gray-200 font-bold font-mono mb-0.5">
+                        <span className="text-gray-400">HP</span>
                         <span>{ninja.currentHp} / {ninja.baseStats.hp}</span>
                       </div>
-                      <div className="w-full bg-gray-800 h-2 rounded-sm overflow-hidden border border-gray-700">
+                      <div className="w-full bg-gray-800 h-2.5 rounded-sm overflow-hidden border border-gray-700">
                         <div
                           className={`h-full transition-all duration-300 ${hpPercent > 50 ? "bg-green-500" : hpPercent > 20 ? "bg-yellow-500" : "bg-red-500"
                             }`}
@@ -712,11 +884,11 @@ export default function Home() {
 
                     {/* CHAKRA BAR */}
                     <div>
-                      <div className="flex justify-between text-[9px] text-gray-500 mb-0.5">
-                        <span>CHAKRA</span>
+                      <div className="flex justify-between text-xs text-gray-200 font-bold font-mono mb-0.5">
+                        <span className="text-gray-400">CHAKRA</span>
                         <span>{ninja.currentChakra} / {ninja.baseStats.chakra}</span>
                       </div>
-                      <div className="w-full bg-gray-800 h-2 rounded-sm overflow-hidden border border-gray-700">
+                      <div className="w-full bg-gray-800 h-2.5 rounded-sm overflow-hidden border border-gray-700">
                         <div className="bg-blue-500 h-full transition-all duration-300" style={{ width: `${chakraPercent}%` }} />
                       </div>
                     </div>
@@ -737,6 +909,25 @@ export default function Home() {
           <div className="lg:col-span-2 flex flex-col items-center h-full min-h-0 relative w-full">
             {/* THE RETRO MAP CONTAINER */}
             <div className="flex-1 w-full max-w-[650px] bg-[#3a5a40] border-4 border-[#ff9f1c] rounded-2xl relative overflow-hidden shadow-2xl flex flex-col min-h-0">
+
+              {/* QUICK AUTO-ADVANCE MAP BUTTON */}
+              {(() => {
+                const selectable = activeMap.filter((n) => isNodeSelectable(n));
+                if (selectable.length === 0) return null;
+                const targetNode = selectable[0];
+                const targetLabel = translateNodeLabel(targetNode.label, lang);
+
+                return (
+                  <button
+                    onClick={() => selectNode(targetNode.id)}
+                    className="absolute top-2 right-10 z-20 bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-extrabold px-3 py-1 rounded-lg text-xs uppercase tracking-wider shadow-xl border border-yellow-300 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-1 font-mono"
+                    title={lang === "it" ? "Avanza al prossimo nodo (Spazio/Invio)" : "Advance to next node (Spacebar/Enter)"}
+                  >
+                    <span>⚡ {lang === "it" ? "Prossimo" : "Next"}: {targetLabel}</span>
+                    <span className="text-[10px] bg-black/20 px-1 rounded text-[#070b19]">↵</span>
+                  </button>
+                );
+              })()}
 
               {/* TREE BORDERS */}
               <div className="absolute inset-y-0 left-0 w-8 bg-[repeating-linear-gradient(#2d6a4f,#2d6a4f_20px,#1b4332_20px,#1b4332_40px)] flex flex-col justify-around text-center select-none text-xs border-r border-[#ff9f1c]/10">
@@ -1210,6 +1401,16 @@ export default function Home() {
       {showPatchNotesModal && <PatchNotesModal onClose={() => setShowPatchNotesModal(false)} />}
       {showPrivacyModal && <PrivacyModal onClose={() => setShowPrivacyModal(false)} />}
       {showChakraChartModal && <ChakraChartModal onClose={() => setShowChakraChartModal(false)} />}
+      {showProfileModal && <UserProfileModal onClose={() => setShowProfileModal(false)} />}
+      {showLeaderboardModal && <LeaderboardModal onClose={() => setShowLeaderboardModal(false)} />}
+      {showAchievementsModal && <AchievementsModal onClose={() => setShowAchievementsModal(false)} />}
+      <TrophyUnlockNotification achievement={unlockedTrophy} onDismiss={() => setUnlockedTrophy(null)} />
+
+      {toastMessage && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 bg-[#ff9f1c] text-[#070b19] font-extrabold px-4 py-2 rounded-xl shadow-2xl z-50 animate-bounce text-xs uppercase tracking-wider border-2 border-yellow-300 pointer-events-none">
+          ⚡ {toastMessage}
+        </div>
+      )}
     </main>
   );
 }
