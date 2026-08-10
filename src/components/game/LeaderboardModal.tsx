@@ -133,8 +133,23 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-400 font-mono flex gap-3 mt-0.5">
-                        <span>🎮 Run: <strong className="text-amber-300">{entry.total_runs || 0}</strong></span>
+                      <div className="text-xs text-gray-400 font-mono flex items-center gap-3 mt-0.5">
+                        <span className="flex items-center gap-1">
+                          <img
+                            src="/run.png"
+                            alt="Run"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              if (target.src.endsWith("/run.png")) {
+                                target.src = "/icon.png";
+                              } else {
+                                target.style.display = "none";
+                              }
+                            }}
+                            className="w-3.5 h-3.5 object-contain shrink-0 filter drop-shadow-[0_0_4px_rgba(255,159,28,0.6)]"
+                          />
+                          <span>Run: <strong className="text-amber-300">{entry.total_runs || 0}</strong></span>
+                        </span>
                         <span>⚡ Liv. Max: <strong className="text-green-400">{entry.max_level_reached || 1}</strong></span>
                       </div>
                     </div>

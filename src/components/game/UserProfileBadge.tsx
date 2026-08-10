@@ -46,9 +46,24 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
     return (
       <button
         onClick={onOpenAuthModal}
-        className="flex items-center gap-2 bg-gradient-to-r from-[#ff9f1c]/20 to-yellow-500/20 hover:from-[#ff9f1c]/30 hover:to-yellow-500/30 text-amber-300 font-extrabold px-3 py-1.5 rounded-xl border border-amber-500/40 shadow-lg transition-all cursor-pointer hover:scale-105 active:scale-95 text-xs font-mono tracking-wider uppercase animate-pulse"
+        className="h-14 min-h-[56px] flex items-center gap-2.5 bg-[#0f152d]/90 backdrop-blur-md hover:bg-amber-500/20 text-amber-300 font-extrabold px-4 rounded-2xl border-2 border-amber-500/50 hover:border-amber-400 shadow-2xl transition-all cursor-pointer hover:scale-105 active:scale-95 text-xs sm:text-sm font-mono tracking-wider uppercase shrink-0"
       >
-        <span>☁️</span>
+        <img
+          src="/cloud.png"
+          alt="Cloud"
+          onError={(e) => {
+            const target = e.target as HTMLElement;
+            target.style.display = "none";
+            const parent = target.parentElement;
+            if (parent && !parent.querySelector(".cloud-btn-fallback")) {
+              const span = document.createElement("span");
+              span.className = "cloud-btn-fallback text-base";
+              span.innerText = "☁️";
+              parent.insertBefore(span, target);
+            }
+          }}
+          className="h-7 w-auto object-contain shrink-0 filter drop-shadow-[0_0_8px_rgba(255,159,28,0.8)] transition-transform hover:scale-110"
+        />
         <span>{lang === "it" ? "Accedi / Registrati" : "Login / Register"}</span>
       </button>
     );
@@ -57,7 +72,7 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
   const defaultAvatar = "/default_avatar.png";
 
   return (
-    <div className="relative inline-block text-left">
+    <div className="relative inline-block text-left shrink-0">
       {/* Hidden File Input for Device Upload */}
       <input
         type="file"
@@ -67,44 +82,35 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
         className="hidden"
       />
 
-      <div className="flex items-center gap-2.5 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl p-1.5 pr-3 shadow-2xl transition-all">
-        {/* Avatar Container with Camera Hover Overlay */}
-        <div
-          onClick={handleAvatarClick}
-          className="relative w-9 h-9 rounded-xl overflow-hidden border-2 border-amber-400/80 bg-black/60 cursor-pointer group shrink-0 shadow-inner"
-          title={lang === "it" ? "Clicca per cambiare foto dal tuo dispositivo 📷" : "Click to change photo from device 📷"}
-        >
+      {/* Main Profile Button - Clicking opens dropdown menu */}
+      <div
+        onClick={() => setShowDropdown((prev) => !prev)}
+        className="flex items-center gap-3 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl px-3.5 shadow-2xl transition-all h-14 min-h-[56px] cursor-pointer select-none hover:scale-105 active:scale-95 shrink-0"
+      >
+        {/* Enlarged Avatar Frame */}
+        <div className="relative w-10 h-10 rounded-xl overflow-hidden border-2 border-amber-400/90 bg-black/60 shrink-0 shadow-inner">
           {isUploading ? (
-            <div className="w-full h-full flex items-center justify-center bg-black/80 text-[10px] text-amber-300 font-bold animate-spin">
+            <div className="w-full h-full flex items-center justify-center bg-black/80 text-xs text-amber-300 font-bold animate-spin">
               🌀
             </div>
           ) : (
             <img
               src={avatarUrl || defaultAvatar}
               alt={username || "User"}
-              className="w-full h-full object-cover group-hover:opacity-75 transition-opacity"
+              className="w-full h-full object-cover"
             />
           )}
-
-          {/* Camera Hover Overlay */}
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">
-            📷
-          </div>
         </div>
 
         {/* User Information */}
-        <div
-          onClick={() => setShowDropdown((prev) => !prev)}
-          className="cursor-pointer select-none text-left"
-        >
-          <div className="flex items-center gap-1.5">
+        <div className="text-left">
+          <div className="flex items-center leading-tight">
             <span className="font-extrabold text-amber-300 text-xs sm:text-sm truncate max-w-[110px] sm:max-w-[150px]">
               {username || user?.user_metadata?.username || user?.email?.split("@")[0] || "Shinobi"}
             </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" title="Online" />
           </div>
-          <div className="text-xs text-gray-300 font-mono font-medium leading-tight mt-0.5">
-            {lang === "it" ? "Account Cloud ☁️" : "Cloud Account ☁️"}
+          <div className="text-[10px] sm:text-[11px] text-amber-400/80 font-mono font-bold leading-tight mt-0.5">
+            <span>{lang === "it" ? "Account Cloud" : "Cloud Account"}</span>
           </div>
         </div>
       </div>
@@ -112,7 +118,7 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
       {/* Profile Actions Dropdown Menu */}
       {showDropdown && (
         <div
-          className="absolute right-0 mt-2 w-48 bg-[#0f152d] border-2 border-amber-500/50 rounded-2xl shadow-2xl p-2 z-50 animate-fade-in"
+          className="absolute right-0 mt-2 w-52 bg-[#0f152d] border-2 border-amber-500/50 rounded-2xl shadow-2xl p-2 z-50 animate-fade-in"
           onClick={() => setShowDropdown(false)}
         >
           <button

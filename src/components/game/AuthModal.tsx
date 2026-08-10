@@ -93,7 +93,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
           );
         } else {
           setSuccessMessage(t.authSuccessRegister);
-          setTimeout(() => onClose(), 1500);
+          setTimeout(() => onClose(), 300);
         }
       } else {
         const { error } = await signIn(email, password);
@@ -101,7 +101,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
           setErrorMessage(error.message);
         } else {
           setSuccessMessage(t.authSuccessLogin);
-          setTimeout(() => onClose(), 1500);
+          setTimeout(() => onClose(), 300);
         }
       }
     } catch (err: any) {
@@ -110,8 +110,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-[#0f152d] border-4 border-[#ff9f1c] rounded-3xl max-w-md w-full p-6 relative shadow-2xl transform scale-100 transition-all duration-300 max-h-[90dvh] overflow-y-auto">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#0f152d] border-4 border-[#ff9f1c] rounded-3xl max-w-md w-full p-6 relative shadow-2xl transform scale-100 transition-all duration-300 max-h-[90dvh] overflow-y-auto"
+      >
         
         {/* Close Button */}
         <button

@@ -7,6 +7,7 @@ import { useLanguageStore } from "./useLanguageStore";
 import { TRANSLATIONS } from "@/data/translations";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuthStore } from "./useAuthStore";
+import { getUnlockedAchievements, Achievement } from "@/data/achievements";
 
 interface GameState {
   playerRoster: Ninja[];
@@ -28,6 +29,8 @@ interface GameState {
   classicRunsCount: number;
   shippudenRunsCount: number;
   sagaStarterChoices: Record<string, Ninja[] | null>;
+  unlockedAchievementsMap: Record<string, string>; // { [achievementId]: ISOStringTimestamp }
+  newlyUnlockedTrophy: Achievement | null;
 
   // Actions
   selectSaga: (sagaId: string | null) => void;
@@ -50,6 +53,8 @@ interface GameState {
   advanceToNextLevel: () => void;
   endRun: () => void;
   registerBossDefeat: (bossId: string) => void;
+  checkAndUnlockAchievements: () => void;
+  dismissTrophyNotification: () => void;
   saveToCloud: () => Promise<void>;
   loadCloudSave: () => Promise<void>;
   clearLocalSave: () => void;
@@ -322,6 +327,51 @@ export const useGameStore = create<GameState>((set, get) => ({
   classicRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("classicRunsCount") || 0) : 0,
   shippudenRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("shippudenRunsCount") || 0) : 0,
   sagaStarterChoices: {},
+  unlockedAchievementsMap: typeof window !== "undefined" ? JSON.parse(localStorage.getItem("unlockedAchievementsMap") || "{}") : {},
+  newlyUnlockedTrophy: null,
+
+  dismissTrophyNotification: () => {
+    set({ newlyUnlockedTrophy: null });
+  },
+
+  checkAndUnlockAchievements: () => {
+    const state = get();
+    const stats = {
+      totalRuns: state.totalRunsCount,
+      classicRuns: state.classicRunsCount,
+      shippudenRuns: state.shippudenRunsCount,
+      maxLevel: state.currentLevel,
+      defeatedBosses: state.defeatedBosses || [],
+    };
+
+    const unlockedList = getUnlockedAchievements(stats);
+    const currentMap = { ...state.unlockedAchievementsMap };
+    let newlyUnlocked: Achievement | null = null;
+    let mapChanged = false;
+
+    const nowISO = new Date().toISOString();
+
+    for (const ach of unlockedList) {
+      if (!currentMap[ach.id]) {
+        currentMap[ach.id] = nowISO;
+        newlyUnlocked = ach;
+        mapChanged = true;
+      }
+    }
+
+    if (mapChanged) {
+      set({
+        unlockedAchievementsMap: currentMap,
+        newlyUnlockedTrophy: newlyUnlocked ? newlyUnlocked : state.newlyUnlockedTrophy,
+      });
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("unlockedAchievementsMap", JSON.stringify(currentMap));
+      }
+
+      state.saveToCloud();
+    }
+  },
 
   selectSaga: (sagaId) => {
     if (sagaId) {
@@ -416,7 +466,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       totalRunsCount: newTotalRuns,
       classicRunsCount: newClassicRuns,
       shippudenRunsCount: newShippudenRuns,
+      sagaStarterChoices: {},
     });
+
+    get().checkAndUnlockAchievements();
   },
 
   selectNode: (nodeId) => {
@@ -609,13 +662,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { runTeam, availableRecruitChoices } = get();
     if (!availableRecruitChoices) return;
 
-    if (runTeam.length >= 6 && !replaceNinjaId) return;
-
     const chosen = availableRecruitChoices.find((n) => n.id === ninjaId);
     if (!chosen) return;
 
-    const teamLevel = runTeam[0]?.level || 5;
-    const N = teamLevel - 5;
+    // Dynamically scale recruited ninja level & stats to match current team level
+    const teamLevel = Math.max(5, ...runTeam.map((n) => n.level || 5));
+    const N = Math.max(0, teamLevel - 5);
     const stats = { ...chosen.baseStats };
 
     stats.hp += N * 10;
@@ -632,27 +684,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentChakra: stats.chakra,
     };
 
-    if (replaceNinjaId) {
-      const updatedTeam = runTeam.map((n) => (n.id === replaceNinjaId ? newNinja : n));
-      set({
-        runTeam: updatedTeam,
-        availableRecruitChoices: null,
-      });
-    } else {
-      set({
-        runTeam: [...runTeam, newNinja],
-        availableRecruitChoices: null,
-      });
-    }
     let updatedTeam = [...runTeam];
-    if (updatedTeam.length < 6) {
-      const newRunNinja: RunNinja = {
-        ...chosen,
-        level: 5,
-        currentHp: chosen.baseStats.hp,
-        currentChakra: chosen.baseStats.chakra,
-      };
-      updatedTeam.push(newRunNinja);
+    if (replaceNinjaId) {
+      updatedTeam = updatedTeam.map((n) => (n.id === replaceNinjaId ? newNinja : n));
+    } else if (updatedTeam.length < 6) {
+      updatedTeam.push(newNinja);
     }
 
     set({
@@ -721,6 +757,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       availableRecruitChoices: null,
       shippudenUnlocked: state.shippudenUnlocked || unlocked,
     }));
+
+    get().checkAndUnlockAchievements();
   },
 
   endRun: () => {
@@ -732,10 +770,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentNodeId: null,
       activeMap: [],
       startingChoices: null,
+      sagaStarterChoices: {},
       availablePowerUpChoices: null,
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
     });
+
+    get().checkAndUnlockAchievements();
   },
 
   registerBossDefeat: (bossId) => {
@@ -747,6 +788,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (typeof window !== "undefined") {
       localStorage.setItem("defeatedBosses", JSON.stringify(updated));
     }
+
+    get().checkAndUnlockAchievements();
   },
 
   saveToCloud: async () => {
@@ -813,6 +856,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       total_runs: finalTotal,
       classic_runs: finalClassic,
       shippuden_runs: finalShippuden,
+      unlocked_achievements: state.unlockedAchievementsMap,
       updated_at: new Date()
     });
   },
@@ -863,11 +907,28 @@ export const useGameStore = create<GameState>((set, get) => ({
       const dbShippuden = profile.shippuden_runs ?? 0;
       const maxLevel = profile.max_level_reached ?? 1;
 
+      let loadedAchievementsMap: Record<string, string> = {};
+      if (profile.unlocked_achievements) {
+        if (typeof profile.unlocked_achievements === "object" && !Array.isArray(profile.unlocked_achievements)) {
+          loadedAchievementsMap = profile.unlocked_achievements;
+        } else if (Array.isArray(profile.unlocked_achievements)) {
+          profile.unlocked_achievements.forEach((id: string) => {
+            loadedAchievementsMap[id] = new Date().toISOString();
+          });
+        }
+      } else if (typeof window !== "undefined") {
+        try {
+          loadedAchievementsMap = JSON.parse(localStorage.getItem("unlockedAchievementsMap") || "{}");
+        } catch (e) {}
+      }
+
       set({ 
         totalRunsCount: dbTotal,
         classicRunsCount: dbClassic,
         shippudenRunsCount: dbShippuden,
-        shippudenUnlocked: maxLevel >= 5
+        shippudenUnlocked: maxLevel >= 5,
+        unlockedAchievementsMap: loadedAchievementsMap,
+        newlyUnlockedTrophy: null // Explicitly guarantee NO notification banner popups on login!
       });
 
       if (typeof window !== "undefined") {
@@ -875,6 +936,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         localStorage.setItem("classicRunsCount", String(dbClassic));
         localStorage.setItem("shippudenRunsCount", String(dbShippuden));
         localStorage.setItem("shippudenUnlocked", String(maxLevel >= 5));
+        localStorage.setItem("unlockedAchievementsMap", JSON.stringify(loadedAchievementsMap));
       }
     }
   },
@@ -887,6 +949,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       localStorage.removeItem("shippudenRunsCount");
       localStorage.removeItem("shippudenUnlocked");
       localStorage.removeItem("defeatedBosses");
+      localStorage.removeItem("unlockedAchievementsMap");
     }
     set({
       isRunActive: false,
@@ -895,10 +958,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerTeam: [],
       activeSagaId: null,
       startingChoices: null,
+      sagaStarterChoices: {},
       shippudenUnlocked: false,
       totalRunsCount: 0,
       classicRunsCount: 0,
       shippudenRunsCount: 0,
+      unlockedAchievementsMap: {},
+      newlyUnlockedTrophy: null,
     });
 
     setTimeout(() => {
