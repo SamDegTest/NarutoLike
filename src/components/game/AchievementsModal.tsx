@@ -12,7 +12,7 @@ interface AchievementsModalProps {
 export const AchievementsModal: React.FC<AchievementsModalProps> = ({ onClose }) => {
   const { language: storeLang } = useLanguageStore();
   const lang = storeLang || "it";
-  const { totalRunsCount, classicRunsCount, shippudenRunsCount, currentLevel, defeatedBosses } = useGameStore();
+  const { totalRunsCount, classicRunsCount, shippudenRunsCount, currentLevel, defeatedBosses, unlockedAchievementsMap } = useGameStore();
   const { user } = useAuthStore();
 
   const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
@@ -84,9 +84,27 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ onClose })
 
         <div className="flex-1 overflow-y-auto space-y-3 pr-1">
           {ACHIEVEMENTS.map((ach) => {
-            const isUnlocked = unlockedIds.includes(ach.id);
+            const isUnlocked = unlockedIds.includes(ach.id) || !!unlockedAchievementsMap[ach.id];
             const titleText = ach.title[lang];
             const isEquipped = selectedTitle === titleText;
+            const unlockTimestamp = unlockedAchievementsMap[ach.id];
+            
+            let formattedTimestamp: string | null = null;
+            if (unlockTimestamp) {
+              try {
+                const dateObj = new Date(unlockTimestamp);
+                const dStr = dateObj.toLocaleDateString(lang === "it" ? "it-IT" : "en-US", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric"
+                });
+                const tStr = dateObj.toLocaleTimeString(lang === "it" ? "it-IT" : "en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit"
+                });
+                formattedTimestamp = `${dStr} ${lang === "it" ? "alle" : "at"} ${tStr}`;
+              } catch (e) {}
+            }
 
             return (
               <div
@@ -119,6 +137,12 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ onClose })
                     <div className="text-xs text-amber-300 font-mono font-bold mt-1">
                       {lang === "it" ? "Titolo:" : "Title:"} <span className="underline">{titleText}</span>
                     </div>
+                    {isUnlocked && formattedTimestamp && (
+                      <div className="text-[10px] text-gray-400 font-mono mt-1 flex items-center gap-1">
+                        <span>🕒</span>
+                        <span>{lang === "it" ? `Sbloccato il ${formattedTimestamp}` : `Unlocked on ${formattedTimestamp}`}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

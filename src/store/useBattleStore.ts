@@ -144,10 +144,10 @@ export const useBattleStore = create<BattleState>((set, get) => ({
     const avgPlayerLevel = players.reduce((sum, n) => sum + n.level, 0) / players.length;
     const gameLevel = useGameStore.getState().currentLevel; // 1 to 5
     
-    // Gradual difficulty scaling: increases both with current level (chapter) and node stage
-    let oppLevel = Math.max(5, Math.floor(avgPlayerLevel * (0.65 + (gameLevel * 0.1) + (stage * 0.07))));
+    // Balanced difficulty scaling: Smooth early progression, tactical mid-game, epic boss climaxes
+    let oppLevel = Math.max(5, Math.floor(avgPlayerLevel * (0.70 + (gameLevel * 0.08) + (stage * 0.05))));
     if (isBoss) {
-      oppLevel = Math.max(10, Math.floor(avgPlayerLevel * (1.25 + (gameLevel * 0.12))));
+      oppLevel = Math.max(8, Math.floor(avgPlayerLevel * (1.15 + (gameLevel * 0.08))));
     }
 
     const oppTeam: RunNinja[] = opponents.map((opp) => {
@@ -160,11 +160,11 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       stats.speed += diff * 1;
 
       if (isBoss) {
-        // Boss Aura & Synergy Boosts: bosses are extra resilient, powerful, and start with full chakra
-        stats.hp = Math.floor(stats.hp * 1.30);
-        stats.attack = Math.floor(stats.attack * 1.20);
-        stats.defense = Math.floor(stats.defense * 1.20);
-        stats.speed = Math.floor(stats.speed * 1.10);
+        // Boss Aura: Epic climaxes without artificial damage sponges
+        stats.hp = Math.floor(stats.hp * 1.20);
+        stats.attack = Math.floor(stats.attack * 1.12);
+        stats.defense = Math.floor(stats.defense * 1.10);
+        stats.speed = Math.floor(stats.speed * 1.05);
       }
 
       return {

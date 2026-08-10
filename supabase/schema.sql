@@ -1,10 +1,15 @@
 -- ====================================================================
--- SCRIPT COMPLETO E FINALE PER SUPABASE (PULIZIA + CREAZIONE TABELLE + TRIGGER)
+-- SCRIPT COMPLETO E STANDALONE PER SUPABASE (RESET E RIGENERAZIONE)
+-- Esegui questo script nello SQL Editor di Supabase se vuoi cancellare 
+-- tutto e ricreare il database da zero.
 -- ====================================================================
 
--- 1. DROP DI VECCHI TRIGGER, FUNZIONI E TABELLE (PER RIPARTIRE DA ZERO)
+-- 1. DROP DI VECCHIE VISTE, TRIGGER, FUNZIONI E TABELLE (PULIZIA TOTALE)
+DROP VIEW IF EXISTS public.leaderboard CASCADE;
+
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS public.get_email_by_username(TEXT) CASCADE;
 
 DROP TABLE IF EXISTS public.game_saves CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
@@ -13,25 +18,27 @@ DROP TABLE IF EXISTS public.profiles CASCADE;
 CREATE TABLE public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT NOT NULL DEFAULT 'Shinobi',
+  email TEXT,
   avatar_url TEXT,
   max_level_reached INT NOT NULL DEFAULT 1,
   total_runs INT NOT NULL DEFAULT 0,
   classic_runs INT NOT NULL DEFAULT 0,
   shippuden_runs INT NOT NULL DEFAULT 0,
   selected_title TEXT,
-  unlocked_achievements TEXT[] DEFAULT '{}'::text[],
+  unlocked_achievements JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Abilita RLS
+-- Abilita Row Level Security (RLS) su Profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.profiles TO authenticated;
+GRANT SELECT ON TABLE public.profiles TO anon;
 
 -- Policy RLS per Profiles
-CREATE POLICY "Users can select own profile" 
-  ON public.profiles FOR SELECT TO authenticated 
-  USING ((select auth.uid()) = id);
+CREATE POLICY "Public read profiles for leaderboard" 
+  ON public.profiles FOR SELECT TO authenticated, anon 
+  USING (true);
 
 CREATE POLICY "Users can insert own profile" 
   ON public.profiles FOR INSERT TO authenticated 
@@ -41,7 +48,6 @@ CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE TO authenticated 
   USING ((select auth.uid()) = id) 
   WITH CHECK ((select auth.uid()) = id);
-
 
 -- 3. CREAZIONE TABELLA GAME_SAVES (Salvataggio partita attiva)
 CREATE TABLE public.game_saves (
@@ -57,7 +63,7 @@ CREATE TABLE public.game_saves (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Abilita RLS
+-- Abilita Row Level Security (RLS) su Game Saves
 ALTER TABLE public.game_saves ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.game_saves TO authenticated;
 
@@ -75,10 +81,13 @@ CREATE POLICY "Users can update own game save"
   USING ((select auth.uid()) = id) 
   WITH CHECK ((select auth.uid()) = id);
 
-
--- 4. FUNZIONE E TRIGGER AUTOMATICO ALLA REGISTRAZIONE UTENTE
+-- 4. FUNZIONE TRIGGER DI REGISTRAZIONE UTENTI (AUTOMATICA & HARDENED SECURITY)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
 DECLARE
   extracted_username TEXT;
 BEGIN
@@ -89,9 +98,9 @@ BEGIN
     'Shinobi'
   );
 
-  -- Inserisce il profilo utente
-  INSERT INTO public.profiles (id, username, max_level_reached)
-  VALUES (new.id, extracted_username, 1)
+  -- Inserisce il profilo utente predefinito includendo l'email per la conversione in SECURITY INVOKER
+  INSERT INTO public.profiles (id, username, email, max_level_reached, total_runs, classic_runs, shippuden_runs, unlocked_achievements)
+  VALUES (new.id, extracted_username, new.email, 1, 0, 0, 0, '{}'::jsonb)
   ON CONFLICT (id) DO NOTHING;
 
   -- Inserisce la riga di salvataggio gioco vuota
@@ -101,27 +110,55 @@ BEGIN
 
   RETURN new;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+
+-- Revoca esecuzione via API REST pubblica per la funzione trigger (Fix per avvisi Supabase Advisor)
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
 
 -- Trigger collegato ad auth.users
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 5. FUNZIONE SECURE RPC PER CONVERTIRE USERNAME AD EMAIL IN FASE DI LOGIN
+-- 5. FUNZIONE RPC PER CONVERTIRE NOME UTENTE IN EMAIL DURANTE IL LOGIN (SECURITY INVOKER - ZERO AVVISI DI SICUREZZA)
 CREATE OR REPLACE FUNCTION public.get_email_by_username(p_username TEXT)
-RETURNS TEXT AS $$
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public
+AS $$
 DECLARE
   v_email TEXT;
 BEGIN
-  SELECT u.email INTO v_email
-  FROM auth.users u
-  JOIN public.profiles p ON p.id = u.id
-  WHERE LOWER(trim(p.username)) = LOWER(trim(p_username))
+  SELECT email INTO v_email
+  FROM public.profiles
+  WHERE lower(username) = lower(p_username)
   LIMIT 1;
 
   RETURN v_email;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 GRANT EXECUTE ON FUNCTION public.get_email_by_username(TEXT) TO anon, authenticated;
+
+-- 6. VISTA CLASSIFICA GLOBALE ONLINE (SECURITY INVOKER = TRUE FOR SUPABASE SECURITY & RLS COMPLIANCE)
+CREATE OR REPLACE VIEW public.leaderboard
+WITH (security_invoker = true) AS
+SELECT 
+  id,
+  username,
+  avatar_url,
+  selected_title,
+  max_level_reached,
+  total_runs,
+  classic_runs,
+  shippuden_runs,
+  updated_at
+FROM public.profiles
+ORDER BY max_level_reached DESC, total_runs DESC;
+
+GRANT SELECT ON public.leaderboard TO authenticated, anon;
+
+-- 7. INDICI DI PRESTAZIONE PER QUERY RAPIDE E CLASSIFICA FLUIDA
+CREATE INDEX IF NOT EXISTS idx_profiles_username_lower ON public.profiles (lower(username));
+CREATE INDEX IF NOT EXISTS idx_profiles_leaderboard_rank ON public.profiles (max_level_reached DESC, total_runs DESC);

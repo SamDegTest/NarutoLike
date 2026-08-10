@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useBattleStore } from "@/store/useBattleStore";
 import { useGameStore } from "@/store/useGameStore";
 import { NinjaAvatar } from "@/components/game/NinjaAvatar";
-import { JUTSU_MAP } from "@/data/jutsus";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { TRANSLATIONS, translateNinjaName } from "@/data/translations";
-import { ChakraChartModal } from "@/components/game/ChakraChartModal";
 
 function getElementImage(symbol: string): string {
   switch (symbol) {
@@ -19,8 +17,8 @@ function getElementImage(symbol: string): string {
 }
 
 export function BattleScreen() {
-  const { playerTeam: finalPlayerTeam, opponentTeam: finalOpponentTeam, battleLogs: finalLogs, battleStatus, battleSteps, claimVictory, resetBattle } = useBattleStore();
-  const { endRun, selectSaga, activeSagaId } = useGameStore();
+  const { playerTeam: finalPlayerTeam, opponentTeam: finalOpponentTeam, battleStatus, battleSteps, claimVictory, resetBattle } = useBattleStore();
+  const { endRun, selectSaga } = useGameStore();
   const { language: lang } = useLanguageStore();
   const t = TRANSLATIONS[lang];
 
@@ -31,7 +29,6 @@ export function BattleScreen() {
   const [imageError, setImageError] = useState(false);
   const [activeFighterId, setActiveFighterId] = useState<string | null>(null);
   const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
-  const [showChakraChartModal, setShowChakraChartModal] = useState(false);
 
   useEffect(() => {
     setImageError(false);
@@ -91,7 +88,6 @@ export function BattleScreen() {
       const nextStep = battleSteps[nextStepIndex];
 
       if (nextStep) {
-        // Trigger animation
         if (nextStep.attackerId && nextStep.elementSymbol) {
           setAnimatingSymbol({
             symbol: nextStep.elementSymbol,
@@ -100,7 +96,6 @@ export function BattleScreen() {
           setActiveFighterId(nextStep.attackerId);
           setActiveTargetId(nextStep.targetId);
 
-          // Calculate elements position in viewport
           setTimeout(() => {
             const attackerSide = nextStep.isPlayerAttacking ? "player" : "opponent";
             const targetSide = nextStep.isHealing 
@@ -122,7 +117,6 @@ export function BattleScreen() {
             }
           }, 10);
 
-          // Clear animation state
           setTimeout(() => {
             setAnimatingSymbol(null);
             setActiveFighterId(null);
@@ -138,14 +132,12 @@ export function BattleScreen() {
     return () => clearTimeout(timer);
   }, [currentStepIndex, isFinished, speed, battleSteps]);
 
-  // Scroll logs to bottom
   useEffect(() => {
     if (logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [currentStepIndex]);
 
-  // Auto claim victory when finished
   useEffect(() => {
     if (isFinished && battleStatus === "victory") {
       const delay = speed === "fast" ? 400 : 1600;
@@ -168,7 +160,6 @@ export function BattleScreen() {
     setSpeed((s) => (s === "normal" ? "fast" : "normal"));
   };
 
-  // Build partial logs list to show progress
   const visibleLogs = battleSteps
     .slice(0, currentStepIndex + 1)
     .map((s) => s.log)
@@ -205,59 +196,42 @@ export function BattleScreen() {
         }
       `}</style>
 
-      <div className="w-full max-w-5xl bg-gray-900 border-4 border-orange-500 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-full max-h-[96dvh]">
+      <div className="w-full max-w-4xl bg-[#0f152d] border-2 border-amber-500/40 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-full max-h-[94dvh]">
         
-        {/* HEADER WITH CONTROLS */}
-        <header className="bg-orange-600/10 border-b border-orange-500/30 px-6 py-3 flex justify-between items-center shrink-0">
-          <div className="flex flex-col">
-            <h2 className="text-xl md:text-2xl font-bold tracking-wider text-orange-400 uppercase">
-              {lang === "it" ? "RISOLUZIONE DELLO SCONTRO" : "BATTLE RESOLUTION"}
-            </h2>
-            <div className="text-[10px] text-gray-400 uppercase font-mono">
-              {lang === "it" ? "Progresso Turni" : "Turns Progress"}: {currentStepIndex + 1} / {stepsCount}
-            </div>
+        {/* MINIMAL SLEEK HEADER */}
+        <header className="bg-[#070b19] border-b border-amber-500/20 px-4 py-2.5 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-base font-extrabold text-amber-400 tracking-wider uppercase">
+              ⚔️ {lang === "it" ? "Scontro" : "Battle"}
+            </span>
+            <span className="text-xs text-gray-400 font-mono bg-gray-800/80 px-2 py-0.5 rounded border border-gray-700">
+              {lang === "it" ? "Turno" : "Turn"} {currentStepIndex + 1}/{stepsCount}
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* SPEED BUTTON */}
+          <div className="flex items-center gap-2">
             {!isFinished && (
-              <button
-                onClick={handleSpeedToggle}
-                className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-orange-300 font-bold border border-gray-700 rounded transition-colors"
-              >
-                {speed === "normal" ? t.speedNormal : t.speedFast}
-              </button>
+              <>
+                <button
+                  onClick={handleSpeedToggle}
+                  className="px-2.5 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-amber-300 font-bold border border-amber-500/30 rounded transition-all cursor-pointer"
+                >
+                  ⚡ {speed === "normal" ? "1x" : "2x"}
+                </button>
+
+                <button
+                  onClick={handleSkip}
+                  className="px-2.5 py-1 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/40 rounded transition-all cursor-pointer"
+                >
+                  ⏩ {lang === "it" ? "Salta" : "Skip"}
+                </button>
+              </>
             )}
-
-            {/* SKIP BUTTON */}
-            {!isFinished && (
-              <button
-                onClick={handleSkip}
-                className="px-3 py-1 text-xs bg-gray-800 hover:bg-red-950/60 text-red-400 font-bold border border-gray-700 rounded transition-colors"
-              >
-                {t.skipBattle} ⏩
-              </button>
-            )}
-
-            {/* CHAKRA CHART BUTTON */}
-            <button
-              onClick={() => setShowChakraChartModal(true)}
-              className="px-3 py-1 text-xs bg-gray-800 hover:bg-[#0f152d] text-yellow-400 font-bold border border-yellow-500/40 rounded transition-colors cursor-pointer"
-              title={lang === "it" ? "Wiki & Guida Shinobi" : "Shinobi Wiki & Guide"}
-            >
-              📜 {lang === "it" ? "Wiki" : "Wiki"}
-            </button>
-
-            <div className="text-xs bg-gray-800 px-3 py-1 rounded border border-gray-700 text-gray-300">
-              {lang === "it" ? "Stato" : "Status"}: <span className="font-semibold text-orange-400 uppercase">
-                {isFinished ? (battleStatus === "victory" ? t.active : t.locked) : (lang === "it" ? "In Corso" : "In Progress")}
-              </span>
-            </div>
           </div>
         </header>
 
-        {/* BATTLEFIELD STATUS */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 p-6 min-h-0 overflow-y-auto relative">
+        {/* BATTLEFIELD SQUAD COLUMNS */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 sm:p-4 min-h-0 overflow-y-auto relative bg-[#070b19]/60">
           
           {/* FLYING ELEMENT SYMBOL OVERLAY */}
           {animatingSymbol && coords && (
@@ -276,35 +250,34 @@ export function BattleScreen() {
                   src={getElementImage(animatingSymbol.symbol)}
                   onError={() => setImageError(true)}
                   alt="Elemento"
-                  className="w-16 h-16 object-contain filter drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] -translate-x-1/2 -translate-y-1/2"
+                  className="w-14 h-14 object-contain filter drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] -translate-x-1/2 -translate-y-1/2"
                 />
               ) : (
-                <span className="text-5xl filter drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] -translate-x-1/2 -translate-y-1/2 block select-none">
+                <span className="text-4xl filter drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] -translate-x-1/2 -translate-y-1/2 block select-none">
                   {animatingSymbol.symbol}
                 </span>
               )}
             </div>
           )}
 
-          {/* PLAYER SIDE */}
-          <div className="bg-gray-850 p-4 rounded-xl border border-blue-500/20 flex flex-col justify-between h-full min-h-0">
+          {/* PLAYER SQUAD COLUMN */}
+          <div className="bg-[#0f152d]/90 p-3 rounded-xl border border-blue-500/20 flex flex-col justify-between h-full min-h-0">
             <div>
-              <h3 className="text-base font-bold text-blue-400 border-b border-blue-500/20 pb-1.5 mb-3 uppercase flex justify-between items-center">
-                <span>{lang === "it" ? "I Tuoi Shinobi" : "Your Shinobi"}</span>
-                <span className="text-xs text-gray-500 font-mono">{lang === "it" ? "Alleati" : "Allies"}</span>
-              </h3>
-              <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
+              <div className="text-xs font-bold text-blue-400 uppercase border-b border-blue-500/20 pb-1 mb-2 tracking-wider">
+                🛡️ {lang === "it" ? "I Tuoi Shinobi" : "Your Squad"}
+              </div>
+              <div className="space-y-2 max-h-[38vh] overflow-y-auto pr-1">
                 {currentStep.playerTeam.map((ninja) => {
                   const hpPercent = Math.max(0, (ninja.currentHp / ninja.baseStats.hp) * 100);
                   const chakraPercent = Math.max(0, (ninja.currentChakra / ninja.baseStats.chakra) * 100);
                   const isDefeated = ninja.currentHp <= 0;
-                  
+
                   const isAttacking = activeFighterId === ninja.id;
                   const isBeingTargeted = activeTargetId === ninja.id;
-                  
+
                   let stateGlowClass = "";
-                  if (isAttacking) stateGlowClass = "pulse-glow-blue scale-[1.02]";
-                  else if (isBeingTargeted) stateGlowClass = "pulse-glow-target scale-[1.02]";
+                  if (isAttacking) stateGlowClass = "pulse-glow-blue scale-[1.01]";
+                  else if (isBeingTargeted) stateGlowClass = "pulse-glow-target scale-[1.01]";
 
                   const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
 
@@ -312,43 +285,38 @@ export function BattleScreen() {
                     <div
                       key={ninja.id}
                       id={`battle-player-${ninja.id}`}
-                      className={`p-2.5 rounded-lg border bg-gray-800/50 transition-all duration-205 ${
+                      className={`p-2 rounded-lg border bg-gray-900/80 transition-all duration-200 ${
                         isDefeated 
                           ? "border-red-950/40 opacity-40" 
                           : isAttacking || isBeingTargeted 
                           ? stateGlowClass 
-                          : "border-gray-700/60"
+                          : "border-gray-800"
                       }`}
                     >
-                      <div className="flex gap-2.5 items-center mb-1.5">
+                      <div className="flex items-center gap-2 mb-1">
                         <NinjaAvatar
                           src={ninja.sprite}
                           name={translatedName}
-                          className="w-9 h-9 object-contain bg-gray-900 rounded border border-gray-700 p-0.5"
+                          className="w-8 h-8 object-contain bg-black/40 rounded border border-gray-700 shrink-0"
                         />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-center">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-gray-200 text-xs truncate leading-tight">{translatedName}</span>
-                              <span className="text-[9px] text-[#ff9f1c] font-mono leading-none uppercase mt-0.5 font-bold">Lv. {ninja.level}</span>
-                            </div>
-                            <span className="text-[10px] bg-gray-700/60 px-1.5 py-0.5 rounded text-gray-300 font-mono font-bold">
-                              HP: {ninja.currentHp}/{ninja.baseStats.hp}
-                            </span>
-                          </div>
+                        <div className="flex-1 min-w-0 flex justify-between items-center">
+                          <span className="font-bold text-gray-200 text-xs truncate">{translatedName}</span>
+                          <span className="text-[10px] text-gray-300 font-mono font-bold">
+                            {ninja.currentHp}/{ninja.baseStats.hp}
+                          </span>
                         </div>
                       </div>
 
                       {/* HP BAR */}
-                      <div className="w-full bg-gray-700/60 h-2 rounded-sm overflow-hidden mb-1.5 border border-gray-800">
+                      <div className="w-full bg-gray-800 h-1.5 rounded overflow-hidden mb-1">
                         <div
-                          className="bg-green-500 h-full transition-all duration-200"
+                          className="bg-emerald-500 h-full transition-all duration-200"
                           style={{ width: `${hpPercent}%` }}
                         />
                       </div>
 
                       {/* CHAKRA BAR */}
-                      <div className="w-full bg-gray-700/60 h-1 rounded-sm overflow-hidden border border-gray-800">
+                      <div className="w-full bg-gray-800 h-1 rounded overflow-hidden">
                         <div
                           className="bg-blue-500 h-full transition-all duration-200"
                           style={{ width: `${chakraPercent}%` }}
@@ -361,14 +329,13 @@ export function BattleScreen() {
             </div>
           </div>
 
-          {/* OPPONENT SIDE */}
-          <div className="bg-gray-850 p-4 rounded-xl border border-red-500/20 flex flex-col justify-between h-full min-h-0">
+          {/* OPPONENT SQUAD COLUMN */}
+          <div className="bg-[#0f152d]/90 p-3 rounded-xl border border-red-500/20 flex flex-col justify-between h-full min-h-0">
             <div>
-              <h3 className="text-base font-bold text-red-400 border-b border-red-500/20 pb-1.5 mb-3 uppercase flex justify-between items-center">
-                <span>{lang === "it" ? "Nemici" : "Enemies"}</span>
-                <span className="text-xs text-gray-500 font-mono">{lang === "it" ? "Avversari" : "Opponents"}</span>
-              </h3>
-              <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
+              <div className="text-xs font-bold text-red-400 uppercase border-b border-red-500/20 pb-1 mb-2 tracking-wider">
+                ⚔️ {lang === "it" ? "Avversari" : "Enemies"}
+              </div>
+              <div className="space-y-2 max-h-[38vh] overflow-y-auto pr-1">
                 {currentStep.opponentTeam.map((ninja) => {
                   const hpPercent = Math.max(0, (ninja.currentHp / ninja.baseStats.hp) * 100);
                   const isDefeated = ninja.currentHp <= 0;
@@ -377,8 +344,8 @@ export function BattleScreen() {
                   const isBeingTargeted = activeTargetId === ninja.id;
 
                   let stateGlowClass = "";
-                  if (isAttacking) stateGlowClass = "pulse-glow-red scale-[1.02]";
-                  else if (isBeingTargeted) stateGlowClass = "pulse-glow-target scale-[1.02]";
+                  if (isAttacking) stateGlowClass = "pulse-glow-red scale-[1.01]";
+                  else if (isBeingTargeted) stateGlowClass = "pulse-glow-target scale-[1.01]";
 
                   const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
 
@@ -386,35 +353,30 @@ export function BattleScreen() {
                     <div
                       key={ninja.id}
                       id={`battle-opponent-${ninja.id}`}
-                      className={`p-2.5 rounded-lg border bg-gray-800/50 transition-all duration-205 ${
+                      className={`p-2 rounded-lg border bg-gray-900/80 transition-all duration-200 ${
                         isDefeated 
                           ? "border-red-950/40 opacity-40" 
                           : isAttacking || isBeingTargeted 
                           ? stateGlowClass 
-                          : "border-gray-700/60"
+                          : "border-gray-800"
                       }`}
                     >
-                      <div className="flex gap-2.5 items-center mb-1.5">
+                      <div className="flex items-center gap-2 mb-1">
                         <NinjaAvatar
                           src={ninja.sprite}
                           name={translatedName}
-                          className="w-9 h-9 object-contain bg-gray-900 rounded border border-gray-700 p-0.5"
+                          className="w-8 h-8 object-contain bg-black/40 rounded border border-gray-700 shrink-0"
                         />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-center">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-gray-200 text-xs truncate leading-tight">{translatedName}</span>
-                              <span className="text-[9px] text-[#ff9f1c] font-mono leading-none uppercase mt-0.5 font-bold">Lv. {ninja.level}</span>
-                            </div>
-                            <span className="text-[10px] bg-red-950/40 px-1.5 py-0.5 rounded text-red-300 font-mono font-bold">
-                              HP: {ninja.currentHp}/{ninja.baseStats.hp}
-                            </span>
-                          </div>
+                        <div className="flex-1 min-w-0 flex justify-between items-center">
+                          <span className="font-bold text-gray-200 text-xs truncate">{translatedName}</span>
+                          <span className="text-[10px] text-red-300 font-mono font-bold">
+                            {ninja.currentHp}/{ninja.baseStats.hp}
+                          </span>
                         </div>
                       </div>
 
                       {/* HP BAR */}
-                      <div className="w-full bg-gray-700/60 h-2 rounded-sm overflow-hidden border border-gray-800">
+                      <div className="w-full bg-gray-800 h-1.5 rounded overflow-hidden">
                         <div
                           className="bg-red-500 h-full transition-all duration-200"
                           style={{ width: `${hpPercent}%` }}
@@ -426,40 +388,40 @@ export function BattleScreen() {
               </div>
             </div>
 
-            {/* RESOLUTION ACTIONS (ONLY SHOWN WHEN PLAYBACK REACHES THE END STATE) */}
+            {/* RESOLUTION ACTION BUTTONS */}
             {isFinished && battleStatus !== null && (
-              <div className="mt-4 border-t border-gray-800 pt-3 flex flex-col items-center shrink-0">
+              <div className="mt-3 border-t border-gray-800 pt-2 flex flex-col items-center shrink-0">
                 {battleStatus === "victory" && (
                   <button
                     onClick={claimVictory}
-                    className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold text-base rounded-lg shadow-lg uppercase tracking-wider transition-all border-b-4 border-green-950"
+                    className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-extrabold text-sm rounded-xl shadow-lg uppercase tracking-wider transition-all border-b-4 border-green-950"
                   >
-                    {t.claimVictoryBtn}
+                    🏆 {t.claimVictoryBtn}
                   </button>
                 )}
                 {battleStatus === "defeat" && (
-                  <div className="flex gap-3 w-full">
+                  <div className="flex gap-2 w-full">
                     <button
                       onClick={() => {
                         resetBattle();
                         endRun();
                       }}
-                      className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold text-xs rounded-lg shadow-lg uppercase tracking-wider transition-all border border-gray-700"
+                      className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold text-xs rounded-lg shadow uppercase transition-all border border-gray-700"
                     >
-                      {t.returnHomeBtn}
+                      🏠 {t.returnHomeBtn}
                     </button>
                     <button
                       onClick={() => {
-                        const saga = activeSagaId;
+                        const saga = useGameStore.getState().activeSagaId;
                         resetBattle();
                         endRun();
                         if (saga) {
-                          selectSaga(saga);
+                          useGameStore.getState().selectSaga(saga);
                         }
                       }}
-                      className="flex-1 py-2.5 bg-red-700 hover:bg-red-650 text-white font-bold text-xs rounded-lg shadow-lg uppercase tracking-wider transition-all border-b-4 border-red-950"
+                      className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg shadow uppercase transition-all border-b-4 border-amber-900"
                     >
-                      {lang === "it" ? "Fai un'altra Run" : "Run Again"}
+                      🔄 {lang === "it" ? "Nuova Run" : "New Run"}
                     </button>
                   </div>
                 )}
@@ -468,23 +430,21 @@ export function BattleScreen() {
           </div>
         </div>
 
-        {/* BATTLE EVENT LOGS */}
-        <footer className="bg-gray-950 border-t border-gray-800 p-4 h-44 shrink-0 flex flex-col overflow-hidden">
-          <h4 className="text-xs font-bold text-[#ff9f1c] mb-2 uppercase tracking-wider font-mono">{lang === "it" ? "Registro di Combattimento" : "Battle Logs"}</h4>
-          <div className="flex-1 overflow-y-auto space-y-1 font-mono text-xs sm:text-sm text-gray-200 pr-1">
+        {/* MINIMAL LIVE BATTLE LOG FOOTER */}
+        <footer className="bg-[#070b19] border-t border-gray-800 p-3 h-24 shrink-0 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto space-y-1 font-mono text-xs text-gray-300 pr-1">
             {visibleLogs.map((log, index) => {
               const isSuperEffective = log.includes("SUPER EFFICACE");
               const isDamage = log.includes("danni") || log.includes("damage");
               const isHealing = log.includes("cura") || log.includes("heal");
               const isDefeated = log.includes("sconfitto") || log.includes("defeated");
-              const isRound = log.includes("Round");
 
               return (
                 <p 
                   key={index} 
                   className={
                     isSuperEffective
-                      ? "text-yellow-300 font-extrabold bg-yellow-950/60 p-1 rounded border border-yellow-500/40"
+                      ? "text-yellow-300 font-extrabold"
                       : isDamage 
                       ? "text-amber-200 font-semibold" 
                       : log.includes("usa") || log.includes("attacks")
@@ -493,9 +453,7 @@ export function BattleScreen() {
                       ? "text-emerald-300 font-semibold"
                       : isDefeated 
                       ? "text-red-400 font-extrabold" 
-                      : isRound
-                      ? "text-purple-300 font-bold border-t border-gray-800 pt-1 mt-1 block"
-                      : "text-gray-300"
+                      : "text-gray-400"
                   }
                 >
                   {log}
@@ -506,7 +464,6 @@ export function BattleScreen() {
           </div>
         </footer>
       </div>
-      {showChakraChartModal && <ChakraChartModal onClose={() => setShowChakraChartModal(false)} />}
     </div>
   );
 }
