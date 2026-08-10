@@ -102,6 +102,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .insert([{ id: data.user.id }]);
 
       set({ user: data.user, username, loading: false });
+
+      // Save guest run & statistics to DB immediately for newly registered user
+      await useGameStore.getState().saveToCloud();
     }
 
     return { error: null };
@@ -133,6 +136,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         loading: false 
       });
       
+      // Load existing account data from DB (do NOT save guest data on login)
       await useGameStore.getState().loadCloudSave();
     }
 
@@ -141,6 +145,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     set({ loading: true });
+    // Save current run progress to cloud before logging out
+    await useGameStore.getState().saveToCloud();
     await supabase.auth.signOut();
     set({ session: null, user: null, username: null, loading: false });
     useGameStore.getState().clearLocalSave();

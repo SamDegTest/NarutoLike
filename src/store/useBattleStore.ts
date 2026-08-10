@@ -4,6 +4,91 @@ import { JUTSU_MAP } from "@/data/jutsus";
 import { useGameStore } from "./useGameStore";
 import { useLanguageStore } from "./useLanguageStore";
 import { TRANSLATIONS, JUTSU_TRANSLATIONS, translateNinjaName } from "@/data/translations";
+import { CHAKRA_NATURE_CONFIGS, isSuperEffective } from "@/lib/chakraNatures";
+
+const getNinjaElementSymbol = (nature?: string): string => {
+  if (!nature) return "👊";
+  const cfg = CHAKRA_NATURE_CONFIGS[nature as keyof typeof CHAKRA_NATURE_CONFIGS];
+  return cfg ? cfg.icon : "👊";
+};
+
+// Calculate damage and apply chakra nature status effects
+function executeElementalAttack(
+  attacker: RunNinja,
+  target: RunNinja,
+  basePower: number
+): { damage: number; statusMsg: string } {
+  const nature = attacker.chakraNature || "Taijutsu";
+  const targetNature = target.chakraNature || "Taijutsu";
+  let targetDefense = target.baseStats.defense;
+  let attackPower = basePower;
+  let statusMsg = "";
+
+  // 0. Super Effective Check (x1.5 damage multiplier)
+  const isAdvantageous = isSuperEffective(nature, targetNature);
+  if (isAdvantageous) {
+    const lang = useLanguageStore.getState().language;
+    statusMsg += lang === "it" ? " 💥[SUPER EFFICACE! x1.5]" : " 💥[SUPER EFFECTIVE! x1.5]";
+  }
+
+  // 1. Wind (Fuuton 🌪️): Armor Pierce (ignores 30% target defense)
+  if (nature === "Wind") {
+    targetDefense = Math.max(1, Math.floor(targetDefense * 0.70));
+    statusMsg += " 🌪️[Fuuton: Taglio Perforante]";
+  }
+
+  // 2. Earth (Doton 🪨): Stone Armor (reduces incoming damage by 20%)
+  if (targetNature === "Earth") {
+    targetDefense = Math.floor(targetDefense * 1.25);
+  }
+
+  // 3. Taijutsu (👊): 25% chance of Critical Hit (+50% damage)
+  if (nature === "Taijutsu" && Math.random() < 0.25) {
+    attackPower = Math.floor(attackPower * 1.50);
+    statusMsg += " 👊[Taijutsu: COLPO CRITICO!]";
+  }
+
+  // Calculate damage
+  let damage = Math.max(5, Math.floor(attackPower * (attacker.baseStats.attack / targetDefense)));
+
+  // Apply Super Effective multiplier
+  if (isAdvantageous) {
+    damage = Math.max(8, Math.floor(damage * 1.50));
+  }
+
+  // 4. Suiton (Acqua 💧): Chakra Drain (steals 15 Chakra)
+  if (nature === "Water") {
+    const drainVal = Math.min(15, target.currentChakra);
+    target.currentChakra -= drainVal;
+    attacker.currentChakra = Math.min(attacker.baseStats.chakra, attacker.currentChakra + drainVal);
+    if (drainVal > 0) {
+      statusMsg += ` 💧[Suiton: -${drainVal} Chakra]`;
+    }
+  }
+
+  // 5. Fire (Katon 🔥): Burn (extra 8% target HP damage)
+  if (nature === "Fire") {
+    const burnDamage = Math.max(3, Math.floor(target.baseStats.hp * 0.08));
+    damage += burnDamage;
+    statusMsg += ` 🔥[Katon: Bruciatura +${burnDamage}]`;
+  }
+
+  // 6. Lightning (Raiton ⚡): Paralysis (25% chance of bonus shock)
+  if (nature === "Lightning" && Math.random() < 0.25) {
+    const shockDamage = Math.max(4, Math.floor(target.baseStats.hp * 0.06));
+    damage += shockDamage;
+    statusMsg += ` ⚡[Raiton: Paralisi +${shockDamage}]`;
+  }
+
+  // 7. Ice (Hyoton ❄️): Freeze (30% chance of frost damage)
+  if (nature === "Ice" && Math.random() < 0.30) {
+    const frostDamage = Math.max(5, Math.floor(target.baseStats.hp * 0.10));
+    damage += frostDamage;
+    statusMsg += ` ❄️[Hyoton: Congelamento +${frostDamage}]`;
+  }
+
+  return { damage, statusMsg };
+}
 
 export interface BattleStep {
   playerTeam: RunNinja[];
@@ -57,7 +142,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
     // Gradual difficulty scaling: increases both with current level (chapter) and node stage
     let oppLevel = Math.max(5, Math.floor(avgPlayerLevel * (0.65 + (gameLevel * 0.1) + (stage * 0.07))));
     if (isBoss) {
-      oppLevel = Math.max(8, Math.floor(avgPlayerLevel * (1.15 + (gameLevel * 0.12))));
+      oppLevel = Math.max(10, Math.floor(avgPlayerLevel * (1.25 + (gameLevel * 0.12))));
     }
 
     const oppTeam: RunNinja[] = opponents.map((opp) => {
@@ -69,6 +154,14 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       stats.defense += diff * 1;
       stats.speed += diff * 1;
 
+      if (isBoss) {
+        // Boss Aura & Synergy Boosts: bosses are extra resilient, powerful, and start with full chakra
+        stats.hp = Math.floor(stats.hp * 1.30);
+        stats.attack = Math.floor(stats.attack * 1.20);
+        stats.defense = Math.floor(stats.defense * 1.20);
+        stats.speed = Math.floor(stats.speed * 1.10);
+      }
+
       return {
         ...opp,
         level: oppLevel,
@@ -77,37 +170,6 @@ export const useBattleStore = create<BattleState>((set, get) => ({
         currentChakra: stats.chakra,
       };
     });
-
-    const getNinjaElementSymbol = (characterId: string): string => {
-      switch (characterId) {
-        case "naruto":
-          return "🌪️";
-        case "sasuke":
-          return "⚡";
-        case "sakura":
-          return "🪨";
-        case "kakashi":
-          return "⚡";
-        case "gaara":
-          return "⏳";
-        case "haku":
-          return "❄️";
-        case "zabuza":
-          return "💧";
-        case "mizuki":
-          return "🌪️";
-        case "itachi":
-          return "🔥";
-        case "jiraiya":
-          return "🔥";
-        case "tsunade":
-          return "👊";
-        case "orochimaru":
-          return "🐍";
-        default:
-          return "👊";
-      }
-    };
 
     const lang = useLanguageStore.getState().language;
     const t = TRANSLATIONS[lang];
@@ -201,14 +263,15 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               }
             } else {
               // Damage
-              const damage = Math.max(5, Math.floor(jutsu.power * (fighter.ref.baseStats.attack / target.baseStats.defense)));
+              const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power);
               target.currentHp = Math.max(0, target.currentHp - damage);
 
               const actionMsg = t.battleLogAttacks
                 .replace("{attacker}", fighterName)
                 .replace("{target}", targetName)
                 .replace("{jutsu}", jutsuName) + " " +
-                t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString());
+                t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
+                statusMsg;
 
               const stepLog = `🔥 ${actionMsg}`;
               logs.push(stepLog);
@@ -223,7 +286,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
                 actionText: jutsuName,
                 damage: damage,
                 isHealing: false,
-                elementSymbol: getNinjaElementSymbol(fighter.ref.characterId),
+                elementSymbol: getNinjaElementSymbol(fighter.ref.chakraNature),
                 isPlayerAttacking: true,
               });
 
@@ -248,7 +311,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
             }
           } else {
             // Basic Physical Attack
-            const damage = Math.max(5, Math.floor(15 * (fighter.ref.baseStats.attack / target.baseStats.defense)));
+            const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, 15);
             target.currentHp = Math.max(0, target.currentHp - damage);
             const jutsuName = lang === "it" ? "Attacco Fisico" : "Physical Attack";
 
@@ -256,7 +319,8 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               .replace("{attacker}", fighterName)
               .replace("{target}", targetName)
               .replace("{jutsu}", jutsuName) + " " +
-              t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString());
+              t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
+              statusMsg;
 
             const stepLog = `⚔️ ${actionMsg}`;
             logs.push(stepLog);
@@ -271,7 +335,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               actionText: jutsuName,
               damage: damage,
               isHealing: false,
-              elementSymbol: "👊",
+              elementSymbol: getNinjaElementSymbol(fighter.ref.chakraNature),
               isPlayerAttacking: true,
             });
 
@@ -336,14 +400,15 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               });
             } else {
               // Damage
-              const damage = Math.max(5, Math.floor(jutsu.power * (fighter.ref.baseStats.attack / target.baseStats.defense)));
+              const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power);
               target.currentHp = Math.max(0, target.currentHp - damage);
 
               const actionMsg = t.battleLogAttacks
                 .replace("{attacker}", fighterName)
                 .replace("{target}", targetName)
                 .replace("{jutsu}", jutsuName) + " " +
-                t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString());
+                t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
+                statusMsg;
 
               const stepLog = `🔴 ${actionMsg}`;
               logs.push(stepLog);
@@ -358,7 +423,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
                 actionText: jutsuName,
                 damage: damage,
                 isHealing: false,
-                elementSymbol: getNinjaElementSymbol(fighter.ref.characterId),
+                elementSymbol: getNinjaElementSymbol(fighter.ref.chakraNature),
                 isPlayerAttacking: false,
               });
 
@@ -383,7 +448,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
             }
           } else {
             // Basic Physical Attack
-            const damage = Math.max(5, Math.floor(15 * (fighter.ref.baseStats.attack / target.baseStats.defense)));
+            const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, 15);
             target.currentHp = Math.max(0, target.currentHp - damage);
             const jutsuName = lang === "it" ? "Attacco Fisico" : "Physical Attack";
 
@@ -391,7 +456,8 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               .replace("{attacker}", fighterName)
               .replace("{target}", targetName)
               .replace("{jutsu}", jutsuName) + " " +
-              t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString());
+              t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
+              statusMsg;
 
             const stepLog = `⚔️ ${actionMsg}`;
             logs.push(stepLog);

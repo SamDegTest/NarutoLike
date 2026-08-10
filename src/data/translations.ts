@@ -52,6 +52,11 @@ export const TRANSLATIONS = {
     lockMessageClassicButton: "🔒 Sconfiggi Gaara per sbloccare",
     startClassicButton: "Inizia Storia",
     startShippudenButton: "Inizia Shippuden",
+    totalRuns: "Run Totali",
+    classicRuns: "Run Bambini",
+    shippudenRuns: "Run Shippuden",
+    runCountLabel: "Run",
+    runStatsTitle: "Statistiche Run",
 
     // Starting Ninja Screen
     backToSagas: "← Indietro alle Saghe",
@@ -59,7 +64,8 @@ export const TRANSLATIONS = {
     sagaClassicName: "Naruto Bambini",
     sagaShippudenName: "Naruto Shippuden",
     chooseStarterTitle: "SCEGLI IL TUO NINJA DI PARTENZA",
-    chooseStarterDesc: "Per questa avventura avrai a disposizione un team che si espanderà fino a 6 membri. Scegli ora il tuo ninja iniziale tra queste 3 scelte casuali:",
+    chooseStarterDesc: "Per questa avventura avrai a disposizione un team che si espanderà fino a 6 membri. Scegli ora il tuo ninja iniziale tra queste 3 scelte estratte in base alla rarità:",
+    dropRatesNotice: "Probabilità Estrazione: Rank S (3%) • Rank A (12%) • Rank B (35%) • Rank C (50%)",
     statHp: "Punti Salute (HP)",
     statChakra: "Chakra Riserva",
     statAttack: "Attacco (ATK)",
@@ -226,6 +232,11 @@ export const TRANSLATIONS = {
     lockMessageClassicButton: "🔒 Defeat Gaara to unlock",
     startClassicButton: "Start Story",
     startShippudenButton: "Start Shippuden",
+    totalRuns: "Total Runs",
+    classicRuns: "Kid Runs",
+    shippudenRuns: "Shippuden Runs",
+    runCountLabel: "Run",
+    runStatsTitle: "Run Statistics",
 
     // Starting Ninja Screen
     backToSagas: "← Back to Sagas",
@@ -233,7 +244,8 @@ export const TRANSLATIONS = {
     sagaClassicName: "Naruto Kid",
     sagaShippudenName: "Naruto Shippuden",
     chooseStarterTitle: "CHOOSE YOUR STARTING NINJA",
-    chooseStarterDesc: "For this adventure you will have a team that expands up to 6 members. Choose your starting ninja now from these 3 random choices:",
+    chooseStarterDesc: "For this adventure you will have a team that expands up to 6 members. Choose your starting ninja now from these 3 choices drawn by rarity:",
+    dropRatesNotice: "Drop Rate Probabilities: Rank S (3%) • Rank A (12%) • Rank B (35%) • Rank C (50%)",
     statHp: "Health Points (HP)",
     statChakra: "Chakra Reserve",
     statAttack: "Attack (ATK)",

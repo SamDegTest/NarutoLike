@@ -12,7 +12,7 @@ export const PrivacyModal: React.FC<PrivacyModalProps> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-[#0f152d] border-4 border-[#ff9f1c] rounded-3xl max-w-lg w-full p-6 relative shadow-2xl">
+      <div className="bg-[#0f152d] border-4 border-[#ff9f1c] rounded-3xl max-w-lg w-full p-6 relative shadow-2xl max-h-[90dvh] overflow-y-auto">
         {/* Close Button */}
         <button
           onClick={onClose}

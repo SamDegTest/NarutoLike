@@ -8,10 +8,24 @@ export interface BaseStats {
 
 export type CharacterVersion = "kid" | "shippuden" | "boruto" | "special";
 
+export type NinjaRank = "S" | "A" | "B" | "C";
+
+export type ChakraNature =
+  | "Fire"      // Katon 🔥
+  | "Water"     // Suiton 💧
+  | "Wind"      // Fuuton 🌪️
+  | "Lightning" // Raiton ⚡
+  | "Earth"     // Doton 🪨
+  | "Ice"       // Hyoton ❄️
+  | "Taijutsu"  // Taijutsu 👊
+  | "YinYang";  // Yin-Yang ☯️
+
 export interface Ninja {
   id: string;             // Unique ID: e.g., "naruto_kid", "naruto_shippuden"
   characterId: string;    // Base character: e.g., "naruto"
   name: string;           // Display Name: e.g., "Naruto Uzumaki (Shippuden)"
+  rank: NinjaRank;        // Rank / Rarity: "S" | "A" | "B" | "C"
+  chakraNature: ChakraNature; // Primary Chakra Nature / Affinity
   version: CharacterVersion;
   baseStats: BaseStats;
   sprite: string;         // Relative path or filename: "/sprites/naruto_shippuden.png"

@@ -8,6 +8,9 @@ import { JUTSU_MAP } from "@/data/jutsus";
 import { Ninja, MapNode } from "@/types/index";
 import { BattleScreen } from "@/components/game/BattleScreen";
 import { NinjaAvatar } from "@/components/game/NinjaAvatar";
+import { ChakraNatureBadge } from "@/components/game/ChakraNatureBadge";
+import { RARITY_CONFIGS } from "@/lib/rarity";
+import { CHAKRA_NATURE_CONFIGS } from "@/lib/chakraNatures";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { TRANSLATIONS, translateNodeLabel, translateNinjaName, JUTSU_TRANSLATIONS } from "@/data/translations";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -15,6 +18,7 @@ import { AuthModal } from "@/components/game/AuthModal";
 import { CreditsModal } from "@/components/game/CreditsModal";
 import { PatchNotesModal } from "@/components/game/PatchNotesModal";
 import { PrivacyModal } from "@/components/game/PrivacyModal";
+import { ChakraChartModal } from "@/components/game/ChakraChartModal";
 
 export default function Home() {
   const {
@@ -40,10 +44,16 @@ export default function Home() {
     choosePowerUp,
     learnJutsu,
     chooseRecruit,
+    skipRecruit,
     selectSaga,
     selectStartingCharacter,
     endRun,
     defeatedBosses,
+    moveNinjaUp,
+    moveNinjaDown,
+    totalRunsCount,
+    classicRunsCount,
+    shippudenRunsCount,
   } = useGameStore();
 
   const { startBattle, isBattleActive } = useBattleStore();
@@ -53,6 +63,7 @@ export default function Home() {
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showPatchNotesModal, setShowPatchNotesModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showChakraChartModal, setShowChakraChartModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const [mounted, setMounted] = useState(false);
@@ -169,7 +180,7 @@ export default function Home() {
 
   return (
     <main
-      className={`bg-[#070b19] text-white select-none flex flex-col items-center ${isRunActive ? "h-screen max-h-screen overflow-hidden p-3" : "min-h-screen p-4 md:p-8"}`}
+      className="bg-[#070b19] text-white select-none flex flex-col items-center justify-between h-screen h-[100dvh] w-screen max-h-[100dvh] overflow-hidden p-2 sm:p-3"
       style={{
         backgroundImage: `linear-gradient(rgba(7, 11, 25, 0.85), rgba(7, 11, 25, 0.85)), url('/backgrounds/homepage.png')`,
         backgroundSize: "cover",
@@ -212,12 +223,12 @@ export default function Home() {
       )}
 
       {/* HEADER */}
-      <header className={`text-center border-b-4 border-[#ff9f1c] w-full max-w-6xl shrink-0 relative ${isRunActive ? "mb-2 pb-1" : "mb-6 pb-4"}`}>
+      <header className={`text-center border-b-2 sm:border-b-4 border-[#ff9f1c] w-full max-w-6xl shrink-0 relative ${isRunActive ? "mb-1 pb-1" : "mb-2 sm:mb-3 pb-1.5 sm:pb-2"}`}>
         {/* HAMBURGER MENU BUTTON */}
         {mounted && (
           <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-50 text-2xl text-[#ff9f1c] hover:text-yellow-400 p-2 focus:outline-none transition-all hover:scale-110 active:scale-95 cursor-pointer"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-50 text-xl sm:text-2xl text-[#ff9f1c] hover:text-yellow-400 p-1.5 sm:p-2 focus:outline-none transition-all hover:scale-110 active:scale-95 cursor-pointer"
             title="Menu"
           >
             ☰
@@ -288,6 +299,25 @@ export default function Home() {
                     )}
                   </div>
 
+                  {/* Run Statistics Box */}
+                  <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl text-left space-y-2">
+                    <h3 className="text-xs text-[#ff9f1c]/90 uppercase font-mono font-bold tracking-widest mb-2">
+                      📊 {t.runStatsTitle}
+                    </h3>
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-gray-400">{t.totalRuns}:</span>
+                      <span className="font-bold text-[#ff9f1c]">{totalRunsCount}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-gray-400">{t.classicRuns}:</span>
+                      <span className="font-bold text-green-400">{classicRunsCount}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-gray-400">{t.shippudenRuns}:</span>
+                      <span className="font-bold text-blue-400">{shippudenRunsCount}</span>
+                    </div>
+                  </div>
+
                   {/* Settings Item: Language */}
                   <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl text-left">
                     <h3 className="text-xs text-[#ff9f1c]/90 uppercase font-mono font-bold tracking-widest mb-3">
@@ -330,6 +360,18 @@ export default function Home() {
                     <span className="text-[#ff9f1c]">➔</span>
                   </button>
 
+                  {/* Chakra Chart Link */}
+                  <button
+                    onClick={() => {
+                      setShowChakraChartModal(true);
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
+                  >
+                    <span>☯️ {lang === "it" ? "Efficacia Chakra" : "Chakra Chart"}</span>
+                    <span className="text-[#ff9f1c]">➔</span>
+                  </button>
+
                 </div>
               </div>
 
@@ -341,11 +383,11 @@ export default function Home() {
           </>
         )}
 
-        <h1 className={`font-extrabold text-[#ff9f1c] tracking-widest drop-shadow-md uppercase ${isRunActive ? "text-3xl md:text-4xl" : "text-5xl md:text-7xl"}`}>
+        <h1 className={`font-extrabold text-[#ff9f1c] tracking-widest drop-shadow-md uppercase ${isRunActive ? "text-2xl sm:text-3xl md:text-4xl" : "text-3xl sm:text-4xl md:text-5xl"}`}>
           {t.title}
         </h1>
         {!isRunActive && (
-          <p className="text-gray-400 mt-2 text-sm md:text-base tracking-wide">
+          <p className="text-gray-400 mt-0.5 sm:mt-1 text-xs sm:text-sm tracking-wide">
             {t.subtitle}
           </p>
         )}
@@ -355,15 +397,15 @@ export default function Home() {
       {!isRunActive ? (
         !activeSagaId ? (
           /* ==================== SAGA MODE SELECTION VIEW ==================== */
-          <div className="max-w-4xl w-full space-y-8 animate-fade-in py-8">
-            <h2 className="text-3xl font-extrabold text-[#ff9f1c] border-b-2 border-gray-800 pb-3 mb-6 text-center uppercase tracking-wider">
+          <div className="max-w-4xl w-full flex-1 min-h-0 flex flex-col justify-center animate-fade-in py-1 sm:py-2">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-[#ff9f1c] border-b-2 border-gray-800 pb-2 mb-3 text-center uppercase tracking-wider shrink-0">
               {t.selectSaga}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-h-[460px] py-1">
               {/* UNLOCKED SAGA */}
               <div
                 onClick={() => selectSaga("classic_naruto")}
-                className="relative bg-[#0f152d] border-4 border-[#ff9f1c] hover:border-yellow-400 rounded-2xl cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-end shadow-2xl h-[480px] overflow-hidden"
+                className="relative bg-[#0f152d] border-4 border-[#ff9f1c] hover:border-yellow-400 rounded-2xl cursor-pointer hover:scale-[1.01] transition-all flex flex-col justify-end shadow-2xl h-full min-h-[220px] max-h-[420px] overflow-hidden"
                 style={{
                   backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.95)), url('/backgrounds/classic_naruto.png')`,
                   backgroundSize: "cover",
@@ -371,16 +413,21 @@ export default function Home() {
                   backgroundRepeat: "no-repeat",
                 }}
               >
-                {/* Status Badge */}
-                <span className="absolute top-3 right-3 bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded font-bold shadow-md z-10 border border-green-500/30">{t.active}</span>
+                {/* Status & Run Badges */}
+                <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+                  <span className="bg-[#070b19]/90 text-[#ff9f1c] text-[10px] px-2 py-0.5 rounded font-bold font-mono border border-[#ff9f1c]/30 shadow-md">
+                    🎮 {t.totalRuns}: {classicRunsCount}
+                  </span>
+                  <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded font-bold shadow-md border border-green-500/30">{t.active}</span>
+                </div>
 
                 {/* Description and button below */}
-                <div className="p-5 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent pt-16">
-                  <h3 className="text-2xl font-bold text-[#ff9f1c] mb-2 drop-shadow-md">{t.sagaClassicTitle}</h3>
-                  <p className="text-gray-300 text-sm leading-relaxed mb-4 drop-shadow pb-3">
+                <div className="p-4 sm:p-5 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent pt-12 sm:pt-16">
+                  <h3 className="text-xl sm:text-2xl font-bold text-[#ff9f1c] mb-1.5 drop-shadow-md">{t.sagaClassicTitle}</h3>
+                  <p className="text-gray-300 text-xs sm:text-sm leading-relaxed mb-3 drop-shadow pb-1">
                     {t.sagaClassicDesc}
                   </p>
-                  <button className="w-full py-3 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-sm transition-all border-b-4 border-amber-700">
+                  <button className="w-full py-2.5 sm:py-3 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-amber-700">
                     {t.startClassicButton}
                   </button>
                 </div>
@@ -390,7 +437,7 @@ export default function Home() {
               {isShippudenUnlocked ? (
                 <div
                   onClick={() => selectSaga("shippuden_naruto")}
-                  className="relative bg-[#0f152d] border-4 border-[#ff9f1c] hover:border-yellow-400 rounded-2xl cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-end shadow-2xl h-[480px] overflow-hidden"
+                  className="relative bg-[#0f152d] border-4 border-[#ff9f1c] hover:border-yellow-400 rounded-2xl cursor-pointer hover:scale-[1.01] transition-all flex flex-col justify-end shadow-2xl h-full min-h-[220px] max-h-[420px] overflow-hidden"
                   style={{
                     backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.95)), url('/backgrounds/shippuden_naruto.png')`,
                     backgroundSize: "cover",
@@ -398,16 +445,21 @@ export default function Home() {
                     backgroundRepeat: "no-repeat",
                   }}
                 >
-                  {/* Status Badge */}
-                  <span className="absolute top-3 right-3 bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded font-bold shadow-md z-10 border border-green-500/30">{t.unlocked}</span>
+                  {/* Status & Run Badges */}
+                  <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+                    <span className="bg-[#070b19]/90 text-[#ff9f1c] text-[10px] px-2 py-0.5 rounded font-bold font-mono border border-[#ff9f1c]/30 shadow-md">
+                      🎮 {t.totalRuns}: {shippudenRunsCount}
+                    </span>
+                    <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded font-bold shadow-md border border-green-500/30">{t.unlocked}</span>
+                  </div>
 
                   {/* Description and button below */}
-                  <div className="p-5 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent pt-16">
-                    <h3 className="text-2xl font-bold text-[#ff9f1c] mb-2 drop-shadow-md">{t.sagaShippudenTitle}</h3>
-                    <p className="text-gray-300 text-sm leading-relaxed mb-4 drop-shadow pb-3">
+                  <div className="p-4 sm:p-5 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent pt-12 sm:pt-16">
+                    <h3 className="text-xl sm:text-2xl font-bold text-[#ff9f1c] mb-1.5 drop-shadow-md">{t.sagaShippudenTitle}</h3>
+                    <p className="text-gray-300 text-xs sm:text-sm leading-relaxed mb-3 drop-shadow pb-1">
                       {t.sagaShippudenDesc}
                     </p>
-                    <button className="w-full py-3 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-sm transition-all border-b-4 border-amber-700">
+                    <button className="w-full py-2.5 sm:py-3 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-amber-700">
                       {t.startShippudenButton}
                     </button>
                   </div>
@@ -415,7 +467,7 @@ export default function Home() {
               ) : (
                 /* LOCKED SAGA */
                 <div
-                  className="relative bg-[#0f152d]/40 border-4 border-dashed border-gray-800 rounded-2xl opacity-50 cursor-not-allowed flex flex-col justify-end h-[480px] overflow-hidden"
+                  className="relative bg-[#0f152d]/40 border-4 border-dashed border-gray-800 rounded-2xl opacity-50 cursor-not-allowed flex flex-col justify-end h-full min-h-[220px] max-h-[420px] overflow-hidden"
                   style={{
                     backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.3), rgba(15, 21, 45, 0.98)), url('/backgrounds/shippuden_naruto.png')`,
                     backgroundSize: "cover",
@@ -426,12 +478,12 @@ export default function Home() {
                   {/* Status Badge */}
                   <span className="absolute top-3 right-3 bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded font-bold shadow-md z-10 border border-red-500/30">{t.locked}</span>
 
-                  <div className="p-5 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent pt-16">
-                    <h3 className="text-2xl font-bold text-gray-500 mb-2 drop-shadow-md">{t.sagaShippudenTitle}</h3>
-                    <p className="text-gray-550 text-sm leading-relaxed mb-4 drop-shadow pb-3">
+                  <div className="p-4 sm:p-5 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent pt-12 sm:pt-16">
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-500 mb-1.5 drop-shadow-md">{t.sagaShippudenTitle}</h3>
+                    <p className="text-gray-550 text-xs sm:text-sm leading-relaxed mb-3 drop-shadow pb-1">
                       {t.lockMessageClassic}
                     </p>
-                    <button disabled className="w-full py-3 bg-gray-800/40 text-gray-600 font-bold rounded-lg uppercase tracking-wider text-sm cursor-not-allowed">
+                    <button disabled className="w-full py-2.5 sm:py-3 bg-gray-800/40 text-gray-600 font-bold rounded-lg uppercase tracking-wider text-xs sm:text-sm cursor-not-allowed">
                       {t.lockMessageClassicButton}
                     </button>
                   </div>
@@ -441,71 +493,97 @@ export default function Home() {
           </div>
         ) : (
           /* ==================== STARTING CHARACTER CHOICE VIEW ==================== */
-          <div className="max-w-5xl w-full space-y-8 animate-fade-in text-center py-8">
-            <div>
+          <div className="max-w-5xl w-full flex-1 min-h-0 flex flex-col justify-between animate-fade-in text-center py-1 sm:py-2 px-1">
+            <div className="shrink-0 mb-1 flex items-center justify-between">
               <button
                 onClick={() => selectSaga(null)}
-                className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-[#ff9f1c] font-bold rounded border-2 border-gray-700 transition-colors text-xs float-left"
+                className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-[#ff9f1c] font-bold rounded border-2 border-gray-700 transition-colors text-xs"
               >
                 {t.backToSagas}
               </button>
-              <div className="text-xs text-gray-400 uppercase tracking-widest font-mono float-right mt-2">
-                {t.activeSaga}: {activeSagaId === "classic_naruto" ? t.sagaClassicName : t.sagaShippudenName}
+              <div className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-widest font-mono">
+                {t.activeSaga}: {activeSagaId === "classic_naruto" ? t.sagaClassicName : t.sagaShippudenName} • {t.runCountLabel} #{(activeSagaId === "classic_naruto" ? classicRunsCount : shippudenRunsCount) + 1}
               </div>
-              <div className="clear-both"></div>
             </div>
 
-            <h2 className="text-3xl font-extrabold text-[#ff9f1c] uppercase tracking-wider">{t.chooseStarterTitle}</h2>
-            <p className="text-gray-400 max-w-xl mx-auto text-sm">
-              {t.chooseStarterDesc}
-            </p>
+            <div className="shrink-0 space-y-1 my-1">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#ff9f1c] uppercase tracking-wider">{t.chooseStarterTitle}</h2>
+              <p className="text-gray-400 max-w-xl mx-auto text-xs sm:text-sm line-clamp-2">
+                {t.chooseStarterDesc}
+              </p>
+              <div className="flex flex-wrap justify-center items-center gap-2">
+                <div className="bg-[#070b19]/90 border border-yellow-500/40 rounded-lg py-1 px-3 inline-block text-[10px] sm:text-xs text-yellow-300 font-mono shadow-md">
+                  ⚡ {t.dropRatesNotice}
+                </div>
+                <button
+                  onClick={() => setShowChakraChartModal(true)}
+                  className="bg-[#070b19]/90 border border-[#ff9f1c]/50 hover:border-[#ff9f1c] text-[#ff9f1c] hover:text-yellow-300 rounded-lg py-1 px-3 text-[10px] sm:text-xs font-mono font-bold shadow-md transition-all cursor-pointer"
+                >
+                  ☯️ {lang === "it" ? "Tabella Chakra" : "Chakra Chart"}
+                </button>
+              </div>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 flex-1 min-h-0 py-1 my-auto max-h-[480px]">
               {startingChoices?.map((ninja) => {
                 const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
                 const translatedVersion = t[ninja.version as keyof typeof t] || ninja.version;
+                const rarity = RARITY_CONFIGS[ninja.rank || "C"];
+
                 return (
                   <div
                     key={ninja.id}
                     onClick={() => selectStartingCharacter(ninja.id)}
-                    className="bg-[#0f152d] border-4 border-[#ff9f1c] hover:border-yellow-400 rounded-3xl p-6 shadow-xl hover:scale-105 transition-all cursor-pointer flex flex-col justify-between"
+                    style={rarity.cardStyle}
+                    className={`relative rounded-2xl sm:rounded-3xl p-3 sm:p-4 shadow-xl hover:scale-[1.02] transition-all cursor-pointer flex flex-col justify-between h-full min-h-0 ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow}`}
                   >
-                    <div className="flex flex-col items-center">
+                    {/* Rank Badge */}
+                    <span className={`absolute top-3 right-3 text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full ${rarity.badgeBg} ${rarity.badgeTextColor} shadow-md uppercase tracking-wider z-10`}>
+                      {rarity.rankSymbol}
+                    </span>
+
+                    <div className="flex flex-col items-center flex-1 justify-center min-h-0">
                       <NinjaAvatar
                         src={ninja.sprite}
                         name={translatedName}
-                        className="w-24 h-24 object-contain bg-[#070b19] rounded-2xl border-2 border-[#ff9f1c]/45 p-2 mb-4"
+                        rank={ninja.rank}
+                        className="w-16 h-16 sm:w-20 sm:h-20 object-contain bg-black/30 rounded-xl sm:rounded-2xl border-2 border-white/10 p-1 mb-1 mt-1 shadow-inner shrink-0"
                       />
-                      <h3 className="text-2xl font-bold text-[#ff9f1c] mb-1">{translatedName}</h3>
-                      <span className="text-xs bg-gray-800 px-2 py-0.5 rounded text-gray-400 uppercase tracking-wider mb-4">
-                        {translatedVersion}
-                      </span>
+                      <h3 className={`text-base sm:text-lg md:text-xl font-bold mb-0.5 ${rarity.textColor}`}>{translatedName}</h3>
+                      
+                      <div className="flex items-center gap-1.5 mb-2 shrink-0">
+                        <ChakraNatureBadge nature={ninja.chakraNature} />
+                        <span className="text-[10px] bg-gray-900/80 border border-gray-700 px-1.5 py-0.5 rounded text-gray-300 uppercase tracking-wider">
+                          {translatedVersion}
+                        </span>
+                      </div>
 
-                      <div className="w-full text-xs text-gray-300 border-t-2 border-gray-800 pt-4 space-y-2">
-                        <div className="flex justify-between">
+                      {/* STATS OVERVIEW */}
+                      <div className="w-full text-[10px] sm:text-xs text-gray-300 border-t border-gray-800/80 pt-1.5 space-y-1">
+                        <div className="flex justify-between font-mono">
                           <span>{t.statHp}</span>
-                          <span className="font-bold text-white">{ninja.baseStats.hp}</span>
+                          <span className="font-bold text-green-400">{ninja.baseStats.hp}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between font-mono">
                           <span>{t.statChakra}</span>
-                          <span className="font-bold text-white">{ninja.baseStats.chakra}</span>
+                          <span className="font-bold text-blue-400">{ninja.baseStats.chakra}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between font-mono">
                           <span>{t.statAttack}</span>
-                          <span className="font-bold text-white">{ninja.baseStats.attack}</span>
+                          <span className="font-bold text-red-400">{ninja.baseStats.attack}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between font-mono">
                           <span>{t.statDefense}</span>
-                          <span className="font-bold text-white">{ninja.baseStats.defense}</span>
+                          <span className="font-bold text-amber-400">{ninja.baseStats.defense}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between font-mono">
                           <span>{t.statSpeed}</span>
-                          <span className="font-bold text-white">{ninja.baseStats.speed}</span>
+                          <span className="font-bold text-purple-400">{ninja.baseStats.speed}</span>
                         </div>
                       </div>
                     </div>
 
-                    <button className="w-full mt-6 py-2.5 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-xs transition-colors border-b-4 border-amber-700">
+                    <button className="w-full mt-2 sm:mt-3 py-2 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-xs transition-colors border-b-4 border-amber-700 shadow-md shrink-0">
                       {t.chooseShinobi}
                     </button>
                   </div>
@@ -524,7 +602,7 @@ export default function Home() {
               {t.team} ({runTeam.length} / 6)
             </h2>
             <div className="space-y-2 flex-1 overflow-y-auto pr-1">
-              {runTeam.map((ninja) => {
+              {runTeam.map((ninja, index) => {
                 const hpPercent = (ninja.currentHp / ninja.baseStats.hp) * 100;
                 const chakraPercent = (ninja.currentChakra / ninja.baseStats.chakra) * 100;
                 const isDefeated = ninja.currentHp <= 0;
@@ -534,6 +612,8 @@ export default function Home() {
                 const canUpgrade = pendingJutsuToLearn && !isMax && !isDefeated;
                 const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
 
+                const rarity = RARITY_CONFIGS[ninja.rank || "C"];
+
                 return (
                   <div
                     key={ninja.id}
@@ -542,23 +622,38 @@ export default function Home() {
                         learnJutsu(ninja.id);
                       }
                     }}
-                    className={`p-3 bg-[#070b19] rounded-xl border-2 transition-all ${isDefeated
-                        ? "border-red-900 opacity-40"
+                    style={!isDefeated && !canUpgrade ? rarity.cardStyle : undefined}
+                    className={`p-3 rounded-xl transition-all ${isDefeated
+                        ? "border-2 border-red-900 opacity-40 bg-[#070b19]"
                         : canUpgrade
-                          ? "border-green-500 cursor-pointer hover:border-green-400 hover:scale-[1.02] shadow-[0_0_10px_rgba(34,197,94,0.3)] animate-pulse"
-                          : "border-gray-800"
+                          ? "border-2 border-green-500 cursor-pointer hover:border-green-400 hover:scale-[1.02] shadow-[0_0_10px_rgba(34,197,94,0.3)] animate-pulse bg-[#070b19]"
+                          : `${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow}`
                       }`}
                   >
-                    <div className="flex gap-2 items-center mb-2">
+                    <div className="flex gap-2 items-center mb-1.5">
+                      {/* Position Turn Order Badge */}
+                      <span className="text-[10px] font-black font-mono text-[#ff9f1c] bg-black/40 px-1.5 py-0.5 rounded border border-white/10 shrink-0">
+                        #{index + 1}
+                      </span>
+
                       <NinjaAvatar
                         src={ninja.sprite}
                         name={translatedName}
-                        className="w-10 h-10 object-contain bg-gray-900 rounded border border-gray-700 p-0.5 shrink-0"
+                        rank={ninja.rank}
+                        className="w-10 h-10 object-contain bg-black/30 rounded border border-white/10 p-0.5 shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-bold truncate">{translatedName}</div>
-                        <div className="text-[9px] text-[#ff9f1c] uppercase tracking-widest font-mono flex items-center justify-between">
-                          <span>Lv. {ninja.level}</span>
+                        <div className="flex items-center justify-between gap-1">
+                          <div className={`text-xs font-bold truncate ${rarity.textColor}`}>{translatedName}</div>
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded-full ${rarity.badgeBg} ${rarity.badgeTextColor} shrink-0`}>
+                            {rarity.rankSymbol}
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-[#ff9f1c] uppercase tracking-widest font-mono flex items-center justify-between mt-0.5">
+                          <div className="flex items-center gap-1">
+                            <span>Lv. {ninja.level}</span>
+                            <ChakraNatureBadge nature={ninja.chakraNature} showText={false} />
+                          </div>
                           {pendingJutsuToLearn && (
                             isMax ? (
                               <span className="text-red-400 font-extrabold text-[8px]">{t.maxTech}</span>
@@ -568,6 +663,36 @@ export default function Home() {
                           )}
                         </div>
                       </div>
+
+                      {/* Reorder Team Turn Order Controls */}
+                      {runTeam.length > 1 && (
+                        <div className="flex flex-col gap-0.5 ml-0.5 shrink-0">
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveNinjaUp(index);
+                            }}
+                            className="w-5 h-4 text-[9px] font-bold bg-black/50 hover:bg-black/80 text-amber-300 rounded flex items-center justify-center disabled:opacity-20 transition-all cursor-pointer border border-white/10 active:scale-95"
+                            title={lang === "it" ? "Sposta in alto (Ordine Turno)" : "Move Up (Turn Order)"}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index === runTeam.length - 1}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveNinjaDown(index);
+                            }}
+                            className="w-5 h-4 text-[9px] font-bold bg-black/50 hover:bg-black/80 text-amber-300 rounded flex items-center justify-center disabled:opacity-20 transition-all cursor-pointer border border-white/10 active:scale-95"
+                            title={lang === "it" ? "Sposta in basso (Ordine Turno)" : "Move Down (Turn Order)"}
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* HP BAR */}
@@ -689,13 +814,27 @@ export default function Home() {
                 let iconSymbol = "⚔️";
                 const customLabel = translateNodeLabel(node.label, lang);
 
+                // Opponents and first enemy Chakra Nature information for battle/boss nodes
+                const oppNinjas = (node.opponents || [])
+                  .map((id) => NINJA_MAP.get(id))
+                  .filter((n): n is Ninja => n !== undefined);
+                const firstOppNinja = oppNinjas[0];
+
+                const oppDetails = oppNinjas
+                  .map((n) => `${translateNinjaName(n.id, n.name, lang)} (${CHAKRA_NATURE_CONFIGS[n.chakraNature]?.name[lang] || n.chakraNature})`)
+                  .join(" | ");
+
+                const fullTooltip = oppDetails
+                  ? `${customLabel} - ${lang === "it" ? "Nemici" : "Enemies"}: ${oppDetails}`
+                  : customLabel;
+
                 return (
                   <div
                     key={node.id}
                     onClick={() => selectable && selectNode(node.id)}
                     style={{ left: pos.left, top: pos.top }}
                     className={`absolute -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full border-2 flex items-center justify-center font-bold text-xl transition-all ${statusClass} ${disabledClass}`}
-                    title={isReachable ? customLabel : `${customLabel} (${lang === "it" ? "Non Raggiungibile" : "Unreachable"})`}
+                    title={isReachable ? fullTooltip : `${fullTooltip} (${lang === "it" ? "Non Raggiungibile" : "Unreachable"})`}
                   >
                     {node.type === "powerup" && (
                       <img
@@ -734,6 +873,17 @@ export default function Home() {
                       return iconSymbol;
                     })()}
                     {node.type !== "powerup" && node.type !== "recruit" && node.type !== "heal" && node.type !== "battle" && node.type !== "boss" && iconSymbol}
+
+                    {/* FIRST ENEMY CHAKRA NATURE BADGE OVERLAY */}
+                    {(node.type === "battle" || node.type === "boss") && firstOppNinja && (
+                      <div className="absolute -bottom-1 -right-1 z-20 pointer-events-none bg-black/80 p-0.5 rounded-full border border-yellow-500/50 shadow-lg">
+                        <ChakraNatureBadge
+                          nature={firstOppNinja.chakraNature}
+                          showText={false}
+                          className="scale-110"
+                        />
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -779,6 +929,7 @@ export default function Home() {
                         <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto mb-4 pr-1">
                           {runTeam.map((ninja) => {
                             const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
+                            const rarity = RARITY_CONFIGS[ninja.rank || "C"];
                             return (
                               <button
                                 key={ninja.id}
@@ -786,20 +937,27 @@ export default function Home() {
                                   chooseRecruit(pendingRecruitId, ninja.id);
                                   setPendingRecruitId(null);
                                 }}
-                                className="flex justify-between items-center bg-[#070b19] border-2 border-gray-800 hover:border-green-500 rounded-xl p-2.5 text-left transition-all w-full cursor-pointer hover:scale-[1.01]"
+                                style={rarity.cardStyle}
+                                className={`flex justify-between items-center ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow} rounded-xl p-2.5 text-left transition-all w-full cursor-pointer hover:scale-[1.01] shadow-md`}
                               >
                                 <div className="flex gap-2.5 items-center">
                                   <NinjaAvatar
                                     src={ninja.sprite}
                                     name={translatedName}
-                                    className="w-9 h-9 object-contain bg-gray-900 rounded border border-gray-700 p-0.5 shrink-0"
+                                    rank={ninja.rank}
+                                    className="w-9 h-9 object-contain bg-black/30 rounded border border-white/10 p-0.5 shrink-0"
                                   />
                                   <div>
-                                    <h4 className="font-bold text-gray-200 text-xs truncate">{translatedName}</h4>
-                                    <p className="text-[9px] text-gray-400">Lv. {ninja.level}</p>
+                                    <div className="flex items-center gap-1.5">
+                                      <h4 className={`font-bold text-xs truncate ${rarity.textColor}`}>{translatedName}</h4>
+                                      <span className={`text-[8px] px-1.5 py-0.2 rounded-full ${rarity.badgeBg} ${rarity.badgeTextColor} shrink-0`}>
+                                        {rarity.rankSymbol}
+                                      </span>
+                                    </div>
+                                    <p className="text-[9px] text-gray-400 font-mono">Lv. {ninja.level} • HP {ninja.baseStats.hp}</p>
                                   </div>
                                 </div>
-                                <span className="text-red-400 font-bold text-xs uppercase tracking-wider hover:text-red-300">
+                                <span className="text-red-400 font-bold text-xs uppercase tracking-wider hover:text-red-300 bg-red-950/60 border border-red-500/30 px-2 py-1 rounded">
                                   {lang === "it" ? "Congeda" : "Dismiss"}
                                 </span>
                               </button>
@@ -821,10 +979,10 @@ export default function Home() {
                         <p className="text-[11px] text-gray-400 mb-4">
                           {lang === "it" ? "Scegli 1 ninja da aggiungere alla tua squadra" : "Choose 1 ninja to add to your team"} (Lv. {runTeam[0]?.level || 5}).
                         </p>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-3 mb-4">
                           {availableRecruitChoices.map((ninja) => {
                             const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
-                            const translatedVersion = t[ninja.version as keyof typeof t] || ninja.version;
+                            const rarity = RARITY_CONFIGS[ninja.rank || "C"];
                             return (
                               <div
                                 key={ninja.id}
@@ -835,21 +993,43 @@ export default function Home() {
                                     chooseRecruit(ninja.id);
                                   }
                                 }}
-                                className="bg-[#070b19] border-2 border-gray-800 hover:border-green-500 p-2.5 rounded-xl cursor-pointer transition-all hover:scale-105 flex flex-col justify-between"
+                                style={rarity.cardStyle}
+                                className={`relative p-2.5 rounded-xl cursor-pointer transition-all hover:scale-105 flex flex-col justify-between ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow}`}
                               >
+                                <span className={`absolute top-1 right-1 text-[8px] px-1.5 py-0.2 rounded-full ${rarity.badgeBg} ${rarity.badgeTextColor}`}>
+                                  {rarity.rankSymbol}
+                                </span>
                                 <NinjaAvatar
                                   src={ninja.sprite}
                                   name={translatedName}
-                                  className="w-12 h-12 object-contain mx-auto mb-2 bg-gray-900 rounded p-1 border border-gray-800"
+                                  rank={ninja.rank}
+                                  className="w-12 h-12 object-contain mx-auto mb-1 mt-2 bg-black/30 rounded p-1 border border-white/10"
                                 />
-                                <h4 className="font-bold text-green-400 text-[10px] truncate mb-1">{translatedName}</h4>
-                                <span className="text-[8px] bg-gray-850 px-1 py-0.5 rounded text-gray-400 font-mono inline-block self-center">
-                                  {translatedVersion}
-                                </span>
+                                <h4 className={`font-bold text-[10px] truncate text-center ${rarity.textColor}`}>{translatedName}</h4>
+                                <div className="flex justify-center my-1">
+                                  <ChakraNatureBadge nature={ninja.chakraNature} showText={false} />
+                                </div>
+                                <div className="text-[8px] text-gray-300 font-mono grid grid-cols-2 gap-1 bg-black/40 p-1 rounded text-center border border-white/10">
+                                  <div>HP: {ninja.baseStats.hp}</div>
+                                  <div>ATK: {ninja.baseStats.attack}</div>
+                                  <div>DEF: {ninja.baseStats.defense}</div>
+                                  <div>SPD: {ninja.baseStats.speed}</div>
+                                </div>
                               </div>
                             );
                           })}
                         </div>
+                        {runTeam.length >= 6 && (
+                          <button
+                            onClick={() => {
+                              skipRecruit();
+                              setPendingRecruitId(null);
+                            }}
+                            className="w-full py-2.5 bg-[#070b19] hover:bg-gray-900 text-yellow-400 font-bold rounded-xl text-xs uppercase tracking-wider border-2 border-yellow-500/50 hover:border-yellow-400 transition-all cursor-pointer shadow-md"
+                          >
+                            ⚡ {lang === "it" ? "Salta Reclutamento (Mantieni Squadra Attuale)" : "Skip Recruitment (Keep Current Team)"}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -947,11 +1127,16 @@ export default function Home() {
                     { id: "orochimaru_shippuden", name: "Orochimaru" },
                     { id: "gaara_kid", name: "Gaara" },
                   ] : [
+                    { id: "deidara_boss", name: "Deidara" },
+                    { id: "hidan_boss", name: "Hidan" },
                     { id: "itachi_shippuden", name: "Itachi" },
-                    { id: "jiraiya_shippuden", name: "Jiraiya" },
-                    { id: "orochimaru_shippuden", name: "Orochimaru" },
-                    { id: "sasuke_susanoo", name: "Sasuke" },
-                    { id: "naruto_kcm", name: "Naruto" },
+                    { id: "kisame_shippuden", name: "Kisame" },
+                    { id: "pain_boss", name: "Pain" },
+                    { id: "kabuto_shippuden", name: "Kabuto" },
+                    { id: "obito_boss", name: "Tobi" },
+                    { id: "madara_boss", name: "Madara" },
+                    { id: "obito_tt", name: "Obito 10T" },
+                    { id: "madara_tt", name: "Madara 10T" },
                   ];
 
                   return (
@@ -1003,7 +1188,7 @@ export default function Home() {
       )}
 
       {!isRunActive && (
-        <footer className="w-full max-w-4xl text-center py-6 mt-6 border-t border-gray-800/40 text-xs text-gray-500 space-y-2">
+        <footer className="w-full max-w-4xl text-center py-1.5 sm:py-2 shrink-0 border-t border-gray-800/40 text-[10px] text-gray-500 space-y-1">
           <div>
             <button 
               onClick={() => setShowPrivacyModal(true)} 
@@ -1012,7 +1197,7 @@ export default function Home() {
               Privacy Policy
             </button>
           </div>
-          <p className="max-w-2xl mx-auto leading-relaxed px-4 text-[10px]">
+          <p className="max-w-2xl mx-auto leading-normal px-2 text-[9px] sm:text-[10px] line-clamp-2">
             {lang === "it"
               ? "Progetto amatoriale (Fan-made). Non affiliato, approvato o sponsorizzato da Masashi Kishimoto, Shueisha, Studio Pierrot o Bandai Namco. Tutti i nomi, personaggi e sprite di Naruto sono di proprietà dei rispettivi detentori dei diritti."
               : "Fan-made project. Not affiliated with, endorsed by, or sponsored by Masashi Kishimoto, Shueisha, Studio Pierrot, or Bandai Namco. All Naruto names, characters, and sprites are property of their respective owners."}
@@ -1024,6 +1209,7 @@ export default function Home() {
       {showCreditsModal && <CreditsModal onClose={() => setShowCreditsModal(false)} />}
       {showPatchNotesModal && <PatchNotesModal onClose={() => setShowPatchNotesModal(false)} />}
       {showPrivacyModal && <PrivacyModal onClose={() => setShowPrivacyModal(false)} />}
+      {showChakraChartModal && <ChakraChartModal onClose={() => setShowChakraChartModal(false)} />}
     </main>
   );
 }

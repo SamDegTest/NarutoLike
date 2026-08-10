@@ -7,4 +7,20 @@
 body {
   @apply bg-gray-950 text-white;
   font-family: 'VT323', monospace;
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+}
+
+/* Nasconde le barre di scorrimento ovunque pur consentendo lo scroll interno se necessario */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE e Edge vecchi */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
