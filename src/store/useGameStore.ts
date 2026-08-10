@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Ninja, RunNinja, MapNode, PowerUpItem, NodeType } from "@/types/index";
 import { NINJA_MAP } from "@/data/ninjas";
+import { sampleNinjasByRarity } from "@/lib/rarity";
 import { useBattleStore } from "./useBattleStore";
 import { useLanguageStore } from "./useLanguageStore";
 import { TRANSLATIONS } from "@/data/translations";
@@ -22,6 +23,10 @@ interface GameState {
   availableRecruitChoices: Ninja[] | null; // The 3 random ninjas offered to recruit
   shippudenUnlocked: boolean;
   defeatedBosses: string[];
+  totalRunsCount: number;
+  classicRunsCount: number;
+  shippudenRunsCount: number;
+  sagaStarterChoices: Record<string, Ninja[] | null>;
 
   // Actions
   selectSaga: (sagaId: string | null) => void;
@@ -35,6 +40,9 @@ interface GameState {
   learnJutsu: (ninjaId: string) => void;
   gainTeamLevels: (amount: number) => void;
   chooseRecruit: (id: string, replaceNinjaId?: string) => void;
+  skipRecruit: () => void;
+  moveNinjaUp: (index: number) => void;
+  moveNinjaDown: (index: number) => void;
   applyHealingAtCampfire: () => void;
   syncTeamStats: (updatedTeam: RunNinja[]) => void;
   advanceToNextLevel: () => void;
@@ -45,7 +53,11 @@ interface GameState {
   clearLocalSave: () => void;
 }
 
-const ALL_BOSS_IDS = ["mizuki", "haku", "zabuza", "orochimaru_shippuden", "itachi_shippuden", "itachi_susanoo", "jiraiya_shippuden", "jiraiya_sage", "tsunade_shippuden", "gaara_kid"];
+const ALL_BOSS_IDS = [
+  "mizuki", "haku", "zabuza", "orochimaru_shippuden", "gaara_kid",
+  "deidara_boss", "sasori_boss", "hidan_boss", "kakuzu_boss", "itachi_shippuden",
+  "kisame_shippuden", "pain_boss", "kabuto_shippuden", "obito_boss", "obito_tt", "madara_boss", "madara_tt"
+];
 
 const POWER_UP_POOL: PowerUpItem[] = [
   { id: "jutsu_upgrade", name: "Rotolo Proibito", description: "Migliora la mossa attiva di uno dei tuoi ninja", isJutsuUpgrade: true },
@@ -54,47 +66,87 @@ const POWER_UP_POOL: PowerUpItem[] = [
 function generateLevelMap(sagaId: string, level: number): MapNode[] {
   let bossId = "mizuki";
   let bossLabel = "Il Tradimento di Mizuki";
-  let opponentsPool = ["naruto_kid", "sasuke_kid", "sakura_kid", "gaara_kid", "kakashi_kid", "lee_kid", "neji_kid", "shikamaru_kid", "hinata_kid"];
+  let opponentsPool = [
+    "naruto_kid", "sasuke_kid", "sakura_kid", "gaara_kid", "kakashi_kid",
+    "lee_kid", "neji_kid", "shikamaru_kid", "hinata_kid", "tenten_kid",
+    "choji_kid", "ino_kid", "kiba_kid", "shino_kid", "temari_kid", "kankuro_kid", "iruka_kid"
+  ];
+
+  let bossOpponents: string[] = [bossId];
 
   if (sagaId === "classic_naruto") {
     if (level === 1) {
       bossId = "mizuki";
       bossLabel = "Il Tradimento di Mizuki";
+      bossOpponents = ["mizuki", "iruka_kid"];
     } else if (level === 2) {
       bossId = "haku";
-      bossLabel = "Specchi Diabolici: Haku";
+      bossLabel = "Specchi Diabolici: Haku & Zabuza";
+      bossOpponents = ["haku", "zabuza"];
     } else if (level === 3) {
       bossId = "zabuza";
-      bossLabel = "Il Demone della Nebbia: Zabuza";
+      bossLabel = "Il Demone della Nebbia: Zabuza & Haku";
+      bossOpponents = ["zabuza", "haku"];
     } else if (level === 4) {
       bossId = "orochimaru_shippuden";
-      bossLabel = "L'invasione della Foglia: Orochimaru";
+      bossLabel = "L'invasione della Foglia: Orochimaru & Kabuto";
+      bossOpponents = ["orochimaru_shippuden", "kabuto_shippuden"];
     } else if (level === 5) {
       bossId = "gaara_kid";
-      bossLabel = "Il Risveglio dello Shukaku: Gaara (Boss Finale)";
+      bossLabel = "Il Risveglio dello Shukaku: Gaara, Temari & Kankuro (Boss Finale)";
+      bossOpponents = ["gaara_kid", "temari_kid", "kankuro_kid"];
     }
   } else {
     // Shippuden saga setup
     opponentsPool = [
       "naruto_shippuden", "sasuke_shippuden", "sakura_shippuden", "kakashi_shippuden",
       "gaara_shippuden", "lee_shippuden", "neji_shippuden", "shikamaru_shippuden",
-      "hinata_shippuden", "sasuke_hebi"
+      "hinata_shippuden", "sasuke_hebi", "tenten_shippuden", "choji_shippuden",
+      "ino_shippuden", "kiba_shippuden", "shino_shippuden", "temari_shippuden",
+      "kankuro_shippuden", "guy_shippuden", "minato_shippuden", "kurenai_shippuden",
+      "asuma_shippuden", "hiruzen_shippuden", "konohamaru_kid", "konan_shippuden"
     ];
+
     if (level === 1) {
-      bossId = "itachi_shippuden";
-      bossLabel = "Il Destino degli Uchiha: Itachi";
+      bossId = "deidara_boss";
+      bossLabel = "Salvataggio del Kazekage: Deidara & Sasori";
+      bossOpponents = ["deidara_boss", "sasori_boss"];
     } else if (level === 2) {
-      bossId = "jiraiya_shippuden";
-      bossLabel = "Infiltrazione alla Pioggia: Jiraiya";
+      bossId = "hidan_boss";
+      bossLabel = "I Due Immortali: Hidan & Kakuzu";
+      bossOpponents = ["hidan_boss", "kakuzu_boss"];
     } else if (level === 3) {
-      bossId = "orochimaru_shippuden";
-      bossLabel = "Scontro dei Sannin: Orochimaru";
+      bossId = "itachi_shippuden";
+      bossLabel = "Lo Scontro dei Fratelli: Itachi & Kisame";
+      bossOpponents = ["itachi_shippuden", "kisame_shippuden"];
     } else if (level === 4) {
-      bossId = "sasuke_susanoo";
-      bossLabel = "La vendetta degli Uchiha: Sasuke Susanoo";
+      bossId = "kisame_shippuden";
+      bossLabel = "Caccia all'Ottacoda: Kisame & Itachi";
+      bossOpponents = ["kisame_shippuden", "itachi_shippuden"];
     } else if (level === 5) {
-      bossId = "naruto_kcm";
-      bossLabel = "Il Controllo del Chakra: Naruto KCM";
+      bossId = "pain_boss";
+      bossLabel = "Distruzione della Foglia: Pain & Konan";
+      bossOpponents = ["pain_boss", "konan_shippuden"];
+    } else if (level === 6) {
+      bossId = "kabuto_shippuden";
+      bossLabel = "Infiltrazione Eremitica: Kabuto & Orochimaru";
+      bossOpponents = ["kabuto_shippuden", "orochimaru_shippuden"];
+    } else if (level === 7) {
+      bossId = "obito_boss";
+      bossLabel = "Dichiarazione di Guerra: Obito & Deidara";
+      bossOpponents = ["obito_boss", "deidara_boss"];
+    } else if (level === 8) {
+      bossId = "madara_boss";
+      bossLabel = "La Leggenda Risorta: Madara & Obito";
+      bossOpponents = ["madara_boss", "obito_boss"];
+    } else if (level === 9) {
+      bossId = "obito_tt";
+      bossLabel = "Il Risveglio del Decacoda: Obito Jinchūriki & Madara";
+      bossOpponents = ["obito_tt", "madara_boss"];
+    } else if (level === 10) {
+      bossId = "madara_tt";
+      bossLabel = "L'Incubo del Sogno Infinito: Madara Decacoda & Obito Decacoda (Boss Finale)";
+      bossOpponents = ["madara_tt", "obito_tt"];
     }
   }
 
@@ -203,7 +255,7 @@ function generateLevelMap(sagaId: string, level: number): MapNode[] {
         stage: 7,
         connections: [],
         resolved: false,
-        opponents: [bossId],
+        opponents: bossOpponents,
       },
     ];
 
@@ -257,18 +309,32 @@ export const useGameStore = create<GameState>((set, get) => ({
   availableRecruitChoices: null,
   shippudenUnlocked: typeof window !== "undefined" ? localStorage.getItem("shippudenUnlocked") === "true" : false,
   defeatedBosses: typeof window !== "undefined" ? JSON.parse(localStorage.getItem("defeatedBosses") || "[]") : [],
+  totalRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("totalRunsCount") || 0) : 0,
+  classicRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("classicRunsCount") || 0) : 0,
+  shippudenRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("shippudenRunsCount") || 0) : 0,
+  sagaStarterChoices: {},
 
   selectSaga: (sagaId) => {
     if (sagaId) {
-      const isShippuden = sagaId === "shippuden_naruto";
-      const targetRoster = Array.from(NINJA_MAP.values()).filter((n) => {
-        const isCorrectVersion = isShippuden ? n.version === "shippuden" : n.version === "kid";
-        return isCorrectVersion && !ALL_BOSS_IDS.includes(n.id);
-      });
-      const shuffled = targetRoster.sort(() => 0.5 - Math.random());
+      const { sagaStarterChoices } = get();
+      let choices = sagaStarterChoices[sagaId];
+
+      if (!choices || choices.length === 0) {
+        const isShippuden = sagaId === "shippuden_naruto";
+        const targetRoster = Array.from(NINJA_MAP.values()).filter((n) => {
+          const isCorrectVersion = isShippuden ? n.version === "shippuden" : n.version === "kid";
+          return isCorrectVersion && !ALL_BOSS_IDS.includes(n.id);
+        });
+        choices = sampleNinjasByRarity(targetRoster, 3);
+      }
+
       set({
         activeSagaId: sagaId,
-        startingChoices: shuffled.slice(0, 3),
+        startingChoices: choices,
+        sagaStarterChoices: {
+          ...sagaStarterChoices,
+          [sagaId]: choices,
+        },
         playerTeam: [],
       });
     } else {
@@ -306,8 +372,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     })),
 
   startRun: () => {
-    const { playerTeam, activeSagaId } = get();
+    const { playerTeam, activeSagaId, totalRunsCount, classicRunsCount, shippudenRunsCount } = get();
     if (playerTeam.length === 0 || !activeSagaId) return;
+
+    const newTotalRuns = totalRunsCount + 1;
+    const isClassic = activeSagaId === "classic_naruto";
+    const newClassicRuns = isClassic ? classicRunsCount + 1 : classicRunsCount;
+    const newShippudenRuns = !isClassic ? shippudenRunsCount + 1 : shippudenRunsCount;
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("totalRunsCount", String(newTotalRuns));
+      localStorage.setItem("classicRunsCount", String(newClassicRuns));
+      localStorage.setItem("shippudenRunsCount", String(newShippudenRuns));
+    }
 
     const runTeam: RunNinja[] = playerTeam.map((ninja) => ({
       ...ninja,
@@ -327,6 +404,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
       defeatedBosses: [],
+      totalRunsCount: newTotalRuns,
+      classicRunsCount: newClassicRuns,
+      shippudenRunsCount: newShippudenRuns,
     });
   },
 
@@ -368,8 +448,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         return true;
       });
 
-      const shuffled = pool.sort(() => 0.5 - Math.random());
-      set({ availableRecruitChoices: shuffled.slice(0, 3) });
+      const sampledChoices = sampleNinjasByRarity(pool, 3);
+      set({ availableRecruitChoices: sampledChoices });
     }
 
     if (node.type === "battle" || node.type === "boss") {
@@ -546,12 +626,38 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().resolveCurrentNode();
   },
 
+  skipRecruit: () => {
+    set({ availableRecruitChoices: null });
+    get().resolveCurrentNode();
+  },
+
+  moveNinjaUp: (index: number) => {
+    const { runTeam } = get();
+    if (index <= 0 || index >= runTeam.length) return;
+    const newTeam = [...runTeam];
+    const temp = newTeam[index];
+    newTeam[index] = newTeam[index - 1];
+    newTeam[index - 1] = temp;
+    set({ runTeam: newTeam });
+  },
+
+  moveNinjaDown: (index: number) => {
+    const { runTeam } = get();
+    if (index < 0 || index >= runTeam.length - 1) return;
+    const newTeam = [...runTeam];
+    const temp = newTeam[index];
+    newTeam[index] = newTeam[index + 1];
+    newTeam[index + 1] = temp;
+    set({ runTeam: newTeam });
+  },
+
   advanceToNextLevel: () => {
     const { currentLevel, activeSagaId } = get();
     if (!activeSagaId) return;
 
     const nextLevel = currentLevel + 1;
-    if (nextLevel > 5) {
+    const maxLevel = activeSagaId === "classic_naruto" ? 5 : 10;
+    if (nextLevel > maxLevel) {
       const lang = useLanguageStore.getState().language;
       const t = TRANSLATIONS[lang];
       if (activeSagaId === "classic_naruto") {
@@ -584,6 +690,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerTeam: [],
       activeSagaId: null,
       startingChoices: null,
+      sagaStarterChoices: {},
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
     });
@@ -621,6 +728,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     await supabase.from("profiles").upsert({
       id: session.user.id,
       max_level_reached: state.shippudenUnlocked ? 6 : state.currentLevel,
+      total_runs: state.totalRunsCount,
+      classic_runs: state.classicRunsCount,
+      shippuden_runs: state.shippudenRunsCount,
       updated_at: new Date()
     });
   },
@@ -654,9 +764,31 @@ export const useGameStore = create<GameState>((set, get) => ({
         shippudenUnlocked: profile?.max_level_reached >= 5 || false
       });
     }
+
+    if (profile) {
+      if (profile.total_runs !== undefined && profile.total_runs > 0) {
+        set({ totalRunsCount: profile.total_runs });
+        if (typeof window !== "undefined") localStorage.setItem("totalRunsCount", String(profile.total_runs));
+      }
+      if (profile.classic_runs !== undefined && profile.classic_runs > 0) {
+        set({ classicRunsCount: profile.classic_runs });
+        if (typeof window !== "undefined") localStorage.setItem("classicRunsCount", String(profile.classic_runs));
+      }
+      if (profile.shippuden_runs !== undefined && profile.shippuden_runs > 0) {
+        set({ shippudenRunsCount: profile.shippuden_runs });
+        if (typeof window !== "undefined") localStorage.setItem("shippudenRunsCount", String(profile.shippuden_runs));
+      }
+    }
   },
 
   clearLocalSave: () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("totalRunsCount");
+      localStorage.removeItem("classicRunsCount");
+      localStorage.removeItem("shippudenRunsCount");
+      localStorage.removeItem("shippudenUnlocked");
+      localStorage.removeItem("defeatedBosses");
+    }
     set({
       isRunActive: false,
       currentNodeId: null,
@@ -664,10 +796,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerTeam: [],
       activeSagaId: null,
       startingChoices: null,
+      sagaStarterChoices: {},
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
       defeatedBosses: [],
-      shippudenUnlocked: false
+      shippudenUnlocked: false,
+      totalRunsCount: 0,
+      classicRunsCount: 0,
+      shippudenRunsCount: 0,
     });
   },
 }));

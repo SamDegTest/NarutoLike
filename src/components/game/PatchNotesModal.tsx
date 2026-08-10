@@ -13,6 +13,19 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ onClose }) => 
 
   const patchLogs = [
     {
+      version: "v1.2.0",
+      date: "06-08-2026",
+      notes: lang === "it" ? [
+        "Estesa la Modalità Shippuden a 10 Capitoli progressivi con tutti i villain principali del manga/anime.",
+        "Nuovi Boss Akatsuki e Guerra: Deidara & Sasori, Hidan & Kakuzu, Itachi, Kisame, Pain (Sei Vie), Kabuto Eremita, Obito (Tobi).",
+        "Aggiunti i Boss Finali con il Decacoda: Obito Jinchūriki e Madara Jinchūriki del Decacoda."
+      ] : [
+        "Extended Shippuden Mode to 10 progressive Chapters featuring all major anime/manga villains.",
+        "New Akatsuki & War Bosses: Deidara & Sasori, Hidan & Kakuzu, Itachi, Kisame, Six Paths Pain, Sage Kabuto, Obito (Tobi).",
+        "Added Ten-Tails Final Bosses: Obito Ten-Tails Jinchuriki and Madara Ten-Tails Jinchuriki."
+      ]
+    },
+    {
       version: "v1.1.0",
       date: "04-08-2026",
       notes: lang === "it" ? [
@@ -57,7 +70,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ onClose }) => 
 
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-[#0f152d] border-4 border-[#ff9f1c] rounded-3xl max-w-lg w-full p-6 relative shadow-2xl">
+      <div className="bg-[#0f152d] border-4 border-[#ff9f1c] rounded-3xl max-w-lg w-full p-6 relative shadow-2xl max-h-[90dvh] overflow-y-auto">
         {/* Close Button */}
         <button
           onClick={onClose}

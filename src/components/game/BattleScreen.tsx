@@ -5,6 +5,7 @@ import { NinjaAvatar } from "@/components/game/NinjaAvatar";
 import { JUTSU_MAP } from "@/data/jutsus";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { TRANSLATIONS, translateNinjaName } from "@/data/translations";
+import { ChakraChartModal } from "@/components/game/ChakraChartModal";
 
 function getElementImage(symbol: string): string {
   switch (symbol) {
@@ -36,6 +37,7 @@ export function BattleScreen() {
   const [imageError, setImageError] = useState(false);
   const [activeFighterId, setActiveFighterId] = useState<string | null>(null);
   const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
+  const [showChakraChartModal, setShowChakraChartModal] = useState(false);
 
   useEffect(() => {
     setImageError(false);
@@ -153,7 +155,7 @@ export function BattleScreen() {
     .filter(Boolean);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4 md:p-6 font-sans text-white overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-white overflow-hidden">
       <style>{`
         @keyframes flyCustom {
           0% { transform: translate(var(--start-x), var(--start-y)) scale(0.6); opacity: 0; }
@@ -183,7 +185,7 @@ export function BattleScreen() {
         }
       `}</style>
 
-      <div className="w-full max-w-5xl bg-gray-900 border-4 border-orange-500 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-full max-h-[88vh]">
+      <div className="w-full max-w-5xl bg-gray-900 border-4 border-orange-500 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-full max-h-[96dvh]">
         
         {/* HEADER WITH CONTROLS */}
         <header className="bg-orange-600/10 border-b border-orange-500/30 px-6 py-3 flex justify-between items-center shrink-0">
@@ -216,6 +218,15 @@ export function BattleScreen() {
                 {t.skipBattle} ⏩
               </button>
             )}
+
+            {/* CHAKRA CHART BUTTON */}
+            <button
+              onClick={() => setShowChakraChartModal(true)}
+              className="px-3 py-1 text-xs bg-gray-800 hover:bg-[#0f152d] text-yellow-400 font-bold border border-yellow-500/40 rounded transition-colors cursor-pointer"
+              title={lang === "it" ? "Tabella Efficacia Chakra" : "Chakra Effectiveness Chart"}
+            >
+              ☯️ {lang === "it" ? "Efficacia" : "Chart"}
+            </button>
 
             <div className="text-xs bg-gray-800 px-3 py-1 rounded border border-gray-700 text-gray-300">
               {lang === "it" ? "Stato" : "Status"}: <span className="font-semibold text-orange-400 uppercase">
@@ -472,6 +483,7 @@ export function BattleScreen() {
           </div>
         </footer>
       </div>
+      {showChakraChartModal && <ChakraChartModal onClose={() => setShowChakraChartModal(false)} />}
     </div>
   );
 }
