@@ -12,14 +12,8 @@ function getElementImage(symbol: string): string {
     case "🌪️": return "/elements/vento.png";
     case "⚡": return "/elements/fulmine.png";
     case "🪨": return "/elements/terra.png";
-    case "⏳": return "/elements/sabbia.png";
-    case "❄️": return "/elements/ghiaccio.png";
     case "💧": return "/elements/acqua.png";
     case "🔥": return "/elements/fuoco.png";
-    case "👊": return "/elements/fisico.png";
-    case "👥": return "/elements/ombra.png";
-    case "🐍": return "/elements/serpente.png";
-    case "🟢": return "/elements/cura.png";
     default: return "";
   }
 }
@@ -48,6 +42,32 @@ export function BattleScreen() {
 
   const stepsCount = battleSteps.length;
   const isFinished = currentStepIndex >= stepsCount - 1;
+
+  // Spacebar/Enter shortcut to skip battle animation or claim victory
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) return;
+
+      if (e.code === "Space" || e.code === "Enter") {
+        e.preventDefault();
+        if (isFinished) {
+          if (battleStatus === "victory") {
+            claimVictory();
+          } else {
+            resetBattle();
+            endRun();
+            selectSaga(null);
+          }
+        } else {
+          setCurrentStepIndex(Math.max(0, stepsCount - 1));
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFinished, battleStatus, stepsCount, claimVictory, resetBattle, endRun, selectSaga]);
 
   // Current step state
   const currentStep = battleSteps[currentStepIndex] || {
@@ -223,9 +243,9 @@ export function BattleScreen() {
             <button
               onClick={() => setShowChakraChartModal(true)}
               className="px-3 py-1 text-xs bg-gray-800 hover:bg-[#0f152d] text-yellow-400 font-bold border border-yellow-500/40 rounded transition-colors cursor-pointer"
-              title={lang === "it" ? "Tabella Efficacia Chakra" : "Chakra Effectiveness Chart"}
+              title={lang === "it" ? "Wiki & Guida Shinobi" : "Shinobi Wiki & Guide"}
             >
-              ☯️ {lang === "it" ? "Efficacia" : "Chart"}
+              📜 {lang === "it" ? "Wiki" : "Wiki"}
             </button>
 
             <div className="text-xs bg-gray-800 px-3 py-1 rounded border border-gray-700 text-gray-300">
@@ -449,10 +469,11 @@ export function BattleScreen() {
         </div>
 
         {/* BATTLE EVENT LOGS */}
-        <footer className="bg-gray-950 border-t border-gray-800 p-4 h-40 shrink-0 flex flex-col overflow-hidden">
-          <h4 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">{lang === "it" ? "Registro di Combattimento" : "Battle Logs"}</h4>
-          <div className="flex-1 overflow-y-auto space-y-1 font-mono text-xs text-gray-400 pr-1">
+        <footer className="bg-gray-950 border-t border-gray-800 p-4 h-44 shrink-0 flex flex-col overflow-hidden">
+          <h4 className="text-xs font-bold text-[#ff9f1c] mb-2 uppercase tracking-wider font-mono">{lang === "it" ? "Registro di Combattimento" : "Battle Logs"}</h4>
+          <div className="flex-1 overflow-y-auto space-y-1 font-mono text-xs sm:text-sm text-gray-200 pr-1">
             {visibleLogs.map((log, index) => {
+              const isSuperEffective = log.includes("SUPER EFFICACE");
               const isDamage = log.includes("danni") || log.includes("damage");
               const isHealing = log.includes("cura") || log.includes("heal");
               const isDefeated = log.includes("sconfitto") || log.includes("defeated");
@@ -462,17 +483,19 @@ export function BattleScreen() {
                 <p 
                   key={index} 
                   className={
-                    isDamage 
-                      ? "text-orange-300" 
+                    isSuperEffective
+                      ? "text-yellow-300 font-extrabold bg-yellow-950/60 p-1 rounded border border-yellow-500/40"
+                      : isDamage 
+                      ? "text-amber-200 font-semibold" 
                       : log.includes("usa") || log.includes("attacks")
-                      ? "text-blue-300" 
+                      ? "text-cyan-300 font-semibold" 
                       : isHealing
-                      ? "text-green-300"
+                      ? "text-emerald-300 font-semibold"
                       : isDefeated 
-                      ? "text-red-400" 
+                      ? "text-red-400 font-extrabold" 
                       : isRound
-                      ? "text-yellow-500 font-bold border-t border-gray-900 pt-1 mt-1 block"
-                      : "text-gray-400"
+                      ? "text-purple-300 font-bold border-t border-gray-800 pt-1 mt-1 block"
+                      : "text-gray-300"
                   }
                 >
                   {log}

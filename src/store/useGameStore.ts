@@ -6,6 +6,7 @@ import { useBattleStore } from "./useBattleStore";
 import { useLanguageStore } from "./useLanguageStore";
 import { TRANSLATIONS } from "@/data/translations";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuthStore } from "./useAuthStore";
 
 interface GameState {
   playerRoster: Ninja[];
@@ -43,6 +44,7 @@ interface GameState {
   skipRecruit: () => void;
   moveNinjaUp: (index: number) => void;
   moveNinjaDown: (index: number) => void;
+  setLeaderNinja: (index: number) => void;
   applyHealingAtCampfire: () => void;
   syncTeamStats: (updatedTeam: RunNinja[]) => void;
   advanceToNextLevel: () => void;
@@ -293,6 +295,8 @@ function generateLevelMap(sagaId: string, level: number): MapNode[] {
   return finalMap;
 }
 
+let isLoggingOut = false;
+
 export const useGameStore = create<GameState>((set, get) => ({
   playerRoster: Array.from(NINJA_MAP.values()),
   playerTeam: [],
@@ -307,6 +311,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   availablePowerUpChoices: null,
   pendingJutsuToLearn: null,
   availableRecruitChoices: null,
+
+  skipRecruit: () => {
+    set({ availableRecruitChoices: null });
+    get().resolveCurrentNode();
+  },
   shippudenUnlocked: typeof window !== "undefined" ? localStorage.getItem("shippudenUnlocked") === "true" : false,
   defeatedBosses: typeof window !== "undefined" ? JSON.parse(localStorage.getItem("defeatedBosses") || "[]") : [],
   totalRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("totalRunsCount") || 0) : 0,
@@ -416,6 +425,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!node || node.resolved) return;
 
     set({ currentNodeId: nodeId });
+
+    if (node.type === "heal") {
+      const { runTeam } = get();
+      const healedTeam = runTeam.map((ninja) => {
+        const healAmt = Math.floor(ninja.baseStats.hp * 0.35);
+        return {
+          ...ninja,
+          currentHp: Math.min(ninja.baseStats.hp, ninja.currentHp + healAmt),
+        };
+      });
+      set({ runTeam: healedTeam });
+      get().resolveCurrentNode();
+    }
 
     if (node.type === "powerup") {
       const { activePowerUps } = get();
@@ -622,33 +644,58 @@ export const useGameStore = create<GameState>((set, get) => ({
         availableRecruitChoices: null,
       });
     }
+    let updatedTeam = [...runTeam];
+    if (updatedTeam.length < 6) {
+      const newRunNinja: RunNinja = {
+        ...chosen,
+        level: 5,
+        currentHp: chosen.baseStats.hp,
+        currentChakra: chosen.baseStats.chakra,
+      };
+      updatedTeam.push(newRunNinja);
+    }
+
+    set({
+      runTeam: updatedTeam,
+      availableRecruitChoices: null,
+    });
 
     get().resolveCurrentNode();
   },
 
-  skipRecruit: () => {
-    set({ availableRecruitChoices: null });
-    get().resolveCurrentNode();
-  },
-
-  moveNinjaUp: (index: number) => {
+  moveNinjaUp: (index) => {
     const { runTeam } = get();
     if (index <= 0 || index >= runTeam.length) return;
-    const newTeam = [...runTeam];
-    const temp = newTeam[index];
-    newTeam[index] = newTeam[index - 1];
-    newTeam[index - 1] = temp;
-    set({ runTeam: newTeam });
+
+    const updated = [...runTeam];
+    const temp = updated[index];
+    updated[index] = updated[index - 1];
+    updated[index - 1] = temp;
+
+    set({ runTeam: updated });
   },
 
-  moveNinjaDown: (index: number) => {
+  moveNinjaDown: (index) => {
     const { runTeam } = get();
     if (index < 0 || index >= runTeam.length - 1) return;
-    const newTeam = [...runTeam];
-    const temp = newTeam[index];
-    newTeam[index] = newTeam[index + 1];
-    newTeam[index + 1] = temp;
-    set({ runTeam: newTeam });
+
+    const updated = [...runTeam];
+    const temp = updated[index];
+    updated[index] = updated[index + 1];
+    updated[index + 1] = temp;
+
+    set({ runTeam: updated });
+  },
+
+  setLeaderNinja: (index) => {
+    const { runTeam } = get();
+    if (index <= 0 || index >= runTeam.length) return;
+
+    const updated = [...runTeam];
+    const leader = updated.splice(index, 1)[0];
+    updated.unshift(leader);
+
+    set({ runTeam: updated });
   },
 
   advanceToNextLevel: () => {
@@ -656,41 +703,36 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!activeSagaId) return;
 
     const nextLevel = currentLevel + 1;
-    const maxLevel = activeSagaId === "classic_naruto" ? 5 : 10;
-    if (nextLevel > maxLevel) {
-      const lang = useLanguageStore.getState().language;
-      const t = TRANSLATIONS[lang];
-      if (activeSagaId === "classic_naruto") {
-        set({ shippudenUnlocked: true });
-        if (typeof window !== "undefined") {
-          localStorage.setItem("shippudenUnlocked", "true");
-        }
-        alert(t.alertVictoryClassic);
-      } else {
-        alert(t.alertVictoryShippuden);
+    let unlocked = false;
+
+    if (activeSagaId === "classic_naruto" && nextLevel >= 5) {
+      unlocked = true;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("shippudenUnlocked", "true");
       }
-      get().endRun();
-      return;
     }
 
-    set({
+    set((state) => ({
       currentLevel: nextLevel,
       activeMap: generateLevelMap(activeSagaId, nextLevel),
       currentNodeId: null,
       availablePowerUpChoices: null,
+      pendingJutsuToLearn: null,
       availableRecruitChoices: null,
-    });
+      shippudenUnlocked: state.shippudenUnlocked || unlocked,
+    }));
   },
 
   endRun: () => {
     set({
       isRunActive: false,
+      activeSagaId: null,
+      playerTeam: [],
+      runTeam: [],
       currentNodeId: null,
       activeMap: [],
-      playerTeam: [],
-      activeSagaId: null,
       startingChoices: null,
-      sagaStarterChoices: {},
+      availablePowerUpChoices: null,
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
     });
@@ -708,10 +750,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   saveToCloud: async () => {
+    if (isLoggingOut) return;
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
     const state = get();
+
+    // 1. Save active game save state
     await supabase.from("game_saves").upsert({
       id: session.user.id,
       updated_at: new Date(),
@@ -725,12 +771,48 @@ export const useGameStore = create<GameState>((set, get) => ({
       defeated_bosses: state.defeatedBosses
     });
 
+    // 2. Fetch existing profile stats using maybeSingle()
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("total_runs, classic_runs, shippuden_runs, max_level_reached")
+      .eq("id", session.user.id)
+      .maybeSingle();
+
+    const dbTotal = existingProfile?.total_runs ?? 0;
+    const dbClassic = existingProfile?.classic_runs ?? 0;
+    const dbShippuden = existingProfile?.shippuden_runs ?? 0;
+    const dbMaxLevel = existingProfile?.max_level_reached ?? 1;
+
+    // Strict non-decreasing calculation
+    const finalTotal = Math.max(dbTotal, state.totalRunsCount);
+    const finalClassic = Math.max(dbClassic, state.classicRunsCount);
+    const finalShippuden = Math.max(dbShippuden, state.shippudenRunsCount);
+    const finalMaxLevel = Math.max(dbMaxLevel, state.shippudenUnlocked ? 6 : state.currentLevel);
+
+    // Keep store synchronized
+    set({
+      totalRunsCount: finalTotal,
+      classicRunsCount: finalClassic,
+      shippudenRunsCount: finalShippuden,
+    });
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("totalRunsCount", String(finalTotal));
+      localStorage.setItem("classicRunsCount", String(finalClassic));
+      localStorage.setItem("shippudenRunsCount", String(finalShippuden));
+      localStorage.setItem("shippudenUnlocked", String(finalMaxLevel >= 5));
+      localStorage.setItem("defeatedBosses", JSON.stringify(state.defeatedBosses));
+    }
+
+    const userAuthName = useAuthStore.getState().username || session.user.user_metadata?.username || (session.user.email ? session.user.email.split("@")[0] : "Shinobi");
+
     await supabase.from("profiles").upsert({
       id: session.user.id,
-      max_level_reached: state.shippudenUnlocked ? 6 : state.currentLevel,
-      total_runs: state.totalRunsCount,
-      classic_runs: state.classicRunsCount,
-      shippuden_runs: state.shippudenRunsCount,
+      username: userAuthName,
+      max_level_reached: finalMaxLevel,
+      total_runs: finalTotal,
+      classic_runs: finalClassic,
+      shippuden_runs: finalShippuden,
       updated_at: new Date()
     });
   },
@@ -743,45 +825,62 @@ export const useGameStore = create<GameState>((set, get) => ({
       .from("game_saves")
       .select("*")
       .eq("id", session.user.id)
-      .single();
+      .maybeSingle();
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", session.user.id)
-      .single();
+      .maybeSingle();
 
     if (save) {
+      const isRunActive = save.is_run_active || false;
+      const loadedRunTeam = save.run_team || [];
+      const loadedMap = save.active_map || [];
+      const loadedBosses = save.defeated_bosses || [];
+
       set({
         activeSagaId: save.active_saga_id || null,
         currentLevel: save.current_level || 1,
-        currentNodeId: save.currentNodeId || null,
-        isRunActive: save.is_run_active || false,
-        runTeam: save.run_team || [],
-        activeMap: save.active_map || [],
+        currentNodeId: save.currentNodeId || save.current_node_id || null,
+        isRunActive: isRunActive,
+        runTeam: loadedRunTeam,
+        playerTeam: isRunActive ? loadedRunTeam : [],
+        activeMap: loadedMap,
         activePowerUps: save.active_power_ups || [],
-        defeatedBosses: save.defeated_bosses || [],
-        shippudenUnlocked: profile?.max_level_reached >= 5 || false
+        defeatedBosses: loadedBosses,
+        shippudenUnlocked: (profile?.max_level_reached || 0) >= 5 || false
       });
+
+      if (typeof window !== "undefined" && loadedBosses.length > 0) {
+        localStorage.setItem("defeatedBosses", JSON.stringify(loadedBosses));
+      }
     }
 
     if (profile) {
-      if (profile.total_runs !== undefined && profile.total_runs > 0) {
-        set({ totalRunsCount: profile.total_runs });
-        if (typeof window !== "undefined") localStorage.setItem("totalRunsCount", String(profile.total_runs));
-      }
-      if (profile.classic_runs !== undefined && profile.classic_runs > 0) {
-        set({ classicRunsCount: profile.classic_runs });
-        if (typeof window !== "undefined") localStorage.setItem("classicRunsCount", String(profile.classic_runs));
-      }
-      if (profile.shippuden_runs !== undefined && profile.shippuden_runs > 0) {
-        set({ shippudenRunsCount: profile.shippuden_runs });
-        if (typeof window !== "undefined") localStorage.setItem("shippudenRunsCount", String(profile.shippuden_runs));
+      const dbTotal = profile.total_runs ?? 0;
+      const dbClassic = profile.classic_runs ?? 0;
+      const dbShippuden = profile.shippuden_runs ?? 0;
+      const maxLevel = profile.max_level_reached ?? 1;
+
+      set({ 
+        totalRunsCount: dbTotal,
+        classicRunsCount: dbClassic,
+        shippudenRunsCount: dbShippuden,
+        shippudenUnlocked: maxLevel >= 5
+      });
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("totalRunsCount", String(dbTotal));
+        localStorage.setItem("classicRunsCount", String(dbClassic));
+        localStorage.setItem("shippudenRunsCount", String(dbShippuden));
+        localStorage.setItem("shippudenUnlocked", String(maxLevel >= 5));
       }
     }
   },
 
   clearLocalSave: () => {
+    isLoggingOut = true;
     if (typeof window !== "undefined") {
       localStorage.removeItem("totalRunsCount");
       localStorage.removeItem("classicRunsCount");
@@ -796,25 +895,28 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerTeam: [],
       activeSagaId: null,
       startingChoices: null,
-      sagaStarterChoices: {},
-      pendingJutsuToLearn: null,
-      availableRecruitChoices: null,
-      defeatedBosses: [],
       shippudenUnlocked: false,
       totalRunsCount: 0,
       classicRunsCount: 0,
       shippudenRunsCount: 0,
     });
+
+    setTimeout(() => {
+      isLoggingOut = false;
+    }, 1500);
   },
 }));
 
-// Auto-sync store subscription
 let saveTimeout: NodeJS.Timeout;
 useGameStore.subscribe((state) => {
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && !isLoggingOut) {
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
-      state.saveToCloud();
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session && !isLoggingOut) {
+          state.saveToCloud();
+        }
+      });
     }, 1000);
   }
 });

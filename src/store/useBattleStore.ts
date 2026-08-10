@@ -5,6 +5,7 @@ import { useGameStore } from "./useGameStore";
 import { useLanguageStore } from "./useLanguageStore";
 import { TRANSLATIONS, JUTSU_TRANSLATIONS, translateNinjaName } from "@/data/translations";
 import { CHAKRA_NATURE_CONFIGS, isSuperEffective } from "@/lib/chakraNatures";
+import { getSynergyStatMultipliers } from "@/lib/synergies";
 
 const getNinjaElementSymbol = (nature?: string): string => {
   if (!nature) return "👊";
@@ -16,11 +17,15 @@ const getNinjaElementSymbol = (nature?: string): string => {
 function executeElementalAttack(
   attacker: RunNinja,
   target: RunNinja,
-  basePower: number
+  basePower: number,
+  atkMult: number = 1,
+  defMult: number = 1,
+  critAddChance: number = 0
 ): { damage: number; statusMsg: string } {
   const nature = attacker.chakraNature || "Taijutsu";
   const targetNature = target.chakraNature || "Taijutsu";
-  let targetDefense = target.baseStats.defense;
+  let targetDefense = target.baseStats.defense * defMult;
+  let attackerAttack = attacker.baseStats.attack * atkMult;
   let attackPower = basePower;
   let statusMsg = "";
 
@@ -42,14 +47,14 @@ function executeElementalAttack(
     targetDefense = Math.floor(targetDefense * 1.25);
   }
 
-  // 3. Taijutsu (👊): 25% chance of Critical Hit (+50% damage)
-  if (nature === "Taijutsu" && Math.random() < 0.25) {
+  // 3. Taijutsu (👊) or Sharingan Crit (25% + critAddChance)
+  if ((nature === "Taijutsu" || critAddChance > 0) && Math.random() < (0.25 + critAddChance)) {
     attackPower = Math.floor(attackPower * 1.50);
-    statusMsg += " 👊[Taijutsu: COLPO CRITICO!]";
+    statusMsg += " 👊[CRITICO!]";
   }
 
   // Calculate damage
-  let damage = Math.max(5, Math.floor(attackPower * (attacker.baseStats.attack / targetDefense)));
+  let damage = Math.max(5, Math.floor(attackPower * (attackerAttack / targetDefense)));
 
   // Apply Super Effective multiplier
   if (isAdvantageous) {
@@ -197,6 +202,8 @@ export const useBattleStore = create<BattleState>((set, get) => ({
     while (pTeam.some((p) => p.currentHp > 0) && oppTeam.some((o) => o.currentHp > 0) && round <= 50) {
       logs.push(t.battleLogRound.replace("{round}", round.toString()));
 
+      const { atkMult, defMult, critAdd, healMult } = getSynergyStatMultipliers(pTeam);
+
       // Combine and sort alive fighters by speed
       const fighters = [
         ...pTeam.map((p) => ({ ref: p, isPlayer: true })),
@@ -229,8 +236,8 @@ export const useBattleStore = create<BattleState>((set, get) => ({
             const jutsuName = JUTSU_TRANSLATIONS[jutsu.id]?.name[lang] || jutsu.name;
 
             if (jutsu.power < 0) {
-              // Healing
-              const healVal = Math.abs(jutsu.power);
+              // Healing with synergy multiplier
+              const healVal = Math.floor(Math.abs(jutsu.power) * healMult);
               const lowestHpTeammate = pTeam
                 .filter((p) => p.currentHp > 0)
                 .sort((a, b) => a.currentHp - b.currentHp)[0];
@@ -262,8 +269,8 @@ export const useBattleStore = create<BattleState>((set, get) => ({
                 });
               }
             } else {
-              // Damage
-              const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power);
+              // Damage with player attack & crit synergy
+              const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power, atkMult, 1, critAdd);
               target.currentHp = Math.max(0, target.currentHp - damage);
 
               const actionMsg = t.battleLogAttacks
@@ -311,7 +318,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
             }
           } else {
             // Basic Physical Attack
-            const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, 15);
+            const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, 15, atkMult, 1, critAdd);
             target.currentHp = Math.max(0, target.currentHp - damage);
             const jutsuName = lang === "it" ? "Attacco Fisico" : "Physical Attack";
 
@@ -400,7 +407,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               });
             } else {
               // Damage
-              const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power);
+              const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power, 1, defMult, 0);
               target.currentHp = Math.max(0, target.currentHp - damage);
 
               const actionMsg = t.battleLogAttacks

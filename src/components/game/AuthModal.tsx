@@ -22,6 +22,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Password criteria evaluation
+  const reqLength = password.length >= 6;
+  const reqUppercase = /[A-Z]/.test(password);
+  const reqLowercase = /[a-z]/.test(password);
+  const reqNumber = /[0-9]/.test(password);
+  const reqSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+  const satisfiedCount = [reqLength, reqUppercase, reqLowercase, reqNumber, reqSpecial].filter(Boolean).length;
+
+  let strengthLabel = t.passwordStrengthVeryWeak;
+  let strengthColorText = "text-red-400";
+  let strengthBarBg = "bg-red-500";
+  let barWidth = "20%";
+
+  if (password.length === 0) {
+    barWidth = "0%";
+  } else if (satisfiedCount <= 1) {
+    strengthLabel = t.passwordStrengthVeryWeak;
+    strengthColorText = "text-red-400";
+    strengthBarBg = "bg-red-500";
+    barWidth = "20%";
+  } else if (satisfiedCount === 2) {
+    strengthLabel = t.passwordStrengthWeak;
+    strengthColorText = "text-orange-400";
+    strengthBarBg = "bg-orange-500";
+    barWidth = "40%";
+  } else if (satisfiedCount === 3) {
+    strengthLabel = t.passwordStrengthMedium;
+    strengthColorText = "text-yellow-300";
+    strengthBarBg = "bg-yellow-500";
+    barWidth = "60%";
+  } else if (satisfiedCount === 4) {
+    strengthLabel = t.passwordStrengthStrong;
+    strengthColorText = "text-lime-300";
+    strengthBarBg = "bg-lime-500";
+    barWidth = "80%";
+  } else if (satisfiedCount === 5) {
+    strengthLabel = t.passwordStrengthVeryStrong;
+    strengthColorText = "text-emerald-400";
+    strengthBarBg = "bg-emerald-500";
+    barWidth = "100%";
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -32,11 +75,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
       return;
     }
 
+    if (isRegister && !reqLength) {
+      setErrorMessage(t.authErrorPasswordReq);
+      return;
+    }
+
     try {
       if (isRegister) {
-        const { error } = await signUp(email, password, username);
-        if (error) {
-          setErrorMessage(error.message);
+        const res = await signUp(email, password, username);
+        if (res?.error) {
+          setErrorMessage(res.error.message);
+        } else if (res?.needsEmailConfirmation) {
+          setSuccessMessage(
+            lang === "it"
+              ? "Registrazione effettuata! Controlla la tua email per confermare l'account prima di accedere."
+              : "Registration successful! Please check your email to confirm your account."
+          );
         } else {
           setSuccessMessage(t.authSuccessRegister);
           setTimeout(() => onClose(), 1500);
@@ -102,13 +156,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
 
           <div>
             <label className="block text-[11px] text-gray-400 uppercase tracking-wider mb-1 font-mono">
-              {t.authEmail}
+              {isRegister ? t.authEmail : t.authEmailOrUsername}
             </label>
             <input
-              type="email"
+              type={isRegister ? "email" : "text"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="hokage@konoha.com"
+              placeholder={isRegister ? "hokage@konoha.com" : "hokage@konoha.com o NarutoUzumaki"}
               className="w-full bg-[#070b19] border-2 border-gray-800 focus:border-[#ff9f1c] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors"
               required
             />
@@ -126,6 +180,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
               className="w-full bg-[#070b19] border-2 border-gray-800 focus:border-[#ff9f1c] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors"
               required
             />
+
+            {/* REAL-TIME PASSWORD STRENGTH METER & REQUIREMENTS CHECKLIST */}
+            {isRegister && (
+              <div className="mt-2.5 p-3 bg-[#070b19]/90 border border-gray-800 rounded-xl space-y-2 text-xs animate-fade-in shadow-inner">
+                {/* STRENGTH METER BAR */}
+                <div>
+                  <div className="flex justify-between items-center text-[11px] mb-1 font-mono">
+                    <span className="text-gray-400">{t.passwordStrengthLabel}</span>
+                    <span className={`font-bold ${strengthColorText}`}>
+                      {password.length > 0 ? strengthLabel : "-"}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-900 rounded-full h-1.5 overflow-hidden border border-white/5">
+                    <div
+                      className={`h-full transition-all duration-300 ${strengthBarBg}`}
+                      style={{ width: barWidth }}
+                    />
+                  </div>
+                </div>
+
+                {/* REQUIREMENTS CHECKLIST */}
+                <div className="pt-2 border-t border-gray-800/80">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5 font-mono font-bold">
+                    {t.passwordReqTitle}
+                  </div>
+                  <ul className="space-y-1 text-[11px]">
+                    <li className={`flex items-center gap-1.5 transition-colors ${reqLength ? "text-emerald-400 font-bold" : "text-gray-500"}`}>
+                      <span className="font-mono">{reqLength ? "✓" : "✕"}</span>
+                      <span>{t.passwordReqLength}</span>
+                    </li>
+                    <li className={`flex items-center gap-1.5 transition-colors ${reqUppercase ? "text-emerald-400 font-bold" : "text-gray-500"}`}>
+                      <span className="font-mono">{reqUppercase ? "✓" : "✕"}</span>
+                      <span>{t.passwordReqUppercase}</span>
+                    </li>
+                    <li className={`flex items-center gap-1.5 transition-colors ${reqLowercase ? "text-emerald-400 font-bold" : "text-gray-500"}`}>
+                      <span className="font-mono">{reqLowercase ? "✓" : "✕"}</span>
+                      <span>{t.passwordReqLowercase}</span>
+                    </li>
+                    <li className={`flex items-center gap-1.5 transition-colors ${reqNumber ? "text-emerald-400 font-bold" : "text-gray-500"}`}>
+                      <span className="font-mono">{reqNumber ? "✓" : "✕"}</span>
+                      <span>{t.passwordReqNumber}</span>
+                    </li>
+                    <li className={`flex items-center gap-1.5 transition-colors ${reqSpecial ? "text-emerald-400 font-bold" : "text-gray-500"}`}>
+                      <span className="font-mono">{reqSpecial ? "✓" : "✕"}</span>
+                      <span>{t.passwordReqSpecial}</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
 
           <button
