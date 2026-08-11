@@ -30,13 +30,13 @@ export const TrophyUnlockNotification: React.FC<TrophyUnlockNotificationProps> =
 
   return (
     <div
-      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 transform ${
-        visible ? "translate-y-0 opacity-100 scale-100" : "-translate-y-12 opacity-0 scale-90"
+      className={`fixed bottom-5 right-5 z-[100] transition-all duration-500 transform ${
+        visible ? "translate-y-0 opacity-100 scale-100 pointer-events-auto" : "translate-y-12 opacity-0 scale-90 pointer-events-none"
       }`}
     >
       <div
         onClick={onDismiss}
-        className="bg-gradient-to-r from-amber-950/95 via-[#0f152d] to-yellow-950/95 border-2 border-yellow-400 p-4 rounded-2xl shadow-[0_0_35px_rgba(251,191,36,0.7)] flex items-center gap-4 max-w-md w-full cursor-pointer relative overflow-hidden backdrop-blur-md animate-bounce-short"
+        className="bg-gradient-to-r from-amber-950/95 via-[#0f152d] to-yellow-950/95 border-2 border-yellow-400 p-4 rounded-2xl shadow-[0_0_35px_rgba(251,191,36,0.7)] flex items-center gap-4 max-w-sm sm:max-w-md w-full cursor-pointer relative overflow-hidden backdrop-blur-md"
       >
         {/* Pulsing Background Rays */}
         <div className="absolute inset-0 bg-yellow-500/10 animate-pulse pointer-events-none" />

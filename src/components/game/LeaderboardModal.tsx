@@ -7,34 +7,54 @@ interface LeaderboardEntry {
   id: string;
   username: string | null;
   avatar_url: string | null;
+  selected_title: string | null;
   max_level_reached: number;
   total_runs: number;
   classic_runs: number;
   shippuden_runs: number;
+  total_score?: number;
+  classic_high_score?: number;
+  shippuden_high_score?: number;
 }
 
 interface LeaderboardModalProps {
   onClose: () => void;
 }
 
+type TabType = "total" | "classic" | "shippuden";
+
 export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) => {
   const { language: storeLang } = useLanguageStore();
   const lang = storeLang || "it";
   const { user } = useAuthStore();
 
+  const [activeTab, setActiveTab] = useState<TabType>("total");
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     async function fetchLeaderboard() {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Try querying the leaderboard view first
+      const { data: viewData, error: viewError } = await supabase
         .from("leaderboard")
         .select("*")
-        .limit(50);
+        .limit(100);
 
-      if (!error && data) {
-        setLeaderboard(data);
+      if (!viewError && viewData && viewData.length > 0) {
+        setLeaderboard(viewData);
+      } else {
+        // Fallback: Query profiles table directly if view has missing columns or needs schema refresh
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url, selected_title, max_level_reached, total_runs, classic_runs, shippuden_runs, total_score, classic_high_score, shippuden_high_score")
+          .order("total_score", { ascending: false })
+          .limit(100);
+
+        if (profileData) {
+          setLeaderboard(profileData);
+        }
       }
       setLoading(false);
     }
@@ -43,6 +63,26 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
   }, []);
 
   const defaultAvatar = "/default_avatar.png";
+
+  // Sort leaderboard entries based on active tab
+  const sortedLeaderboard = [...leaderboard].sort((a, b) => {
+    if (activeTab === "total") {
+      const scoreA = a.total_score || 0;
+      const scoreB = b.total_score || 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return (b.total_runs || 0) - (a.total_runs || 0);
+    } else if (activeTab === "classic") {
+      const scoreA = a.classic_high_score || 0;
+      const scoreB = b.classic_high_score || 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return (b.classic_runs || 0) - (a.classic_runs || 0);
+    } else {
+      const scoreA = a.shippuden_high_score || 0;
+      const scoreB = b.shippuden_high_score || 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return (b.shippuden_runs || 0) - (a.shippuden_runs || 0);
+    }
+  });
 
   return (
     <div
@@ -62,29 +102,129 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
           ✕
         </button>
 
-        <header className="text-center border-b-2 border-gray-800 pb-3 mb-4 shrink-0">
+        <header className="text-center border-b-2 border-gray-800 pb-3 mb-3 shrink-0">
           <h2 className="text-xl sm:text-2xl font-extrabold text-amber-300 uppercase tracking-wider flex items-center justify-center gap-2">
-            🏆 {lang === "it" ? "CLASSIFICA GLOBALE SHINOBI" : "GLOBAL SHINOBI LEADERBOARD"}
+            <img
+              src="/leaderboard_header.png"
+              alt="Classifica"
+              onError={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.display = "none";
+                const parent = target.parentElement;
+                if (parent && !parent.querySelector(".leaderboard-header-fallback")) {
+                  const span = document.createElement("span");
+                  span.className = "leaderboard-header-fallback";
+                  span.innerText = "🏆";
+                  parent.insertBefore(span, target);
+                }
+              }}
+              className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 filter drop-shadow-[0_0_10px_rgba(255,159,28,0.8)]"
+            />
+            <span>{lang === "it" ? "CLASSIFICA GLOBALE SHINOBI" : "GLOBAL SHINOBI LEADERBOARD"}</span>
           </h2>
           <p className="text-xs text-gray-400 mt-1">
             {lang === "it"
-              ? "I migliori 50 Ninja del mondo classificati per Livello Massimo e Run Totali."
-              : "Top 50 Shinobi worldwide ranked by Max Level and Total Runs."}
+              ? "Guadagna punti vincendo scontri, sconfiggendo boss ed evaporando le saghe!"
+              : "Earn points by winning battles, beating bosses, and clearing sagas!"}
           </p>
         </header>
+
+        {/* TABS NAVIGATION */}
+        <div className="flex gap-1.5 p-1 bg-[#070b19] rounded-xl border border-gray-800 mb-3 shrink-0">
+          <button
+            onClick={() => setActiveTab("total")}
+            className={`flex-1 py-2 px-2 rounded-lg text-xs sm:text-sm font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              activeTab === "total"
+                ? "bg-amber-500 text-[#070b19] shadow-md"
+                : "text-gray-400 hover:text-amber-300"
+            }`}
+          >
+            <img
+              src="/tab_total.png"
+              alt="Totali"
+              onError={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.display = "none";
+                const parent = target.parentElement;
+                if (parent && !parent.querySelector(".tab-total-fallback")) {
+                  const span = document.createElement("span");
+                  span.className = "tab-total-fallback";
+                  span.innerText = "🌐";
+                  parent.insertBefore(span, target);
+                }
+              }}
+              className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.6)]"
+            />
+            <span>{lang === "it" ? "Punti Totali" : "Total Score"}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("classic")}
+            className={`flex-1 py-2 px-2 rounded-lg text-xs sm:text-sm font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              activeTab === "classic"
+                ? "bg-amber-500 text-[#070b19] shadow-md"
+                : "text-gray-400 hover:text-amber-300"
+            }`}
+          >
+            <img
+              src="/tab_classic.png"
+              alt="Classic"
+              onError={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.display = "none";
+                const parent = target.parentElement;
+                if (parent && !parent.querySelector(".tab-classic-fallback")) {
+                  const span = document.createElement("span");
+                  span.className = "tab-classic-fallback";
+                  span.innerText = "🍥";
+                  parent.insertBefore(span, target);
+                }
+              }}
+              className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.6)]"
+            />
+            <span>Classic High Score</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("shippuden")}
+            className={`flex-1 py-2 px-2 rounded-lg text-xs sm:text-sm font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              activeTab === "shippuden"
+                ? "bg-amber-500 text-[#070b19] shadow-md"
+                : "text-gray-400 hover:text-amber-300"
+            }`}
+          >
+            <img
+              src="/tab_shippuden.png"
+              alt="Shippuden"
+              onError={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.display = "none";
+                const parent = target.parentElement;
+                if (parent && !parent.querySelector(".tab-shippuden-fallback")) {
+                  const span = document.createElement("span");
+                  span.className = "tab-shippuden-fallback";
+                  span.innerText = "⚡";
+                  parent.insertBefore(span, target);
+                }
+              }}
+              className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.6)]"
+            />
+            <span>Shippuden High Score</span>
+          </button>
+        </div>
 
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center py-12 text-amber-300 font-mono text-sm gap-2">
             <span className="text-3xl animate-spin">🌀</span>
             <span>{lang === "it" ? "Caricamento Classifica..." : "Loading Leaderboard..."}</span>
           </div>
-        ) : leaderboard.length === 0 ? (
+        ) : sortedLeaderboard.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-12 text-gray-400 font-mono text-xs">
             <span>🍃 {lang === "it" ? "Nessun dato in classifica ancora." : "No leaderboard records found yet."}</span>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-            {leaderboard.map((entry, index) => {
+            {sortedLeaderboard.map((entry, index) => {
               const isCurrentUser = user && user.id === entry.id;
               const rankNum = index + 1;
 
@@ -100,6 +240,21 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
               } else if (rankNum === 3) {
                 rankBadge = "🥉 #3";
                 rankStyle = "bg-gradient-to-r from-amber-700 to-amber-800 text-amber-100 font-black border-amber-500 shadow-md";
+              }
+
+              const displayTitle = entry.selected_title || (lang === "it" ? "Novizio di Konoha 🍃" : "Promising Genin 🍥");
+              
+              let scoreToDisplay = 0;
+              let scoreLabel = "";
+              if (activeTab === "total") {
+                scoreToDisplay = entry.total_score || 0;
+                scoreLabel = lang === "it" ? "Punti Totali" : "Total Pts";
+              } else if (activeTab === "classic") {
+                scoreToDisplay = entry.classic_high_score || 0;
+                scoreLabel = lang === "it" ? "Record Classic" : "Classic Best";
+              } else {
+                scoreToDisplay = entry.shippuden_high_score || 0;
+                scoreLabel = lang === "it" ? "Record Shippuden" : "Shippuden Best";
               }
 
               return (
@@ -133,34 +288,47 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-400 font-mono flex items-center gap-3 mt-0.5">
-                        <span className="flex items-center gap-1">
-                          <img
-                            src="/run.png"
-                            alt="Run"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              if (target.src.endsWith("/run.png")) {
-                                target.src = "/icon.png";
-                              } else {
-                                target.style.display = "none";
-                              }
-                            }}
-                            className="w-3.5 h-3.5 object-contain shrink-0 filter drop-shadow-[0_0_4px_rgba(255,159,28,0.6)]"
-                          />
-                          <span>Run: <strong className="text-amber-300">{entry.total_runs || 0}</strong></span>
-                        </span>
-                        <span>⚡ Liv. Max: <strong className="text-green-400">{entry.max_level_reached || 1}</strong></span>
+                      <div className="text-[11px] text-amber-400/90 font-mono font-semibold truncate max-w-[170px] sm:max-w-[220px]">
+                        {displayTitle}
+                      </div>
+                      <div className="text-xs text-gray-400 font-mono flex items-center gap-2 sm:gap-3 flex-wrap mt-0.5">
+                        {activeTab === "total" && (
+                          <>
+                            <span className="flex items-center gap-1">
+                              <span>Run Totali: <strong className="text-amber-300">{entry.total_runs || 0}</strong></span>
+                            </span>
+                            <span className="text-gray-600">•</span>
+                            <span className="text-amber-200">
+                              Classic: <strong>{entry.classic_runs || 0}</strong>
+                            </span>
+                            <span className="text-gray-600">•</span>
+                            <span className="text-purple-300">
+                              Shippuden: <strong>{entry.shippuden_runs || 0}</strong>
+                            </span>
+                          </>
+                        )}
+
+                        {activeTab === "classic" && (
+                          <span className="flex items-center gap-1">
+                            <span>Run Classic: <strong className="text-amber-300">{entry.classic_runs || 0}</strong></span>
+                          </span>
+                        )}
+
+                        {activeTab === "shippuden" && (
+                          <span className="flex items-center gap-1">
+                            <span>Run Shippuden: <strong className="text-purple-300">{entry.shippuden_runs || 0}</strong></span>
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-bold text-amber-300 font-mono">
-                      Level {entry.max_level_reached || 1}
+                    <div className="text-sm sm:text-base font-extrabold text-amber-300 font-mono">
+                      {scoreToDisplay.toLocaleString()} pts
                     </div>
-                    <div className="text-[10px] text-gray-500 font-mono">
-                      {entry.shippuden_runs > 0 ? "Shippuden Veteran" : "Classic Genin"}
+                    <div className="text-[10px] text-gray-400 font-mono">
+                      {scoreLabel}
                     </div>
                   </div>
                 </div>

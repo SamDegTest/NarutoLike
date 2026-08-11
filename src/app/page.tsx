@@ -63,11 +63,12 @@ export default function Home() {
     totalRunsCount,
     classicRunsCount,
     shippudenRunsCount,
+    totalScore,
   } = useGameStore();
 
   const { startBattle, isBattleActive } = useBattleStore();
 
-  const { user, username, avatarUrl, initialize: initAuth, signOut: logOut } = useAuthStore();
+  const { user, username, avatarUrl, selectedTitle, initialize: initAuth, signOut: logOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showPatchNotesModal, setShowPatchNotesModal] = useState(false);
@@ -272,14 +273,23 @@ export default function Home() {
       )}
 
       {/* HEADER */}
-      <header className={`text-center border-b-2 sm:border-b-4 border-[#ff9f1c] w-full max-w-6xl shrink-0 relative ${isRunActive ? "mb-1 pb-1" : "mb-2 sm:mb-3 pb-1.5 sm:pb-2"}`}>
-        {/* TOP LEFT CONTROLS: TROPHIES & LEADERBOARD BUTTONS */}
-        <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-3 z-40">
+      <header className={`text-center w-full shrink-0 relative ${isRunActive ? "mb-1 pb-1.5" : "mb-2 sm:mb-3 pb-2 sm:pb-3"}`}>
+        
+        {/* TOP LEFT CONTROLS: HAMBURGER MENU, TROPHIES & LEADERBOARD (ANGOLO IN ALTO A SINISTRA) */}
+        <div className="absolute left-2 sm:left-4 top-2 flex items-center gap-2 sm:gap-3 z-40">
           {mounted && (
             <>
+              <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="h-14 w-14 min-h-[56px] min-w-[56px] flex items-center justify-center text-xl text-[#ff9f1c] hover:text-yellow-300 focus:outline-none transition-all hover:scale-105 active:scale-95 cursor-pointer bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl shadow-xl shrink-0"
+                title="Menu"
+              >
+                ☰
+              </button>
+
               <button
                 onClick={() => setShowAchievementsModal(true)}
-                className="h-14 min-h-[56px] px-4 sm:px-5 flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl shadow-2xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                className="h-14 min-h-[56px] px-3.5 sm:px-4 flex items-center gap-2 text-xs sm:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
                 title={lang === "it" ? "Trofei & Obiettivi" : "Trophies & Achievements"}
               >
                 <img
@@ -300,14 +310,14 @@ export default function Home() {
                       }
                     }
                   }}
-                  className="h-7 w-auto object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)] transition-transform hover:scale-110"
+                  className="w-6 h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)] transition-transform hover:scale-110"
                 />
-                <span className="hidden md:inline">{lang === "it" ? "Trofei" : "Trophies"}</span>
+                <span>{lang === "it" ? "Trofei" : "Trophies"}</span>
               </button>
 
               <button
                 onClick={() => setShowLeaderboardModal(true)}
-                className="h-14 min-h-[56px] px-4 sm:px-5 flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl shadow-2xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                className="h-14 min-h-[56px] px-3.5 sm:px-4 flex items-center gap-2 text-xs sm:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
                 title={lang === "it" ? "Classifica Globale Online" : "Global Online Leaderboard"}
               >
                 <img
@@ -328,187 +338,53 @@ export default function Home() {
                       }
                     }
                   }}
-                  className="h-7 w-auto object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)] transition-transform hover:scale-110"
+                  className="w-6 h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)] transition-transform hover:scale-110"
                 />
-                <span className="hidden md:inline">{lang === "it" ? "Classifica" : "Leaderboard"}</span>
+                <span>{lang === "it" ? "Classifica" : "Leaderboard"}</span>
               </button>
             </>
           )}
         </div>
 
-        {/* TOP RIGHT CONTROLS: USER PROFILE WIDGET & HAMBURGER MENU BUTTON */}
-        <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-3 z-40">
+        {/* TOP RIGHT CONTROLS: TOTAL CUMULATIVE SCORE & USER PROFILE (ANGOLO IN ALTO A DESTRA) */}
+        <div className="absolute right-2 sm:right-4 top-2 flex items-center gap-2 sm:gap-3 z-40">
+          {mounted && (
+            <div
+              className="h-14 min-h-[56px] px-3.5 sm:px-4 flex items-center justify-center gap-2.5 text-xs sm:text-sm font-mono font-extrabold text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 rounded-2xl shadow-xl shrink-0 select-none"
+            >
+              <img
+                src="/score_icon.png"
+                alt="Punti"
+                onError={(e) => {
+                  const target = e.target as HTMLElement;
+                  target.style.display = "none";
+                  const parent = target.parentElement;
+                  if (parent && !parent.querySelector(".header-score-fallback")) {
+                    const span = document.createElement("span");
+                    span.className = "header-score-fallback text-base";
+                    span.innerText = "🏆";
+                    parent.insertBefore(span, target);
+                  }
+                }}
+                className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+              />
+              <div className="text-left flex flex-col justify-center leading-tight">
+                <span className="text-[9px] text-amber-400 uppercase tracking-widest font-mono hidden sm:inline">Punti Totali</span>
+                <span className="text-xs sm:text-sm font-black text-amber-300 font-mono">
+                  {totalScore.toLocaleString()} <span className="text-[10px] font-normal">pts</span>
+                </span>
+              </div>
+            </div>
+          )}
+
           <UserProfileBadge
             onOpenAuthModal={() => setShowAuthModal(true)}
             onOpenProfileModal={() => setShowProfileModal(true)}
           />
-          {mounted && (
-            <button 
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="h-14 w-14 min-h-[56px] min-w-[56px] flex items-center justify-center text-2xl text-[#ff9f1c] hover:text-yellow-300 focus:outline-none transition-all hover:scale-105 active:scale-95 cursor-pointer bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl shadow-2xl shrink-0"
-              title="Menu"
-            >
-              ☰
-            </button>
-          )}
         </div>
 
-        {/* HAMBURGER SIDE DRAWER */}
-        {isMenuOpen && (
-          <>
-            {/* Backdrop overlay */}
-            <div 
-              onClick={() => setIsMenuOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 transition-opacity animate-fade-in"
-            />
-            {/* Drawer */}
-            <div className="fixed top-0 right-0 h-full w-80 bg-[#0f152d] border-l-4 border-[#ff9f1c] shadow-2xl z-50 p-6 flex flex-col justify-between animate-slide-in">
-              <div>
-                <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3 mb-6">
-                  <h2 className="text-xl font-extrabold text-[#ff9f1c] tracking-wider font-mono">
-                    {t.menuTitle}
-                  </h2>
-                  <button 
-                    onClick={() => setIsMenuOpen(false)}
-                    className="text-gray-400 hover:text-red-400 text-lg cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Auth Section */}
-                  <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl flex flex-col gap-3 text-left">
-                    {user ? (
-                      <div>
-                        <div className="text-sm font-bold text-amber-300 font-mono truncate mb-3 flex items-center gap-3 bg-[#0f152d] p-2.5 rounded-xl border border-amber-500/40">
-                          <img
-                            src={avatarUrl || "/default_avatar.png"}
-                            alt="Profile"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = "/default_avatar.png";
-                            }}
-                            className="w-9 h-9 rounded-xl object-cover shrink-0 border border-amber-400/80 shadow-inner"
-                          />
-                          <span className="truncate text-sm font-extrabold">{username || user?.user_metadata?.username || user?.email?.split("@")[0] || "Ninja"}</span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            logOut();
-                            setIsMenuOpen(false);
-                          }}
-                          className="w-full py-2 bg-red-950/40 hover:bg-red-900/30 text-red-400 font-bold border border-red-500/20 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer"
-                        >
-                          {t.authSignOut}
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-[11px] text-gray-400 mb-3">
-                          {lang === "it" 
-                            ? "Accedi per sincronizzare i salvataggi ed i progressi in cloud."
-                            : "Sign in to synchronize your active saves and progression to the cloud."}
-                        </p>
-                        <button
-                          onClick={() => {
-                            setShowAuthModal(true);
-                            setIsMenuOpen(false);
-                          }}
-                          className="w-full py-2 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer"
-                        >
-                          {t.authCloudSaves}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Run Statistics Box */}
-                  <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl text-left space-y-2">
-                    <h3 className="text-xs text-[#ff9f1c]/90 uppercase font-mono font-bold tracking-widest mb-2">
-                      📊 {t.runStatsTitle}
-                    </h3>
-                    <div className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-gray-400">{t.totalRuns}:</span>
-                      <span className="font-bold text-[#ff9f1c]">{totalRunsCount}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-gray-400">{t.classicRuns}:</span>
-                      <span className="font-bold text-green-400">{classicRunsCount}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-gray-400">{t.shippudenRuns}:</span>
-                      <span className="font-bold text-blue-400">{shippudenRunsCount}</span>
-                    </div>
-                  </div>
-
-                  {/* Settings Item: Language */}
-                  <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl text-left">
-                    <h3 className="text-xs text-[#ff9f1c]/90 uppercase font-mono font-bold tracking-widest mb-3">
-                      ⚙️ {t.menuSettings}
-                    </h3>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-300">
-                        {lang === "it" ? "Lingua Gioco" : "Game Language"}
-                      </span>
-                      <button 
-                        onClick={() => setLanguage(lang === "it" ? "en" : "it")}
-                        className="px-3 py-1 bg-gray-900 hover:bg-gray-800 text-[#ff9f1c] font-extrabold rounded border border-[#ff9f1c]/30 uppercase tracking-widest transition-all cursor-pointer"
-                      >
-                        🌐 {lang === "it" ? "IT" : "EN"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Credits Link */}
-                  <button
-                    onClick={() => {
-                      setShowCreditsModal(true);
-                      setIsMenuOpen(false);
-                    }}
-                    className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
-                  >
-                    <span>🍥 {t.menuCredits}</span>
-                    <span className="text-[#ff9f1c]">➔</span>
-                  </button>
-
-                  {/* Patch Notes Link */}
-                  <button
-                    onClick={() => {
-                      setShowPatchNotesModal(true);
-                      setIsMenuOpen(false);
-                    }}
-                    className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
-                  >
-                    <span>📜 {t.menuPatchNotes}</span>
-                    <span className="text-[#ff9f1c]">➔</span>
-                  </button>
-
-                  {/* Chakra Chart Link */}
-                  <button
-                    onClick={() => {
-                      setShowChakraChartModal(true);
-                      setIsMenuOpen(false);
-                    }}
-                    className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
-                  >
-                    <span>📜 {lang === "it" ? "Wiki Shinobi & Guida" : "Shinobi Wiki & Guide"}</span>
-                    <span className="text-[#ff9f1c]">➔</span>
-                  </button>
-
-                </div>
-              </div>
-
-              {/* Version Footer */}
-              <div className="text-center text-[10px] text-gray-600 font-mono border-t border-gray-850 pt-4">
-                NarutoLike v1.1.0 © 2026
-              </div>
-            </div>
-          </>
-        )}
-
-
-
-        <div className="flex items-center justify-center">
+        {/* LOGO & SUBTITLE (CENTERED IN HEADER) */}
+        <div className="flex flex-col items-center justify-center pt-1">
           <img
             src="/logo.png"
             alt="NarutoLike"
@@ -518,46 +394,46 @@ export default function Home() {
               const parent = (e.target as HTMLElement).parentElement;
               if (parent && !parent.querySelector(".logo-fallback")) {
                 const fallback = document.createElement("h1");
-                fallback.className = `logo-fallback font-extrabold text-[#ff9f1c] tracking-widest drop-shadow-md uppercase ${isRunActive ? "text-2xl sm:text-3xl md:text-4xl" : "text-3xl sm:text-4xl md:text-5xl"}`;
+                fallback.className = `logo-fallback font-extrabold text-[#ff9f1c] tracking-widest drop-shadow-[0_0_20px_rgba(255,159,28,0.8)] uppercase ${isRunActive ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl md:text-6xl"}`;
                 fallback.innerText = "NARUTOLIKE";
                 parent.appendChild(fallback);
               }
             }}
-            className={`object-contain transition-all drop-shadow-[0_0_25px_rgba(255,159,28,0.6)] ${
-              isRunActive ? "h-10 sm:h-12 md:h-14" : "h-14 sm:h-18 md:h-20"
+            className={`object-contain transition-all drop-shadow-[0_0_25px_rgba(255,159,28,0.7)] ${
+              isRunActive ? "h-12 sm:h-14 md:h-16" : "h-18 sm:h-24 md:h-28"
             }`}
           />
+          {!isRunActive && (
+            <p className="text-gray-400 mt-0.5 text-xs sm:text-sm tracking-wide font-mono">
+              {t.subtitle}
+            </p>
+          )}
         </div>
-        {!isRunActive && (
-          <p className="text-gray-400 mt-0.5 sm:mt-1 text-xs sm:text-sm tracking-wide">
-            {t.subtitle}
-          </p>
-        )}
       </header>
 
       {/* GAME VIEW STATE MACHINE */}
       {!isRunActive ? (
         !activeSagaId ? (
           /* ==================== SAGA MODE SELECTION VIEW ==================== */
-          <div className="max-w-4xl w-full flex-1 min-h-0 flex flex-col justify-center animate-fade-in py-1 sm:py-2">
-            <h2 className="text-xl sm:text-2xl font-extrabold text-[#ff9f1c] border-b-2 border-gray-800 pb-2 mb-3 text-center uppercase tracking-wider shrink-0">
+          <div className="max-w-5xl w-full flex-1 min-h-0 flex flex-col justify-center animate-fade-in py-2 sm:py-4 px-2">
+            <h2 className="text-lg sm:text-2xl font-extrabold text-[#ff9f1c] border-b-2 border-gray-800 pb-2 mb-4 text-center uppercase tracking-wider shrink-0 font-mono">
               {t.selectSaga}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-h-[460px] py-1">
-              {/* UNLOCKED SAGA */}
+            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-8 flex-1 min-h-0 overflow-y-auto max-h-[560px] py-2 px-1">
+              {/* CLASSIC NARUTO SAGA CARD */}
               <div
                 onClick={() => selectSaga("classic_naruto")}
-                className="relative bg-[#0f152d] border-4 border-[#ff9f1c] hover:border-yellow-400 rounded-2xl cursor-pointer hover:scale-[1.01] transition-all flex flex-col justify-end shadow-2xl h-full min-h-[220px] max-h-[420px] overflow-hidden"
+                className="relative bg-[#0f152d] border-4 border-[#ff9f1c] hover:border-yellow-400 rounded-3xl cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-end shadow-2xl w-full sm:w-[380px] md:w-[420px] min-h-[340px] max-h-[430px] overflow-hidden group shrink-0"
                 style={{
-                  backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.95)), url('/backgrounds/classic_naruto.png')`,
+                  backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.96)), url('/backgrounds/classic_naruto.png')`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   backgroundRepeat: "no-repeat",
                 }}
               >
-                {/* Status & Run Badges */}
-                <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-                  <span className="bg-[#070b19]/90 text-[#ff9f1c] text-[10px] px-2 py-1 rounded font-bold font-mono border border-[#ff9f1c]/30 shadow-md flex items-center gap-1.5">
+                {/* Top Status & Run Badges */}
+                <div className="absolute top-3.5 right-3.5 flex items-center gap-2 z-10">
+                  <span className="bg-[#070b19]/90 text-[#ff9f1c] text-xs px-2.5 py-1 rounded-xl font-bold font-mono border border-[#ff9f1c]/40 shadow-md flex items-center gap-1.5 backdrop-blur-md">
                     <img
                       src="/run.png"
                       alt="Run"
@@ -573,39 +449,64 @@ export default function Home() {
                     />
                     <span>{t.totalRuns}: {mounted ? classicRunsCount : 0}</span>
                   </span>
-                  <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded font-bold shadow-md border border-green-500/30">{t.active}</span>
+                  <span className="bg-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-green-500/40 backdrop-blur-md">{t.active}</span>
                 </div>
 
-                {/* Description and button below */}
-                <div className="p-4 sm:p-5 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent pt-12 sm:pt-16">
-                  <h3 className="text-xl sm:text-2xl font-bold text-[#ff9f1c] mb-1.5 drop-shadow-md">{t.sagaClassicTitle}</h3>
-                  <p className="text-gray-300 text-xs sm:text-sm leading-relaxed mb-3 drop-shadow pb-1">
-                    {t.sagaClassicDesc}
-                  </p>
-                  <button className="w-full py-2.5 sm:py-3 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-amber-700">
+                {/* Card Content & Key Essential Info */}
+                <div className="p-5 sm:p-6 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-12">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
+                      Saga 1
+                    </span>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded-md">
+                      {lang === "it" ? "5 Boss Principali" : "5 Main Bosses"}
+                    </span>
+                  </div>
+
+                  <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ff9f1c] mb-2 drop-shadow-md group-hover:text-yellow-300 transition-colors">{t.sagaClassicTitle}</h3>
+                  
+                  {/* Key Stats Chips */}
+                  <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
+                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
+                      <span className="text-lg">👹</span>
+                      <div>
+                        <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Boss Finale" : "Final Boss"}</div>
+                        <div className="font-bold text-amber-300">Gaara</div>
+                      </div>
+                    </div>
+                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
+                      <span className="text-lg">🗺️</span>
+                      <div>
+                        <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Fasi Mappa" : "Map Stages"}</div>
+                        <div className="font-bold text-amber-300">5 {lang === "it" ? "Capitoli" : "Chapters"}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button className="w-full py-3 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-amber-700 active:translate-y-0.5 shadow-lg">
                     {t.startClassicButton}
                   </button>
                 </div>
               </div>
 
-              {/* SHIPPUDEN SAGA CHOICE */}
+              {/* SHIPPUDEN SAGA CARD */}
               <div
                 onClick={isShippudenUnlocked ? () => selectSaga("shippuden_naruto") : undefined}
-                className={`relative bg-[#0f152d] border-4 rounded-2xl flex flex-col justify-end h-full min-h-[220px] max-h-[420px] overflow-hidden shadow-2xl transition-all ${
+                className={`relative bg-[#0f152d] border-4 rounded-3xl flex flex-col justify-end w-full sm:w-[380px] md:w-[420px] min-h-[340px] max-h-[430px] overflow-hidden shadow-2xl transition-all group shrink-0 ${
                   isShippudenUnlocked 
-                    ? "border-[#ff9f1c] hover:border-yellow-400 cursor-pointer hover:scale-[1.01]" 
+                    ? "border-[#ff9f1c] hover:border-yellow-400 cursor-pointer hover:scale-[1.02]" 
                     : "border-amber-900/60 cursor-not-allowed"
                 }`}
                 style={{
-                  backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.95)), url('/backgrounds/shippuden_naruto.png')`,
+                  backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.96)), url('/backgrounds/shippuden_naruto.png')`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   backgroundRepeat: "no-repeat",
                 }}
               >
-                {/* Status & Run Badges */}
-                <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-                  <span className="bg-[#070b19]/90 text-[#ff9f1c] text-[10px] px-2 py-1 rounded font-bold font-mono border border-[#ff9f1c]/30 shadow-md flex items-center gap-1.5">
+                {/* Top Status & Run Badges */}
+                <div className="absolute top-3.5 right-3.5 flex items-center gap-2 z-10">
+                  <span className="bg-[#070b19]/90 text-[#ff9f1c] text-xs px-2.5 py-1 rounded-xl font-bold font-mono border border-[#ff9f1c]/40 shadow-md flex items-center gap-1.5 backdrop-blur-md">
                     <img
                       src="/run.png"
                       alt="Run"
@@ -622,23 +523,48 @@ export default function Home() {
                     <span>{t.totalRuns}: {mounted ? shippudenRunsCount : 0}</span>
                   </span>
                   {isShippudenUnlocked ? (
-                    <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded font-bold shadow-md border border-green-500/30">{t.unlocked}</span>
+                    <span className="bg-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-green-500/40 backdrop-blur-md">{t.unlocked}</span>
                   ) : (
-                    <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded font-bold shadow-md border border-red-500/30">{t.locked}</span>
+                    <span className="bg-red-500/20 text-red-400 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-red-500/40 backdrop-blur-md">{t.locked}</span>
                   )}
                 </div>
 
-                {/* Description and button below */}
-                <div className="p-4 sm:p-5 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent pt-12 sm:pt-16">
-                  <h3 className="text-xl sm:text-2xl font-bold text-[#ff9f1c] mb-1.5 drop-shadow-md">{t.sagaShippudenTitle}</h3>
-                  <p className="text-gray-300 text-xs sm:text-sm leading-relaxed mb-3 drop-shadow pb-1">
-                    {t.sagaShippudenDesc}
-                  </p>
+                {/* Card Content & Key Essential Info */}
+                <div className="p-5 sm:p-6 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-12">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
+                      Saga 2
+                    </span>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/40 px-2 py-0.5 rounded-md">
+                      {lang === "it" ? "10 Boss Leggendari" : "10 Legendary Bosses"}
+                    </span>
+                  </div>
+
+                  <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ff9f1c] mb-2 drop-shadow-md group-hover:text-yellow-300 transition-colors">{t.sagaShippudenTitle}</h3>
+                  
+                  {/* Key Stats Chips */}
+                  <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
+                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
+                      <span className="text-lg">🌕</span>
+                      <div>
+                        <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Boss Finale" : "Final Boss"}</div>
+                        <div className="font-bold text-red-400">Madara 10T</div>
+                      </div>
+                    </div>
+                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
+                      <span className="text-lg">🗺️</span>
+                      <div>
+                        <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Fasi Mappa" : "Map Stages"}</div>
+                        <div className="font-bold text-amber-300">10 {lang === "it" ? "Capitoli" : "Chapters"}</div>
+                      </div>
+                    </div>
+                  </div>
+
                   <button 
                     disabled={!isShippudenUnlocked}
-                    className={`w-full py-2.5 sm:py-3 font-bold rounded-lg uppercase tracking-wider text-xs sm:text-sm transition-all ${
+                    className={`w-full py-3 font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all shadow-lg ${
                       isShippudenUnlocked 
-                        ? "bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] border-b-4 border-amber-700 cursor-pointer" 
+                        ? "bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] border-b-4 border-amber-700 cursor-pointer active:translate-y-0.5" 
                         : "bg-gray-800/80 text-gray-400 border border-gray-700 cursor-not-allowed"
                     }`}
                   >
@@ -649,11 +575,11 @@ export default function Home() {
                 {/* OVERLAY CATENE 3D E SIGILLO UZUMAKI SE BLOCCATO */}
                 {!isShippudenUnlocked && (
                   <SealedSagaOverlay
-                    sagaName="NARUTO SHIPPUDEN"
-                    requirementText={t.lockMessageClassic}
+                    sagaName={t.sagaShippudenTitle}
+                    requirementText={t.sagaShippudenDesc}
                     onClickLocked={() => {
-                      setToastMessage(lang === "it" ? "🔒 Completa Naruto Classic per spezzare il sigillo!" : "🔒 Complete Naruto Classic to break the seal!");
-                      setTimeout(() => setToastMessage(null), 3000);
+                      setToastMessage(t.lockMessageClassicButton || (lang === "it" ? "Sconfiggi Gaara nella Saga Classica per sbloccare Shippuden!" : "Defeat Gaara in the Classic Saga to unlock Shippuden!"));
+                      setTimeout(() => setToastMessage(null), 3500);
                     }}
                   />
                 )}
@@ -775,9 +701,14 @@ export default function Home() {
 
           {/* LEFT SIDEBAR: TEAM */}
           <aside className="bg-[#0f152d] border-4 border-[#ff9f1c] rounded-2xl p-3 shadow-xl flex flex-col gap-2 h-full min-h-0">
-            <h2 className="text-lg font-bold border-b-2 border-gray-800 pb-1 text-[#ff9f1c] uppercase tracking-wider shrink-0">
-              {t.team} ({runTeam.length} / 6)
-            </h2>
+            <div className="flex items-center justify-between border-b-2 border-gray-800 pb-1 shrink-0">
+              <h2 className="text-lg font-bold text-[#ff9f1c] uppercase tracking-wider">
+                {t.team} ({runTeam.length} / 6)
+              </h2>
+              <div className="text-xs font-bold text-amber-300 font-mono bg-black/40 px-2 py-0.5 rounded border border-amber-500/30">
+                🏆 {useGameStore.getState().currentRunScore.toLocaleString()} pts
+              </div>
+            </div>
 
             {/* ACTIVE TEAM SYNERGIES */}
             {(() => {
@@ -1275,19 +1206,21 @@ export default function Home() {
               {/* OVERLAY: CAMPFIRE HEALING ACTION */}
               {currentNode && currentNode.type === "heal" && !currentNode.resolved && (
                 <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-5 animate-fade-in">
-                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-2xl p-6 shadow-2xl w-full max-w-sm text-center">
-                    <img src="/ramen.png" alt="Ramen" className="w-16 h-16 object-contain mx-auto mb-4 animate-bounce" />
-                    <h3 className="text-xl font-bold text-green-400 mb-2 uppercase tracking-wider">
+                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-2xl p-6 shadow-2xl w-full max-w-md text-center">
+                    <img src="/ramen.png" alt="Ramen" className="w-20 h-20 object-contain mx-auto mb-4 filter drop-shadow-[0_0_15px_rgba(34,197,94,0.6)] animate-bounce" />
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-green-400 mb-3 uppercase tracking-wider font-mono">
                       {lang === "it" ? "RAMEN ICHIRAKU" : "ICHIRAKU RAMEN"} 🍜
                     </h3>
-                    <p className="text-xs text-gray-300 mb-5 leading-relaxed">
-                      {t.actionReadyCampfire}
+                    <p className="text-sm sm:text-base text-gray-100 mb-6 leading-relaxed font-extrabold bg-[#070b19]/90 p-4 rounded-xl border border-green-500/40">
+                      {lang === "it"
+                        ? "Un delizioso zdello di Ramen Ichiraku caldo ripristina la Salute (HP) e il Chakra di TUTTI i ninja della tua squadra al 100%!"
+                        : "A hot bowl of Ichiraku Ramen restores Health (HP) and Chakra of ALL ninjas in your team to 100%!"}
                     </p>
                     <button
                       onClick={applyHealingAtCampfire}
-                      className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow transition-all uppercase tracking-wider text-sm border-b-4 border-green-950"
+                      className="w-full py-4 bg-green-600 hover:bg-green-500 text-white font-extrabold rounded-2xl shadow-2xl transition-all uppercase tracking-wider text-sm sm:text-base border-b-4 border-green-950 cursor-pointer hover:scale-105 active:scale-95"
                     >
-                      {t.actionCampfireBtn}
+                      {lang === "it" ? "🍜 MANGIA RAMEN (RIPRISTINA SQUADRA 100% HP & CHAKRA)" : "🍜 EAT RAMEN (RESTORE TEAM 100% HP & CHAKRA)"}
                     </button>
                   </div>
                 </div>
@@ -1448,14 +1381,293 @@ export default function Home() {
       {showChakraChartModal && <ChakraChartModal onClose={() => setShowChakraChartModal(false)} />}
       {showProfileModal && <UserProfileModal onClose={() => setShowProfileModal(false)} />}
       {showLeaderboardModal && <LeaderboardModal onClose={() => setShowLeaderboardModal(false)} />}
-      {showAchievementsModal && <AchievementsModal onClose={() => setShowAchievementsModal(false)} />}
+      {showAchievementsModal && (
+        <AchievementsModal 
+          onClose={() => setShowAchievementsModal(false)} 
+          onOpenAuthModal={() => {
+            setShowAchievementsModal(false);
+            setShowAuthModal(true);
+          }}
+        />
+      )}
       <TrophyUnlockNotification achievement={newlyUnlockedTrophy} onDismiss={dismissTrophyNotification} />
 
-      {toastMessage && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 bg-[#ff9f1c] text-[#070b19] font-extrabold px-4 py-2 rounded-xl shadow-2xl z-50 animate-bounce text-xs uppercase tracking-wider border-2 border-yellow-300 pointer-events-none">
-          ⚡ {toastMessage}
-        </div>
+      {/* HAMBURGER SIDE DRAWER */}
+      {isMenuOpen && (
+        <>
+          {/* Backdrop overlay */}
+          <div 
+            onClick={() => setIsMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 transition-opacity animate-fade-in"
+          />
+          {/* Drawer (Opens from Left) */}
+          <div className="fixed top-0 left-0 h-full w-80 bg-[#0f152d] border-r-4 border-[#ff9f1c] shadow-2xl z-50 p-6 flex flex-col justify-between animate-slide-in overflow-y-auto">
+            <div>
+              <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3 mb-6">
+                <h2 className="text-xl font-extrabold text-[#ff9f1c] tracking-wider font-mono">
+                  {t.menuTitle}
+                </h2>
+                <button 
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-gray-400 hover:text-red-400 text-lg cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Auth Section */}
+                <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl flex flex-col gap-3 text-left">
+                  {user ? (
+                    <div>
+                      <div className="mb-3 flex items-center gap-3 bg-[#0f152d] p-2.5 rounded-xl border border-amber-500/40">
+                        <img
+                          src={avatarUrl || "/default_avatar.png"}
+                          alt={username || "User"}
+                          className="w-10 h-10 rounded-full object-cover border border-amber-500"
+                        />
+                        <div className="min-w-0">
+                          <span className="font-extrabold text-[#ff9f1c] text-sm block truncate">
+                            {username || user?.user_metadata?.username || user?.email?.split("@")[0] || "Shinobi"}
+                          </span>
+                          <span className="text-[11px] text-gray-400 block truncate">
+                            {user.email}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          logOut();
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full py-2 bg-red-950/60 hover:bg-red-900/60 text-red-400 font-bold border border-red-500/30 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        {lang === "it" ? "Disconnetti" : "Sign Out"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-[11px] text-gray-400 mb-3">
+                        {lang === "it" 
+                          ? "Accedi per sincronizzare i salvataggi ed i progressi in cloud."
+                          : "Sign in to synchronize your active saves and progression to the cloud."}
+                      </p>
+                      <button
+                        onClick={() => {
+                          setShowAuthModal(true);
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full py-2 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        {t.authCloudSaves}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Run Statistics Box */}
+                <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl text-left space-y-2">
+                  <h3 className="text-xs text-[#ff9f1c]/90 uppercase font-mono font-bold tracking-widest mb-3 flex items-center justify-center gap-2.5 text-center border-b border-gray-800/60 pb-2">
+                    <img
+                      src="/menu_stats.png"
+                      alt="Statistiche"
+                      onError={(e) => {
+                        const target = e.target as HTMLElement;
+                        target.style.display = "none";
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector(".menu-stats-fallback")) {
+                          const span = document.createElement("span");
+                          span.className = "menu-stats-fallback text-base";
+                          span.innerText = "📊";
+                          parent.insertBefore(span, target);
+                        }
+                      }}
+                      className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                    />
+                    <span>{t.runStatsTitle}</span>
+                  </h3>
+                  <div className="flex justify-between items-center text-xs font-mono border-b border-gray-800/80 pb-1.5 mb-1.5">
+                    <span className="text-gray-300 font-bold flex items-center gap-2">
+                      <img
+                        src="/score_icon.png"
+                        alt="Punti"
+                        onError={(e) => {
+                          const target = e.target as HTMLElement;
+                          target.style.display = "none";
+                          const parent = target.parentElement;
+                          if (parent && !parent.querySelector(".score-drawer-fallback")) {
+                            const span = document.createElement("span");
+                            span.className = "score-drawer-fallback text-base";
+                            span.innerText = "🏆";
+                            parent.insertBefore(span, target);
+                          }
+                        }}
+                        className="w-5 h-5 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                      />
+                      <span>{lang === "it" ? "Punteggio Totale:" : "Total Score:"}</span>
+                    </span>
+                    <span className="font-extrabold text-amber-300">{totalScore.toLocaleString()} pts</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs font-mono">
+                    <span className="text-gray-400">{t.totalRuns}:</span>
+                    <span className="font-bold text-[#ff9f1c]">{totalRunsCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs font-mono">
+                    <span className="text-gray-400">{t.classicRuns}:</span>
+                    <span className="font-bold text-green-400">{classicRunsCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs font-mono">
+                    <span className="text-gray-400">{t.shippudenRuns}:</span>
+                    <span className="font-bold text-blue-400">{shippudenRunsCount}</span>
+                  </div>
+                </div>
+
+                {/* Settings Item: Language */}
+                <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl text-left">
+                  <h3 className="text-xs text-[#ff9f1c]/90 uppercase font-mono font-bold tracking-widest mb-3 flex items-center justify-center gap-2.5 text-center border-b border-gray-800/60 pb-2">
+                    <img
+                      src="/menu_settings.png"
+                      alt="Impostazioni"
+                      onError={(e) => {
+                        const target = e.target as HTMLElement;
+                        target.style.display = "none";
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector(".menu-settings-fallback")) {
+                          const span = document.createElement("span");
+                          span.className = "menu-settings-fallback text-base";
+                          span.innerText = "⚙️";
+                          parent.insertBefore(span, target);
+                        }
+                      }}
+                      className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                    />
+                    <span>{t.menuSettings}</span>
+                  </h3>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-300">
+                      {lang === "it" ? "Lingua Gioco" : "Game Language"}
+                    </span>
+                    <button 
+                      onClick={() => setLanguage(lang === "it" ? "en" : "it")}
+                      className="px-3 py-1 bg-gray-900 hover:bg-gray-800 text-[#ff9f1c] font-extrabold rounded border border-[#ff9f1c]/30 uppercase tracking-widest transition-all cursor-pointer"
+                    >
+                      🌐 {lang === "it" ? "IT" : "EN"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Credits Link */}
+                <button
+                  onClick={() => {
+                    setShowCreditsModal(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <img
+                      src="/menu_credits.png"
+                      alt="Crediti"
+                      onError={(e) => {
+                        const target = e.target as HTMLElement;
+                        target.style.display = "none";
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector(".menu-credits-fallback")) {
+                          const span = document.createElement("span");
+                          span.className = "menu-credits-fallback text-base";
+                          span.innerText = "🍥";
+                          parent.insertBefore(span, target);
+                        }
+                      }}
+                      className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                    />
+                    <span>{t.menuCredits}</span>
+                  </span>
+                  <span className="text-[#ff9f1c]">➔</span>
+                </button>
+
+                {/* Patch Notes Link */}
+                <button
+                  onClick={() => {
+                    setShowPatchNotesModal(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <img
+                      src="/menu_notes.png"
+                      alt="Note"
+                      onError={(e) => {
+                        const target = e.target as HTMLElement;
+                        target.style.display = "none";
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector(".menu-notes-fallback")) {
+                          const span = document.createElement("span");
+                          span.className = "menu-notes-fallback text-base";
+                          span.innerText = "📜";
+                          parent.insertBefore(span, target);
+                        }
+                      }}
+                      className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                    />
+                    <span>{lang === "it" ? "Note sulla Versione" : "Patch Notes"}</span>
+                  </span>
+                  <span className="text-[#ff9f1c]">➔</span>
+                </button>
+
+                {/* Privacy Policy Link */}
+                <button
+                  onClick={() => {
+                    setShowPrivacyModal(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <img
+                      src="/menu_privacy.png"
+                      alt="Privacy"
+                      onError={(e) => {
+                        const target = e.target as HTMLElement;
+                        target.style.display = "none";
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector(".menu-privacy-fallback")) {
+                          const span = document.createElement("span");
+                          span.className = "menu-privacy-fallback text-base";
+                          span.innerText = "🛡️";
+                          parent.insertBefore(span, target);
+                        }
+                      }}
+                      className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                    />
+                    <span>{lang === "it" ? "Privacy Policy" : "Privacy Policy"}</span>
+                  </span>
+                  <span className="text-[#ff9f1c]">➔</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-800 pt-4 text-center">
+              <p className="text-[10px] text-gray-400 font-mono">
+                {lang === "it" ? "NarutoLike v1.0.0 • Progetto Fan-Made" : "NarutoLike v1.0.0 • Fan-Made Project"}
+              </p>
+            </div>
+          </div>
+        </>
       )}
+
+      {/* GLOBAL TOAST NOTIFICATION CONTAINER (BOTTOM RIGHT SLIDE UP) */}
+      <div
+        className={`fixed bottom-5 right-5 z-[100] transition-all duration-500 transform ${
+          toastMessage ? "translate-y-0 opacity-100 scale-100 pointer-events-auto" : "translate-y-12 opacity-0 scale-90 pointer-events-none"
+        }`}
+      >
+        <div className="bg-[#0f152d]/95 text-amber-300 font-bold px-4 py-3 rounded-2xl shadow-[0_0_25px_rgba(255,159,28,0.5)] border-2 border-[#ff9f1c] flex items-center gap-3 max-w-sm backdrop-blur-md">
+          <span className="text-xl shrink-0">📜</span>
+          <span className="text-xs sm:text-sm font-mono leading-tight">{toastMessage}</span>
+        </div>
+      </div>
     </main>
   );
 }

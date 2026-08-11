@@ -10,7 +10,7 @@ interface UserProfileModalProps {
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) => {
   const { user, username, avatarUrl, uploadAvatar, signOut } = useAuthStore();
-  const { totalRunsCount, classicRunsCount, shippudenRunsCount, currentLevel } = useGameStore();
+  const { totalRunsCount, classicRunsCount, shippudenRunsCount, currentLevel, totalScore, classicHighScore, shippudenHighScore } = useGameStore();
   const lang = useLanguageStore((state) => state.language);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -35,6 +35,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
   };
 
   const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
+  const [showChangeEmail, setShowChangeEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
+  const [emailChangeStatus, setEmailChangeStatus] = useState<string | null>(null);
+
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     async function loadTitle() {
@@ -75,8 +85,24 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
           ✕
         </button>
 
-        <h2 className="text-2xl font-extrabold text-amber-300 uppercase tracking-wider mb-6">
-          {lang === "it" ? "PROFILO SHINOBI" : "SHINOBI PROFILE"} 📜
+        <h2 className="text-2xl font-extrabold text-amber-300 uppercase tracking-wider mb-6 flex items-center justify-center gap-2.5">
+          <img
+            src="/menu_stats.png"
+            alt="Statistiche"
+            onError={(e) => {
+              const target = e.target as HTMLElement;
+              target.style.display = "none";
+              const parent = target.parentElement;
+              if (parent && !parent.querySelector(".profile-header-fallback")) {
+                const span = document.createElement("span");
+                span.className = "profile-header-fallback text-xl";
+                span.innerText = "📊";
+                parent.insertBefore(span, target);
+              }
+            }}
+            className="w-7 h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+          />
+          <span>{lang === "it" ? "PROFILO SHINOBI" : "SHINOBI PROFILE"}</span>
         </h2>
 
         {/* Hidden File Input */}
@@ -101,8 +127,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
           ) : (
             <img src={avatarUrl || defaultAvatar} alt="Avatar" className="w-full h-full object-cover" />
           )}
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-amber-300 text-xs font-bold">
-            <span className="text-lg">📷</span>
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-amber-300 text-xs font-bold gap-1">
+            <img
+              src="/change_avatar.png"
+              alt="Cambia foto"
+              onError={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.display = "none";
+                const parent = target.parentElement;
+                if (parent && !parent.querySelector(".change-avatar-fallback")) {
+                  const span = document.createElement("span");
+                  span.className = "change-avatar-fallback text-lg";
+                  span.innerText = "📷";
+                  parent.insertBefore(span, target);
+                }
+              }}
+              className="w-6 h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.8)]"
+            />
             <span>{lang === "it" ? "Cambia Foto" : "Change Photo"}</span>
           </div>
         </div>
@@ -114,45 +155,177 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
             ✨ {selectedTitle}
           </div>
         )}
-        <p className="text-xs text-gray-400 font-mono mb-6">{user?.email}</p>
+        <p className="text-xs text-gray-400 font-mono mb-2">{user?.email}</p>
+
+        {/* Change Email Toggle Section */}
+        <div className="mb-6">
+          {!showChangeEmail ? (
+            <button
+              onClick={() => setShowChangeEmail(true)}
+              className="text-[11px] text-amber-300/80 hover:text-amber-300 underline font-mono cursor-pointer"
+            >
+              {lang === "it" ? "✏️ Modifica Indirizzo Email" : "✏️ Change Email Address"}
+            </button>
+          ) : (
+            <div className="bg-[#070b19] border border-amber-500/30 p-3 rounded-xl space-y-2 text-left animate-fade-in max-w-xs mx-auto">
+              <label className="block text-[10px] text-gray-400 font-mono uppercase">
+                {lang === "it" ? "Nuovo Indirizzo Email:" : "New Email Address:"}
+              </label>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="nuovo@email.com"
+                className="w-full bg-black/60 border border-gray-700 focus:border-amber-400 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none"
+              />
+              {emailChangeStatus && (
+                <div className="text-[10px] font-mono text-amber-300 bg-amber-500/10 p-2 rounded border border-amber-500/20">
+                  {emailChangeStatus}
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={async () => {
+                    if (!newEmail || isChangingEmail) return;
+                    setIsChangingEmail(true);
+                    setEmailChangeStatus(null);
+                    const { error } = await useAuthStore.getState().updateEmailAddress(newEmail);
+                    setIsChangingEmail(false);
+                    if (error) {
+                      setEmailChangeStatus(error.message);
+                    } else {
+                      setEmailChangeStatus(
+                        lang === "it"
+                          ? "Email di verifica inviata al nuovo ed al vecchio indirizzo! Conferma entrambi per completare."
+                          : "Verification email sent! Confirm both old and new addresses."
+                      );
+                    }
+                  }}
+                  disabled={isChangingEmail}
+                  className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-400 text-[#070b19] font-black text-xs rounded-lg uppercase tracking-wider cursor-pointer"
+                >
+                  {isChangingEmail ? (lang === "it" ? "Invio..." : "Sending...") : (lang === "it" ? "Invia Conferma" : "Send Confirmation")}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowChangeEmail(false);
+                    setEmailChangeStatus(null);
+                  }}
+                  className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs rounded-lg cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Game Statistics Grid */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-3 text-center">
-            <div className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">
-              {lang === "it" ? "Run Totali Giocate" : "Total Runs Played"}
+        <div className="grid grid-cols-2 gap-2.5 mb-6 text-left">
+          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-2.5 text-center col-span-2">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wider font-mono flex items-center justify-center gap-1.5">
+              <img
+                src="/score_icon.png"
+                alt="Punti"
+                onError={(e) => {
+                  const target = e.target as HTMLElement;
+                  target.style.display = "none";
+                  const parent = target.parentElement;
+                  if (parent && !parent.querySelector(".score-profile-fallback")) {
+                    const span = document.createElement("span");
+                    span.className = "score-profile-fallback";
+                    span.innerText = "🏆";
+                    parent.insertBefore(span, target);
+                  }
+                }}
+                className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+              />
+              <span>{lang === "it" ? "Punteggio Totale Cumulativo" : "Total Cumulative Score"}</span>
             </div>
-            <div className="text-xl font-extrabold text-amber-300 mt-1">{totalRunsCount}</div>
+            <div className="text-2xl font-black text-amber-300 font-mono mt-0.5">
+              {totalScore.toLocaleString()} <span className="text-xs font-normal">pts</span>
+            </div>
           </div>
 
-          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-3 text-center">
+          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-2.5 text-center">
             <div className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">
-              {lang === "it" ? "Livello Corrente" : "Current Level"}
+              🍥 Classic Best
             </div>
-            <div className="text-xl font-extrabold text-emerald-400 mt-1">{currentLevel}</div>
+            <div className="text-sm font-bold text-amber-200 font-mono mt-1">
+              {classicHighScore.toLocaleString()} pts
+            </div>
           </div>
 
-          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-3 text-center">
+          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-2.5 text-center">
             <div className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">
-              Naruto Classic
+              ⚡ Shippuden Best
             </div>
-            <div className="text-sm font-bold text-amber-200 mt-1">{classicRunsCount} runs</div>
+            <div className="text-sm font-bold text-purple-300 font-mono mt-1">
+              {shippudenHighScore.toLocaleString()} pts
+            </div>
           </div>
 
-          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-3 text-center">
+          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-2.5 text-center col-span-2">
             <div className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">
-              Naruto Shippuden
+              {lang === "it" ? "Statistiche Partite (Run)" : "Run Statistics"}
             </div>
-            <div className="text-sm font-bold text-purple-300 mt-1">{shippudenRunsCount} runs</div>
+            <div className="text-xs font-mono text-gray-300 mt-1 flex items-center justify-around">
+              <span>Totali: <strong className="text-amber-300">{totalRunsCount}</strong></span>
+              <span>Classic: <strong className="text-amber-200">{classicRunsCount}</strong></span>
+              <span>Shippuden: <strong className="text-purple-300">{shippudenRunsCount}</strong></span>
+            </div>
           </div>
         </div>
 
-        {/* Change Avatar Button */}
+        {/* Upload Avatar Button */}
         <button
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold rounded-xl text-xs uppercase tracking-wider border border-amber-500/50 transition-all cursor-pointer mb-3"
+          onClick={handleAvatarClick}
+          className="w-full py-2.5 mb-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-[#070b19] font-extrabold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer border-b-2 border-amber-800 flex items-center justify-center gap-2 shadow-md hover:scale-[1.02] active:scale-[0.98]"
         >
-          📷 {lang === "it" ? "Carica Nuova Foto dal Dispositivo" : "Upload New Photo from Device"}
+          <img
+            src="/change_avatar.png"
+            alt="Carica Foto"
+            onError={(e) => {
+              const target = e.target as HTMLElement;
+              target.style.display = "none";
+              const parent = target.parentElement;
+              if (parent && !parent.querySelector(".btn-avatar-fallback")) {
+                const span = document.createElement("span");
+                span.className = "btn-avatar-fallback text-sm";
+                span.innerText = "📷";
+                parent.insertBefore(span, target);
+              }
+            }}
+            className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.8)]"
+          />
+          <span>{lang === "it" ? "Carica Nuova Foto dal Dispositivo" : "Upload New Photo from Device"}</span>
+        </button>
+
+        {/* Invite a Friend Button */}
+        <button
+          onClick={() => {
+            setShowInviteModal(true);
+            setInviteStatus(null);
+          }}
+          className="w-full py-2.5 mb-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer border-b-2 border-emerald-900 flex items-center justify-center gap-2 shadow-md hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <img
+            src="/invite_friend.png"
+            alt="Invita un Amico"
+            onError={(e) => {
+              const target = e.target as HTMLElement;
+              target.style.display = "none";
+              const parent = target.parentElement;
+              if (parent && !parent.querySelector(".modal-invite-fallback")) {
+                const span = document.createElement("span");
+                span.className = "modal-invite-fallback text-sm";
+                span.innerText = "📜";
+                parent.insertBefore(span, target);
+              }
+            }}
+            className="w-5 h-5 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]"
+          />
+          <span>{lang === "it" ? "Invita un Amico Shinobi" : "Invite a Shinobi Friend"}</span>
         </button>
 
         {/* Sign Out Button */}
@@ -163,8 +336,114 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
           }}
           className="w-full py-2 bg-red-950/40 hover:bg-red-900/40 text-red-400 font-bold border border-red-500/40 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer"
         >
-          🚪 {lang === "it" ? "Disconnetti Account" : "Sign Out Account"}
+          <span>{lang === "it" ? "Disconnetti Account" : "Sign Out Account"}</span>
         </button>
+
+        {/* Invite Friend Sub-Modal Overlay */}
+        {showInviteModal && (
+          <div
+            onClick={() => setShowInviteModal(false)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in text-left"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#0f152d] border-4 border-emerald-500 rounded-3xl max-w-md w-full p-6 relative shadow-2xl space-y-4"
+            >
+              <button
+                onClick={() => setShowInviteModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-emerald-300 font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+
+              <div className="flex items-center gap-3 border-b border-gray-800 pb-3">
+                <span className="text-3xl p-2 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl">📜</span>
+                <div>
+                  <h3 className="text-lg font-extrabold text-emerald-300 uppercase tracking-wider">
+                    {lang === "it" ? "Invita un Amico" : "Invite a Friend"}
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    {lang === "it" ? "Recluta nuovi Shinobi nella Guerra Ninja!" : "Recruit new Shinobi to the Ninja War!"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Direct Email Invite Form */}
+              <div className="space-y-2">
+                <label className="block text-xs font-mono font-bold text-gray-300">
+                  {lang === "it" ? "Email dell'Amico da Invitare:" : "Friend's Email Address:"}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="ninja@konoha.com"
+                    className="flex-1 bg-[#070b19] border-2 border-gray-800 focus:border-emerald-400 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!inviteEmail || isSendingInvite) return;
+                      setIsSendingInvite(true);
+                      setInviteStatus(null);
+                      
+                      // Trigger email invite via Supabase magic link / OTP invite
+                      const { error } = await useAuthStore.getState().signInWithMagicLink(inviteEmail);
+                      setIsSendingInvite(false);
+
+                      if (error) {
+                        setInviteStatus(error.message);
+                      } else {
+                        setInviteStatus(
+                          lang === "it"
+                            ? "✅ Email di invito per il reclutamento inviata con successo!"
+                            : "✅ Recruitment invite email sent successfully!"
+                        );
+                        setInviteEmail("");
+                      }
+                    }}
+                    disabled={isSendingInvite}
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-800 text-[#070b19] font-black text-xs uppercase tracking-wider rounded-xl cursor-pointer shrink-0 shadow-md"
+                  >
+                    {isSendingInvite ? (lang === "it" ? "Invio..." : "Sending...") : (lang === "it" ? "Invia" : "Send")}
+                  </button>
+                </div>
+
+                {inviteStatus && (
+                  <div className="text-xs font-mono p-2.5 bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 rounded-xl">
+                    {inviteStatus}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-gray-800 pt-3 space-y-2">
+                <label className="block text-xs font-mono font-bold text-gray-300">
+                  {lang === "it" ? "Oppure Condividi il tuo Link di Reclutamento:" : "Or Share Your Referral Link:"}
+                </label>
+                <div className="flex gap-2 items-center bg-[#070b19] border border-gray-800 p-2 rounded-xl">
+                  <input
+                    type="text"
+                    readOnly
+                    value={typeof window !== "undefined" ? window.location.href : ""}
+                    className="flex-1 bg-transparent text-xs font-mono text-gray-400 outline-none truncate"
+                  />
+                  <button
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        navigator.clipboard.writeText(window.location.href);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 2000);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-gray-800 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold text-xs rounded-lg cursor-pointer shrink-0"
+                  >
+                    {copiedLink ? (lang === "it" ? "✓ COPIATO" : "✓ COPIED") : (lang === "it" ? "Copia Link" : "Copy Link")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
