@@ -28,6 +28,10 @@ interface GameState {
   totalRunsCount: number;
   classicRunsCount: number;
   shippudenRunsCount: number;
+  currentRunScore: number;
+  totalScore: number;
+  classicHighScore: number;
+  shippudenHighScore: number;
   sagaStarterChoices: Record<string, Ninja[] | null>;
   unlockedAchievementsMap: Record<string, string>; // { [achievementId]: ISOStringTimestamp }
   newlyUnlockedTrophy: Achievement | null;
@@ -323,9 +327,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   shippudenUnlocked: typeof window !== "undefined" ? localStorage.getItem("shippudenUnlocked") === "true" : false,
   defeatedBosses: typeof window !== "undefined" ? JSON.parse(localStorage.getItem("defeatedBosses") || "[]") : [],
-  totalRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("totalRunsCount") || 0) : 0,
-  classicRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("classicRunsCount") || 0) : 0,
-  shippudenRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("shippudenRunsCount") || 0) : 0,
+  totalRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("totalRunsCount")) || 0 : 0,
+  classicRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("classicRunsCount")) || 0 : 0,
+  shippudenRunsCount: typeof window !== "undefined" ? Number(localStorage.getItem("shippudenRunsCount")) || 0 : 0,
+  currentRunScore: 0,
+  totalScore: typeof window !== "undefined" ? Number(localStorage.getItem("totalScore")) || 0 : 0,
+  classicHighScore: typeof window !== "undefined" ? Number(localStorage.getItem("classicHighScore")) || 0 : 0,
+  shippudenHighScore: typeof window !== "undefined" ? Number(localStorage.getItem("shippudenHighScore")) || 0 : 0,
   sagaStarterChoices: {},
   unlockedAchievementsMap: typeof window !== "undefined" ? JSON.parse(localStorage.getItem("unlockedAchievementsMap") || "{}") : {},
   newlyUnlockedTrophy: null,
@@ -341,6 +349,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       classicRuns: state.classicRunsCount,
       shippudenRuns: state.shippudenRunsCount,
       maxLevel: state.currentLevel,
+      totalScore: state.totalScore || 0,
+      classicHighScore: state.classicHighScore || 0,
+      shippudenHighScore: state.shippudenHighScore || 0,
       defeatedBosses: state.defeatedBosses || [],
     };
 
@@ -455,6 +466,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       runTeam,
       currentLevel: 1,
+      currentRunScore: 0,
       activeMap: generateLevelMap(activeSagaId, 1),
       currentNodeId: null,
       isRunActive: true,
@@ -480,22 +492,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ currentNodeId: nodeId });
 
     if (node.type === "heal") {
-      const { runTeam } = get();
-      const healedTeam = runTeam.map((ninja) => {
-        const healAmt = Math.floor(ninja.baseStats.hp * 0.35);
-        return {
-          ...ninja,
-          currentHp: Math.min(ninja.baseStats.hp, ninja.currentHp + healAmt),
-        };
-      });
-      set({ runTeam: healedTeam });
-      get().resolveCurrentNode();
+      // Allow player to open Ramen Ichiraku modal overlay to eat Ramen for 100% HP & 100% Chakra team heal
+      return;
     }
 
     if (node.type === "powerup") {
       const { activePowerUps } = get();
       const powerUp = POWER_UP_POOL[0];
-      set({ 
+      set({
         activePowerUps: [...activePowerUps, powerUp],
         pendingJutsuToLearn: "UPGRADE",
         availablePowerUpChoices: null,
@@ -735,33 +739,92 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   advanceToNextLevel: () => {
-    const { currentLevel, activeSagaId } = get();
+    const { currentLevel, activeSagaId, currentRunScore } = get();
     if (!activeSagaId) return;
 
-    const nextLevel = currentLevel + 1;
-    let unlocked = false;
-
-    if (activeSagaId === "classic_naruto" && nextLevel >= 5) {
-      unlocked = true;
+    // Saga level caps & final boss completions
+    if (activeSagaId === "classic_naruto" && currentLevel >= 5) {
+      // Defeated final boss of Classic Naruto! (+2000 Final Boss Bonus + 200 Level Advance)
+      const finalScore = currentRunScore + 2200;
+      set({
+        shippudenUnlocked: true,
+        currentRunScore: finalScore,
+      });
       if (typeof window !== "undefined") {
         localStorage.setItem("shippudenUnlocked", "true");
       }
+
+      get().endRun();
+      return;
     }
 
-    set((state) => ({
+    if (activeSagaId === "shippuden_naruto" && currentLevel >= 10) {
+      // Defeated final boss of Shippuden! (+5000 Final Boss Bonus + 200 Level Advance)
+      const finalScore = currentRunScore + 5200;
+      set({
+        currentRunScore: finalScore,
+      });
+
+      get().endRun();
+      return;
+    }
+
+    const nextLevel = currentLevel + 1;
+    const updatedScore = currentRunScore + 200; // Level advance bonus
+
+    set({
       currentLevel: nextLevel,
+      currentRunScore: updatedScore,
       activeMap: generateLevelMap(activeSagaId, nextLevel),
       currentNodeId: null,
       availablePowerUpChoices: null,
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
-      shippudenUnlocked: state.shippudenUnlocked || unlocked,
-    }));
+    });
 
+    get().saveToCloud();
     get().checkAndUnlockAchievements();
   },
 
   endRun: () => {
+    const { currentRunScore, totalScore, classicHighScore, shippudenHighScore, activeSagaId, classicRunsCount, shippudenRunsCount, totalRunsCount } = get();
+
+    // Accumulate current run score into total cumulative score if points were scored
+    if (currentRunScore > 0) {
+      const newTotalScore = totalScore + currentRunScore;
+      let newClassicHigh = classicHighScore;
+      let newShippudenHigh = shippudenHighScore;
+      let newClassicRuns = classicRunsCount;
+      let newShippudenRuns = shippudenRunsCount;
+      let newTotalRuns = totalRunsCount + 1;
+
+      if (activeSagaId === "classic_naruto") {
+        newClassicHigh = Math.max(classicHighScore, currentRunScore);
+        newClassicRuns += 1;
+      } else if (activeSagaId === "shippuden_naruto") {
+        newShippudenHigh = Math.max(shippudenHighScore, currentRunScore);
+        newShippudenRuns += 1;
+      }
+
+      set({
+        totalScore: newTotalScore,
+        classicHighScore: newClassicHigh,
+        shippudenHighScore: newShippudenHigh,
+        classicRunsCount: newClassicRuns,
+        shippudenRunsCount: newShippudenRuns,
+        totalRunsCount: newTotalRuns,
+      });
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("totalScore", String(newTotalScore));
+        localStorage.setItem("classicHighScore", String(newClassicHigh));
+        localStorage.setItem("shippudenHighScore", String(newShippudenHigh));
+        localStorage.setItem("classicRunsCount", String(newClassicRuns));
+        localStorage.setItem("shippudenRunsCount", String(newShippudenRuns));
+        localStorage.setItem("totalRunsCount", String(newTotalRuns));
+      }
+    }
+
     set({
       isRunActive: false,
       activeSagaId: null,
@@ -774,8 +837,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       availablePowerUpChoices: null,
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
+      currentRunScore: 0,
     });
 
+    get().saveToCloud();
     get().checkAndUnlockAchievements();
   },
 
@@ -817,7 +882,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // 2. Fetch existing profile stats using maybeSingle()
     const { data: existingProfile } = await supabase
       .from("profiles")
-      .select("total_runs, classic_runs, shippuden_runs, max_level_reached")
+      .select("total_runs, classic_runs, shippuden_runs, max_level_reached, total_score, classic_high_score, shippuden_high_score")
       .eq("id", session.user.id)
       .maybeSingle();
 
@@ -825,24 +890,36 @@ export const useGameStore = create<GameState>((set, get) => ({
     const dbClassic = existingProfile?.classic_runs ?? 0;
     const dbShippuden = existingProfile?.shippuden_runs ?? 0;
     const dbMaxLevel = existingProfile?.max_level_reached ?? 1;
+    const dbTotalScore = existingProfile?.total_score ?? 0;
+    const dbClassicHigh = existingProfile?.classic_high_score ?? 0;
+    const dbShippudenHigh = existingProfile?.shippuden_high_score ?? 0;
 
     // Strict non-decreasing calculation
     const finalTotal = Math.max(dbTotal, state.totalRunsCount);
     const finalClassic = Math.max(dbClassic, state.classicRunsCount);
     const finalShippuden = Math.max(dbShippuden, state.shippudenRunsCount);
     const finalMaxLevel = Math.max(dbMaxLevel, state.shippudenUnlocked ? 6 : state.currentLevel);
+    const finalTotalScore = Math.max(dbTotalScore, state.totalScore);
+    const finalClassicHigh = Math.max(dbClassicHigh, state.classicHighScore);
+    const finalShippudenHigh = Math.max(dbShippudenHigh, state.shippudenHighScore);
 
     // Keep store synchronized
     set({
       totalRunsCount: finalTotal,
       classicRunsCount: finalClassic,
       shippudenRunsCount: finalShippuden,
+      totalScore: finalTotalScore,
+      classicHighScore: finalClassicHigh,
+      shippudenHighScore: finalShippudenHigh,
     });
 
     if (typeof window !== "undefined") {
       localStorage.setItem("totalRunsCount", String(finalTotal));
       localStorage.setItem("classicRunsCount", String(finalClassic));
       localStorage.setItem("shippudenRunsCount", String(finalShippuden));
+      localStorage.setItem("totalScore", String(finalTotalScore));
+      localStorage.setItem("classicHighScore", String(finalClassicHigh));
+      localStorage.setItem("shippudenHighScore", String(finalShippudenHigh));
       localStorage.setItem("shippudenUnlocked", String(finalMaxLevel >= 5));
       localStorage.setItem("defeatedBosses", JSON.stringify(state.defeatedBosses));
     }
@@ -856,6 +933,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       total_runs: finalTotal,
       classic_runs: finalClassic,
       shippuden_runs: finalShippuden,
+      total_score: finalTotalScore,
+      classic_high_score: finalClassicHigh,
+      shippuden_high_score: finalShippudenHigh,
       unlocked_achievements: state.unlockedAchievementsMap,
       updated_at: new Date()
     });
@@ -900,12 +980,14 @@ export const useGameStore = create<GameState>((set, get) => ({
         localStorage.setItem("defeatedBosses", JSON.stringify(loadedBosses));
       }
     }
-
     if (profile) {
       const dbTotal = profile.total_runs ?? 0;
       const dbClassic = profile.classic_runs ?? 0;
       const dbShippuden = profile.shippuden_runs ?? 0;
       const maxLevel = profile.max_level_reached ?? 1;
+      const dbTotalScore = profile.total_score ?? 0;
+      const dbClassicHigh = profile.classic_high_score ?? 0;
+      const dbShippudenHigh = profile.shippuden_high_score ?? 0;
 
       let loadedAchievementsMap: Record<string, string> = {};
       if (profile.unlocked_achievements) {
@@ -919,26 +1001,35 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else if (typeof window !== "undefined") {
         try {
           loadedAchievementsMap = JSON.parse(localStorage.getItem("unlockedAchievementsMap") || "{}");
-        } catch (e) {}
+        } catch {
+          loadedAchievementsMap = {};
+        }
       }
 
-      set({ 
+      set({
         totalRunsCount: dbTotal,
         classicRunsCount: dbClassic,
         shippudenRunsCount: dbShippuden,
+        totalScore: dbTotalScore,
+        classicHighScore: dbClassicHigh,
+        shippudenHighScore: dbShippudenHigh,
         shippudenUnlocked: maxLevel >= 5,
         unlockedAchievementsMap: loadedAchievementsMap,
-        newlyUnlockedTrophy: null // Explicitly guarantee NO notification banner popups on login!
       });
 
       if (typeof window !== "undefined") {
         localStorage.setItem("totalRunsCount", String(dbTotal));
         localStorage.setItem("classicRunsCount", String(dbClassic));
         localStorage.setItem("shippudenRunsCount", String(dbShippuden));
+        localStorage.setItem("totalScore", String(dbTotalScore));
+        localStorage.setItem("classicHighScore", String(dbClassicHigh));
+        localStorage.setItem("shippudenHighScore", String(dbShippudenHigh));
         localStorage.setItem("shippudenUnlocked", String(maxLevel >= 5));
         localStorage.setItem("unlockedAchievementsMap", JSON.stringify(loadedAchievementsMap));
       }
     }
+
+    get().checkAndUnlockAchievements();
   },
 
   clearLocalSave: () => {
@@ -947,19 +1038,33 @@ export const useGameStore = create<GameState>((set, get) => ({
       localStorage.removeItem("totalRunsCount");
       localStorage.removeItem("classicRunsCount");
       localStorage.removeItem("shippudenRunsCount");
+      localStorage.removeItem("totalScore");
+      localStorage.removeItem("classicHighScore");
+      localStorage.removeItem("shippudenHighScore");
       localStorage.removeItem("shippudenUnlocked");
       localStorage.removeItem("defeatedBosses");
       localStorage.removeItem("unlockedAchievementsMap");
     }
+
     set({
       isRunActive: false,
+      activeSagaId: null,
+      playerTeam: [],
+      runTeam: [],
+      currentLevel: 1,
+      currentRunScore: 0,
+      totalScore: 0,
+      classicHighScore: 0,
+      shippudenHighScore: 0,
       currentNodeId: null,
       activeMap: [],
-      playerTeam: [],
-      activeSagaId: null,
       startingChoices: null,
       sagaStarterChoices: {},
+      availablePowerUpChoices: null,
+      pendingJutsuToLearn: null,
+      availableRecruitChoices: null,
       shippudenUnlocked: false,
+      defeatedBosses: [],
       totalRunsCount: 0,
       classicRunsCount: 0,
       shippudenRunsCount: 0,

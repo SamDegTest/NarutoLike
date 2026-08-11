@@ -591,6 +591,8 @@ export const useBattleStore = create<BattleState>((set, get) => ({
 
     if (currentNode?.type === "boss") {
       useGameStore.getState().gainTeamLevels(5);
+      // Award 300 points for defeating a boss
+      useGameStore.setState((state) => ({ currentRunScore: state.currentRunScore + 300 }));
       // Fully heal team after boss defeat
       const currentTeam = useGameStore.getState().runTeam;
       const fullyHealedTeam = currentTeam.map((ninja) => ({
@@ -607,6 +609,8 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       useGameStore.getState().advanceToNextLevel();
     } else if (currentNode?.type === "battle") {
       useGameStore.getState().gainTeamLevels(2);
+      // Award 100 points for winning a battle
+      useGameStore.setState((state) => ({ currentRunScore: state.currentRunScore + 100 }));
       useGameStore.getState().resolveCurrentNode();
     }
 

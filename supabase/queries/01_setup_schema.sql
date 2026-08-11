@@ -24,6 +24,9 @@ CREATE TABLE public.profiles (
   total_runs INT NOT NULL DEFAULT 0,
   classic_runs INT NOT NULL DEFAULT 0,
   shippuden_runs INT NOT NULL DEFAULT 0,
+  total_score INT NOT NULL DEFAULT 0,
+  classic_high_score INT NOT NULL DEFAULT 0,
+  shippuden_high_score INT NOT NULL DEFAULT 0,
   selected_title TEXT,
   unlocked_achievements JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -153,12 +156,15 @@ SELECT
   total_runs,
   classic_runs,
   shippuden_runs,
+  total_score,
+  classic_high_score,
+  shippuden_high_score,
   updated_at
 FROM public.profiles
-ORDER BY max_level_reached DESC, total_runs DESC;
+ORDER BY total_score DESC, max_level_reached DESC;
 
 GRANT SELECT ON public.leaderboard TO authenticated, anon;
 
 -- 7. INDICI DI PRESTAZIONE PER QUERY RAPIDE E CLASSIFICA FLUIDA
 CREATE INDEX IF NOT EXISTS idx_profiles_username_lower ON public.profiles (lower(username));
-CREATE INDEX IF NOT EXISTS idx_profiles_leaderboard_rank ON public.profiles (max_level_reached DESC, total_runs DESC);
+CREATE INDEX IF NOT EXISTS idx_profiles_leaderboard_rank ON public.profiles (total_score DESC, max_level_reached DESC);

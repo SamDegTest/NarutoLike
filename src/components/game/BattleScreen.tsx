@@ -300,7 +300,12 @@ export function BattleScreen() {
                           className="w-8 h-8 object-contain bg-black/40 rounded border border-gray-700 shrink-0"
                         />
                         <div className="flex-1 min-w-0 flex justify-between items-center">
-                          <span className="font-bold text-gray-200 text-xs truncate">{translatedName}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-bold text-gray-200 text-xs truncate">{translatedName}</span>
+                            <span className="text-[10px] text-[#ff9f1c] font-mono shrink-0">
+                              Lv.{(ninja as any).level || 1}
+                            </span>
+                          </div>
                           <span className="text-[10px] text-gray-300 font-mono font-bold">
                             {ninja.currentHp}/{ninja.baseStats.hp}
                           </span>
@@ -368,7 +373,12 @@ export function BattleScreen() {
                           className="w-8 h-8 object-contain bg-black/40 rounded border border-gray-700 shrink-0"
                         />
                         <div className="flex-1 min-w-0 flex justify-between items-center">
-                          <span className="font-bold text-gray-200 text-xs truncate">{translatedName}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-bold text-gray-200 text-xs truncate">{translatedName}</span>
+                            <span className="text-[10px] text-[#ff9f1c] font-mono shrink-0">
+                              Lv.{(ninja as any).level || 1}
+                            </span>
+                          </div>
                           <span className="text-[10px] text-red-300 font-mono font-bold">
                             {ninja.currentHp}/{ninja.baseStats.hp}
                           </span>
@@ -400,29 +410,40 @@ export function BattleScreen() {
                   </button>
                 )}
                 {battleStatus === "defeat" && (
-                  <div className="flex gap-2 w-full">
-                    <button
-                      onClick={() => {
-                        resetBattle();
-                        endRun();
-                      }}
-                      className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold text-xs rounded-lg shadow uppercase transition-all border border-gray-700"
-                    >
-                      🏠 {t.returnHomeBtn}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const saga = useGameStore.getState().activeSagaId;
-                        resetBattle();
-                        endRun();
-                        if (saga) {
-                          useGameStore.getState().selectSaga(saga);
-                        }
-                      }}
-                      className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg shadow uppercase transition-all border-b-4 border-amber-900"
-                    >
-                      🔄 {lang === "it" ? "Nuova Run" : "New Run"}
-                    </button>
+                  <div className="w-full flex flex-col gap-2">
+                    <div className="bg-red-950/60 border border-red-500/40 rounded-xl p-2 text-center font-mono">
+                      <div className="text-[10px] text-gray-300 uppercase tracking-wider">
+                        🎯 {lang === "it" ? "Punti Guadagnati In Questa Run" : "Points Earned This Run"}
+                      </div>
+                      <div className="text-lg font-black text-amber-300">
+                        +{useGameStore.getState().currentRunScore.toLocaleString()} pts
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 w-full">
+                      <button
+                        onClick={() => {
+                          resetBattle();
+                          endRun();
+                        }}
+                        className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold text-xs rounded-lg shadow uppercase transition-all border border-gray-700 cursor-pointer"
+                      >
+                        🏠 {t.returnHomeBtn}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const saga = useGameStore.getState().activeSagaId;
+                          resetBattle();
+                          endRun();
+                          if (saga) {
+                            useGameStore.getState().selectSaga(saga);
+                          }
+                        }}
+                        className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg shadow uppercase transition-all border-b-4 border-amber-900 cursor-pointer"
+                      >
+                        🔄 {lang === "it" ? "Nuova Run" : "New Run"}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

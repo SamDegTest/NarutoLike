@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useGameStore } from "@/store/useGameStore";
 import { useLanguageStore } from "@/store/useLanguageStore";
 
 interface UserProfileBadgeProps {
@@ -11,7 +12,8 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
   onOpenAuthModal,
   onOpenProfileModal,
 }) => {
-  const { user, username, avatarUrl, signOut, uploadAvatar } = useAuthStore();
+  const { user, username, avatarUrl, selectedTitle, signOut, uploadAvatar } = useAuthStore();
+  const { totalScore } = useGameStore();
   const lang = useLanguageStore((state) => state.language);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -70,6 +72,7 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
   }
 
   const defaultAvatar = "/default_avatar.png";
+  const titleToDisplay = selectedTitle || (lang === "it" ? "Novizio di Konoha 🍃" : "Promising Genin 🍥");
 
   return (
     <div className="relative inline-block text-left shrink-0">
@@ -85,10 +88,10 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
       {/* Main Profile Button - Clicking opens dropdown menu */}
       <div
         onClick={() => setShowDropdown((prev) => !prev)}
-        className="flex items-center gap-3 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl px-3.5 shadow-2xl transition-all h-14 min-h-[56px] cursor-pointer select-none hover:scale-105 active:scale-95 shrink-0"
+        className="flex items-center gap-2.5 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl px-3.5 shadow-xl transition-all h-14 min-h-[56px] cursor-pointer select-none hover:scale-105 active:scale-95 shrink-0"
       >
-        {/* Enlarged Avatar Frame */}
-        <div className="relative w-10 h-10 rounded-xl overflow-hidden border-2 border-amber-400/90 bg-black/60 shrink-0 shadow-inner">
+        {/* Avatar Frame */}
+        <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-amber-400/90 bg-black/60 shrink-0 shadow-inner">
           {isUploading ? (
             <div className="w-full h-full flex items-center justify-center bg-black/80 text-xs text-amber-300 font-bold animate-spin">
               🌀
@@ -109,8 +112,8 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
               {username || user?.user_metadata?.username || user?.email?.split("@")[0] || "Shinobi"}
             </span>
           </div>
-          <div className="text-[10px] sm:text-[11px] text-amber-400/80 font-mono font-bold leading-tight mt-0.5">
-            <span>{lang === "it" ? "Account Cloud" : "Cloud Account"}</span>
+          <div className="text-[10px] text-amber-400/90 font-mono font-semibold leading-tight truncate max-w-[120px] sm:max-w-[160px]">
+            <span>{titleToDisplay}</span>
           </div>
         </div>
       </div>
@@ -118,34 +121,88 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
       {/* Profile Actions Dropdown Menu */}
       {showDropdown && (
         <div
-          className="absolute right-0 mt-2 w-52 bg-[#0f152d] border-2 border-amber-500/50 rounded-2xl shadow-2xl p-2 z-50 animate-fade-in"
+          className="absolute right-0 mt-2.5 w-64 bg-[#0f152d] border-2 border-amber-500/60 rounded-2xl shadow-2xl p-2.5 z-50 animate-fade-in"
           onClick={() => setShowDropdown(false)}
         >
           <button
             onClick={handleAvatarClick}
-            className="w-full text-left px-3 py-2 text-xs font-bold text-gray-200 hover:bg-amber-500/20 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2 cursor-pointer mb-1"
+            className="w-full text-left px-3.5 py-2.5 text-sm sm:text-base font-bold text-gray-100 hover:bg-amber-500/20 hover:text-amber-300 rounded-xl transition-all flex items-center gap-3 cursor-pointer mb-1.5"
           >
-            <span>📷</span>
+            <img
+              src="/change_avatar.png"
+              alt="Carica Foto"
+              onError={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.display = "none";
+                const parent = target.parentElement;
+                if (parent && !parent.querySelector(".badge-avatar-fallback")) {
+                  const span = document.createElement("span");
+                  span.className = "badge-avatar-fallback text-lg";
+                  span.innerText = "📷";
+                  parent.insertBefore(span, target);
+                }
+              }}
+              className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.8)]"
+            />
             <span>{lang === "it" ? "Carica Foto Profilo" : "Upload Profile Photo"}</span>
           </button>
 
           {onOpenProfileModal && (
             <button
               onClick={onOpenProfileModal}
-              className="w-full text-left px-3 py-2 text-xs font-bold text-gray-200 hover:bg-amber-500/20 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2 cursor-pointer mb-1"
+              className="w-full text-left px-3.5 py-2.5 text-sm sm:text-base font-bold text-gray-100 hover:bg-amber-500/20 hover:text-amber-300 rounded-xl transition-all flex items-center gap-3 cursor-pointer mb-1.5"
             >
-              <span>📊</span>
+              <img
+                src="/menu_stats.png"
+                alt="Statistiche"
+                onError={(e) => {
+                  const target = e.target as HTMLElement;
+                  target.style.display = "none";
+                  const parent = target.parentElement;
+                  if (parent && !parent.querySelector(".badge-stats-fallback")) {
+                    const span = document.createElement("span");
+                    span.className = "badge-stats-fallback text-lg";
+                    span.innerText = "📊";
+                    parent.insertBefore(span, target);
+                  }
+                }}
+                className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.8)]"
+              />
               <span>{lang === "it" ? "Profilo & Statistiche" : "Profile & Stats"}</span>
             </button>
           )}
 
-          <div className="border-t border-gray-800 my-1" />
+          {onOpenProfileModal && (
+            <button
+              onClick={onOpenProfileModal}
+              className="w-full text-left px-3.5 py-2.5 text-sm sm:text-base font-bold text-emerald-300 hover:bg-emerald-500/20 rounded-xl transition-all flex items-center gap-3 cursor-pointer mb-1.5"
+            >
+              <img
+                src="/invite_friend.png"
+                alt="Invita un Amico"
+                onError={(e) => {
+                  const target = e.target as HTMLElement;
+                  target.style.display = "none";
+                  const parent = target.parentElement;
+                  if (parent && !parent.querySelector(".badge-invite-fallback")) {
+                    const span = document.createElement("span");
+                    span.className = "badge-invite-fallback text-lg";
+                    span.innerText = "📜";
+                    parent.insertBefore(span, target);
+                  }
+                }}
+                className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]"
+              />
+              <span>{lang === "it" ? "Invita un Amico" : "Invite a Friend"}</span>
+            </button>
+          )}
+
+          <div className="border-t border-gray-800 my-1.5" />
 
           <button
             onClick={() => signOut()}
-            className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-950/40 rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+            className="w-full text-center justify-center px-3.5 py-2.5 text-sm sm:text-base font-bold text-red-400 hover:bg-red-950/40 rounded-xl transition-all flex items-center gap-3 cursor-pointer"
           >
-            <span>🚪</span>
             <span>{lang === "it" ? "Disconnetti" : "Sign Out"}</span>
           </button>
         </div>

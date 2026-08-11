@@ -8,6 +8,7 @@ interface AuthState {
   session: Session | null;
   username: string | null;
   avatarUrl: string | null;
+  selectedTitle: string | null;
   loading: boolean;
   
   initialize: () => Promise<void>;
@@ -15,6 +16,11 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   uploadAvatar: (file: File) => Promise<{ error: any; url?: string }>;
+  resendConfirmationEmail: (email: string) => Promise<{ error: any }>;
+  resetPassword: (emailOrUsername: string) => Promise<{ error: any }>;
+  signInWithMagicLink: (email: string) => Promise<{ error: any }>;
+  updateEmailAddress: (newEmail: string) => Promise<{ error: any }>;
+  reauthenticateUser: (currentPassword?: string) => Promise<{ error: any }>;
 }
 
 function getDerivedUsername(profileUsername?: string | null, user?: User | null): string | null {
@@ -26,11 +32,14 @@ function getDerivedUsername(profileUsername?: string | null, user?: User | null)
   return null;
 }
 
+export const DEFAULT_SHINOBI_TITLE = "Novizio di Konoha 🍃";
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
   username: null,
   avatarUrl: null,
+  selectedTitle: null,
   loading: true,
 
   initialize: async () => {
@@ -40,10 +49,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session) {
-      // Fetch profile username & avatarUrl
+      // Fetch profile username, avatarUrl, selected_title
       const { data: profile } = await supabase
         .from("profiles")
-        .select("username, avatar_url")
+        .select("username, avatar_url, selected_title")
         .eq("id", session.user.id)
         .single();
 
@@ -53,7 +62,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         session, 
         user: session.user, 
         username: derivedUsername,
-        avatarUrl: profile?.avatar_url || null
+        avatarUrl: profile?.avatar_url || null,
+        selectedTitle: profile?.selected_title || DEFAULT_SHINOBI_TITLE,
       });
       
       // Load cloud save
@@ -65,7 +75,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (session) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("username, avatar_url")
+          .select("username, avatar_url, selected_title")
           .eq("id", session.user.id)
           .single();
 
@@ -76,12 +86,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: session.user, 
           username: derivedUsername,
           avatarUrl: profile?.avatar_url || null,
+          selectedTitle: profile?.selected_title || DEFAULT_SHINOBI_TITLE,
           loading: false 
         });
         
         await useGameStore.getState().loadCloudSave();
       } else {
-        set({ session: null, user: null, username: null, avatarUrl: null, loading: false });
+        set({ session: null, user: null, username: null, avatarUrl: null, selectedTitle: null, loading: false });
         useGameStore.getState().clearLocalSave();
       }
     });
@@ -91,10 +102,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signUp: async (email, password, username) => {
     set({ loading: true });
+    const redirectUrl = typeof window !== "undefined" ? window.location.href.split("#")[0] : undefined;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: redirectUrl,
         data: { username },
       },
     });
@@ -107,12 +121,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (data.user) {
       // If auto-authenticated or session available, upsert profile and game save
       if (data.session) {
-        set({ session: data.session, user: data.user, username, loading: false });
+        set({ session: data.session, user: data.user, username, selectedTitle: DEFAULT_SHINOBI_TITLE, loading: false });
 
-        // Upsert profile details
+        // Upsert profile details with default title
         await supabase.from("profiles").upsert({
           id: data.user.id,
           username,
+          selected_title: DEFAULT_SHINOBI_TITLE,
           max_level_reached: 1,
           updated_at: new Date(),
         });
@@ -132,6 +147,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     return { error: null, needsEmailConfirmation: !data.session };
+  },
+
+  resendConfirmationEmail: async (email: string) => {
+    const redirectUrl = typeof window !== "undefined" ? window.location.href.split("#")[0] : undefined;
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
+    });
+    return { error };
   },
 
   signIn: async (identifier, password) => {
@@ -165,7 +192,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (data.session) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("username, avatar_url")
+        .select("username, avatar_url, selected_title")
         .eq("id", data.session.user.id)
         .single();
 
@@ -176,6 +203,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: data.session.user, 
         username: derivedUsername,
         avatarUrl: profile?.avatar_url || null,
+        selectedTitle: profile?.selected_title || DEFAULT_SHINOBI_TITLE,
         loading: false 
       });
       
@@ -235,6 +263,83 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return { error: null, url: finalAvatarUrl };
     } catch (err: any) {
       return { error: err };
+    }
+  },
+
+  resetPassword: async (emailOrUsername: string) => {
+    set({ loading: true });
+    let emailToUse = emailOrUsername.trim();
+
+    // If input is not a direct email format, attempt to resolve via RPC
+    if (!emailToUse.includes("@")) {
+      const { data: resolvedEmail, error: rpcError } = await supabase.rpc("get_user_email_by_username", {
+        p_username: emailToUse,
+      });
+
+      if (rpcError || !resolvedEmail) {
+        set({ loading: false });
+        return { error: { message: "Nome utente o email non trovati" } };
+      }
+
+      emailToUse = resolvedEmail;
+    }
+
+    const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}` : undefined;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(emailToUse, {
+      redirectTo: redirectUrl,
+    });
+
+    set({ loading: false });
+    return { error };
+  },
+
+  signInWithMagicLink: async (email: string) => {
+    set({ loading: true });
+    const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}` : undefined;
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
+    });
+    set({ loading: false });
+    return { error };
+  },
+
+  updateEmailAddress: async (newEmail: string) => {
+    set({ loading: true });
+    const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}` : undefined;
+    const { error } = await supabase.auth.updateUser({
+      email: newEmail.trim(),
+    }, {
+      emailRedirectTo: redirectUrl,
+    });
+    set({ loading: false });
+    return { error };
+  },
+
+  reauthenticateUser: async (currentPassword?: string) => {
+    set({ loading: true });
+    const { user } = get();
+    if (!user || !user.email) {
+      set({ loading: false });
+      return { error: { message: "Utente non autenticato" } };
+    }
+
+    if (currentPassword) {
+      // Reauthenticate via password verification
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      set({ loading: false });
+      return { error };
+    } else {
+      // Reauthenticate via security OTP/magic link email
+      const { error } = await supabase.auth.reauthenticate();
+      set({ loading: false });
+      return { error };
     }
   },
 }));
