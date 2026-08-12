@@ -1,32 +1,148 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useGameStore } from "@/store/useGameStore";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { TRANSLATIONS } from "@/data/translations";
+import { supabase } from "@/lib/supabaseClient";
 
 interface AuthModalProps {
   onClose: () => void;
+  initialRegister?: boolean;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialRegister = false }) => {
   const { language: storeLang } = useLanguageStore();
   const lang = storeLang || "it";
   const t = TRANSLATIONS[lang];
 
   const { signIn, signUp, resendConfirmationEmail, resetPassword, signInWithMagicLink, loading, user } = useAuthStore();
 
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(initialRegister);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isMagicLink, setIsMagicLink] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameValidationError, setUsernameValidationError] = useState<string | null>(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
   
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
+
+  // Live debounced username availability check
+  useEffect(() => {
+    if (!isRegister) {
+      setUsernameValidationError(null);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    const cleanUser = username.trim();
+    if (!cleanUser) {
+      setUsernameValidationError(null);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    if (cleanUser.length < 3) {
+      setUsernameValidationError(
+        lang === "it"
+          ? "Il nome utente deve contenere almeno 3 caratteri"
+          : "Username must be at least 3 characters"
+      );
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    setIsCheckingUsername(true);
+    setUsernameValidationError(null);
+
+    const timer = setTimeout(async () => {
+      try {
+        const { data: existingUser } = await supabase
+          .from("profiles")
+          .select("id")
+          .ilike("username", cleanUser)
+          .maybeSingle();
+
+        if (existingUser) {
+          setUsernameValidationError(
+            lang === "it"
+              ? "❌ Questo nome utente è già stato preso!"
+              : "❌ This username is already taken!"
+          );
+        } else {
+          setUsernameValidationError(null);
+        }
+      } catch (err) {
+        console.error("Error checking username:", err);
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [username, isRegister, lang]);
+
+  // Live debounced email availability check
+  useEffect(() => {
+    if (!isRegister) {
+      setEmailValidationError(null);
+      setIsCheckingEmail(false);
+      return;
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setEmailValidationError(null);
+      setIsCheckingEmail(false);
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      setEmailValidationError(
+        lang === "it" ? "Inserisci un indirizzo email valido" : "Please enter a valid email address"
+      );
+      setIsCheckingEmail(false);
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    setEmailValidationError(null);
+
+    const timer = setTimeout(async () => {
+      try {
+        const { data: existingEmail } = await supabase
+          .from("profiles")
+          .select("id")
+          .ilike("email", cleanEmail)
+          .maybeSingle();
+
+        if (existingEmail) {
+          setEmailValidationError(
+            lang === "it"
+              ? "❌ Esiste già un account registrato con questa email!"
+              : "❌ An account with this email already exists!"
+          );
+        } else {
+          setEmailValidationError(null);
+        }
+      } catch (err) {
+        console.error("Error checking email:", err);
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [email, isRegister, lang]);
 
   // Auto-close modal if user gets authenticated via onAuthStateChange or polling
   React.useEffect(() => {
@@ -276,7 +392,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
             </p>
             
             <div className="bg-[#070b19] border border-amber-500/30 p-3 rounded-xl flex items-center justify-center gap-2.5 text-xs text-amber-400 font-mono">
-              <span className="animate-spin text-base">🌀</span>
+              <img
+                src="/sharingan_spinner.png"
+                alt="Caricamento..."
+                className="w-5 h-5 object-contain animate-spin shrink-0 filter drop-shadow-[0_0_6px_rgba(239,68,68,0.8)]"
+              />
               <span>
                 {lang === "it"
                   ? "In attesa della conferma... L'accesso avverrà automaticamente appena confermi!"
@@ -349,9 +469,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="NarutoUzumaki"
-                    className="w-full bg-[#070b19] border-2 border-gray-800 focus:border-[#ff9f1c] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                    className={`w-full bg-[#070b19] border-2 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors ${
+                      usernameValidationError
+                        ? "border-red-500"
+                        : username.trim().length >= 3 && !isCheckingUsername && !usernameValidationError
+                        ? "border-emerald-500"
+                        : "border-gray-800 focus:border-[#ff9f1c]"
+                    }`}
                     required
                   />
+
+                  {/* Live Username Validation Indicator */}
+                  {isCheckingUsername && (
+                    <p className="text-[11px] font-mono text-amber-400 flex items-center gap-1.5 animate-pulse mt-1">
+                      <img src="/sharingan_spinner.png" alt="Loading" className="w-3.5 h-3.5 object-contain animate-spin shrink-0" />
+                      <span>{lang === "it" ? "Verifica nome utente in corso..." : "Checking username..."}</span>
+                    </p>
+                  )}
+
+                  {!isCheckingUsername && usernameValidationError && (
+                    <p className="text-[11px] font-mono text-red-400 font-bold flex items-center gap-1.5 mt-1">
+                      <span>⚠️</span> {usernameValidationError}
+                    </p>
+                  )}
+
+                  {!isCheckingUsername && !usernameValidationError && username.trim().length >= 3 && (
+                    <p className="text-[11px] font-mono text-emerald-400 font-bold flex items-center gap-1.5 mt-1">
+                      <span>✓</span> {lang === "it" ? "Nome utente disponibile!" : "Username available!"}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -364,9 +510,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={isRegister || isForgotPassword || isMagicLink ? "hokage@konoha.com" : "hokage@konoha.com o NarutoUzumaki"}
-                  className="w-full bg-[#070b19] border-2 border-gray-800 focus:border-[#ff9f1c] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                  className={`w-full bg-[#070b19] border-2 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors ${
+                    isRegister && emailValidationError
+                      ? "border-red-500"
+                      : isRegister && email.trim().length > 0 && !isCheckingEmail && !emailValidationError
+                      ? "border-emerald-500"
+                      : "border-gray-800 focus:border-[#ff9f1c]"
+                  }`}
                   required
                 />
+
+                {/* Live Email Validation Indicator (In Register Mode) */}
+                {isRegister && isCheckingEmail && (
+                  <p className="text-[11px] font-mono text-amber-400 flex items-center gap-1.5 animate-pulse mt-1">
+                    <img src="/sharingan_spinner.png" alt="Loading" className="w-3.5 h-3.5 object-contain animate-spin shrink-0" />
+                    <span>{lang === "it" ? "Verifica email in corso..." : "Checking email..."}</span>
+                  </p>
+                )}
+
+                {isRegister && !isCheckingEmail && emailValidationError && (
+                  <p className="text-[11px] font-mono text-red-400 font-bold flex items-center gap-1.5 mt-1">
+                    <span>⚠️</span> {emailValidationError}
+                  </p>
+                )}
+
+                {isRegister && !isCheckingEmail && !emailValidationError && email.trim().length > 0 && (
+                  <p className="text-[11px] font-mono text-emerald-400 font-bold flex items-center gap-1.5 mt-1">
+                    <span>✓</span> {lang === "it" ? "Email disponibile per la registrazione!" : "Email available!"}
+                  </p>
+                )}
               </div>
 
               {!isForgotPassword && !isMagicLink && (
@@ -451,21 +623,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-6 py-3 bg-[#ff9f1c] hover:bg-yellow-500 disabled:bg-gray-800 disabled:text-gray-500 text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-xs transition-colors border-b-4 border-amber-700 cursor-pointer"
-              >
-                {loading
-                  ? t.authLoading
-                  : isMagicLink
-                  ? t.authSendMagicLinkBtn
-                  : isForgotPassword
-                  ? t.authSendResetEmail
-                  : isRegister
-                  ? t.authRegisterBtn
-                  : t.authLoginBtn}
-              </button>
+              {(() => {
+                const isRegisterFormValid =
+                  !isRegister ||
+                  (username.trim().length >= 3 &&
+                    !isCheckingUsername &&
+                    !usernameValidationError &&
+                    email.trim().length > 0 &&
+                    !isCheckingEmail &&
+                    !emailValidationError &&
+                    satisfiedCount === 5 &&
+                    !loading);
+
+                return (
+                  <button
+                    type="submit"
+                    disabled={loading || (isRegister && !isRegisterFormValid)}
+                    className="w-full mt-6 py-3 bg-[#ff9f1c] hover:bg-yellow-500 disabled:bg-gray-800 disabled:text-gray-500 disabled:border-gray-700 disabled:cursor-not-allowed text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-xs transition-all border-b-4 border-amber-700 cursor-pointer shadow-md"
+                  >
+                    {loading
+                      ? t.authLoading
+                      : isMagicLink
+                      ? t.authSendMagicLinkBtn
+                      : isForgotPassword
+                      ? t.authSendResetEmail
+                      : isRegister
+                      ? t.authRegisterBtn
+                      : t.authLoginBtn}
+                  </button>
+                );
+              })()}
             </form>
 
             <div className="mt-6 flex flex-col items-center gap-2">

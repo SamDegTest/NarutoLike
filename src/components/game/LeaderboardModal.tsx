@@ -107,22 +107,11 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
             <img
               src="/leaderboard_header.png"
               alt="Classifica"
-              onError={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.display = "none";
-                const parent = target.parentElement;
-                if (parent && !parent.querySelector(".leaderboard-header-fallback")) {
-                  const span = document.createElement("span");
-                  span.className = "leaderboard-header-fallback";
-                  span.innerText = "🏆";
-                  parent.insertBefore(span, target);
-                }
-              }}
               className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 filter drop-shadow-[0_0_10px_rgba(255,159,28,0.8)]"
             />
             <span>{lang === "it" ? "CLASSIFICA GLOBALE SHINOBI" : "GLOBAL SHINOBI LEADERBOARD"}</span>
           </h2>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-sm text-slate-300 font-medium mt-1">
             {lang === "it"
               ? "Guadagna punti vincendo scontri, sconfiggendo boss ed evaporando le saghe!"
               : "Earn points by winning battles, beating bosses, and clearing sagas!"}
@@ -142,17 +131,6 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
             <img
               src="/tab_total.png"
               alt="Totali"
-              onError={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.display = "none";
-                const parent = target.parentElement;
-                if (parent && !parent.querySelector(".tab-total-fallback")) {
-                  const span = document.createElement("span");
-                  span.className = "tab-total-fallback";
-                  span.innerText = "🌐";
-                  parent.insertBefore(span, target);
-                }
-              }}
               className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.6)]"
             />
             <span>{lang === "it" ? "Punti Totali" : "Total Score"}</span>
@@ -169,17 +147,6 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
             <img
               src="/tab_classic.png"
               alt="Classic"
-              onError={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.display = "none";
-                const parent = target.parentElement;
-                if (parent && !parent.querySelector(".tab-classic-fallback")) {
-                  const span = document.createElement("span");
-                  span.className = "tab-classic-fallback";
-                  span.innerText = "🍥";
-                  parent.insertBefore(span, target);
-                }
-              }}
               className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.6)]"
             />
             <span>Classic High Score</span>
@@ -196,17 +163,6 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
             <img
               src="/tab_shippuden.png"
               alt="Shippuden"
-              onError={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.display = "none";
-                const parent = target.parentElement;
-                if (parent && !parent.querySelector(".tab-shippuden-fallback")) {
-                  const span = document.createElement("span");
-                  span.className = "tab-shippuden-fallback";
-                  span.innerText = "⚡";
-                  parent.insertBefore(span, target);
-                }
-              }}
               className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.6)]"
             />
             <span>Shippuden High Score</span>
@@ -214,8 +170,12 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
         </div>
 
         {loading ? (
-          <div className="flex-1 flex flex-col items-center justify-center py-12 text-amber-300 font-mono text-sm gap-2">
-            <span className="text-3xl animate-spin">🌀</span>
+          <div className="flex-1 flex flex-col items-center justify-center py-12 text-amber-300 font-bold text-sm gap-3">
+            <img
+              src="/sharingan_spinner.png"
+              alt="Caricamento..."
+              className="w-10 h-10 object-contain animate-spin filter drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]"
+            />
             <span>{lang === "it" ? "Caricamento Classifica..." : "Loading Leaderboard..."}</span>
           </div>
         ) : sortedLeaderboard.length === 0 ? (

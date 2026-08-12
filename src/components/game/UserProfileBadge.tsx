@@ -6,11 +6,13 @@ import { useLanguageStore } from "@/store/useLanguageStore";
 interface UserProfileBadgeProps {
   onOpenAuthModal: () => void;
   onOpenProfileModal?: () => void;
+  onOpenInviteModal?: () => void;
 }
 
 export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
   onOpenAuthModal,
   onOpenProfileModal,
+  onOpenInviteModal,
 }) => {
   const { user, username, avatarUrl, selectedTitle, signOut, uploadAvatar } = useAuthStore();
   const { totalScore } = useGameStore();
@@ -93,8 +95,12 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
         {/* Avatar Frame */}
         <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-amber-400/90 bg-black/60 shrink-0 shadow-inner">
           {isUploading ? (
-            <div className="w-full h-full flex items-center justify-center bg-black/80 text-xs text-amber-300 font-bold animate-spin">
-              🌀
+            <div className="w-full h-full flex items-center justify-center bg-black/80">
+              <img
+                src="/sharingan_spinner.png"
+                alt="Uploading..."
+                className="w-5 h-5 object-contain animate-spin filter drop-shadow-[0_0_6px_rgba(239,68,68,0.8)]"
+              />
             </div>
           ) : (
             <img
@@ -149,48 +155,36 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
 
           {onOpenProfileModal && (
             <button
-              onClick={onOpenProfileModal}
+              onClick={() => {
+                setShowDropdown(false);
+                onOpenProfileModal();
+              }}
               className="w-full text-left px-3.5 py-2.5 text-sm sm:text-base font-bold text-gray-100 hover:bg-amber-500/20 hover:text-amber-300 rounded-xl transition-all flex items-center gap-3 cursor-pointer mb-1.5"
             >
               <img
                 src="/menu_stats.png"
                 alt="Statistiche"
-                onError={(e) => {
-                  const target = e.target as HTMLElement;
-                  target.style.display = "none";
-                  const parent = target.parentElement;
-                  if (parent && !parent.querySelector(".badge-stats-fallback")) {
-                    const span = document.createElement("span");
-                    span.className = "badge-stats-fallback text-lg";
-                    span.innerText = "📊";
-                    parent.insertBefore(span, target);
-                  }
-                }}
                 className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.8)]"
               />
               <span>{lang === "it" ? "Profilo & Statistiche" : "Profile & Stats"}</span>
             </button>
           )}
 
-          {onOpenProfileModal && (
+          {(onOpenInviteModal || onOpenProfileModal) && (
             <button
-              onClick={onOpenProfileModal}
+              onClick={() => {
+                setShowDropdown(false);
+                if (onOpenInviteModal) {
+                  onOpenInviteModal();
+                } else if (onOpenProfileModal) {
+                  onOpenProfileModal();
+                }
+              }}
               className="w-full text-left px-3.5 py-2.5 text-sm sm:text-base font-bold text-emerald-300 hover:bg-emerald-500/20 rounded-xl transition-all flex items-center gap-3 cursor-pointer mb-1.5"
             >
               <img
                 src="/invite_friend.png"
                 alt="Invita un Amico"
-                onError={(e) => {
-                  const target = e.target as HTMLElement;
-                  target.style.display = "none";
-                  const parent = target.parentElement;
-                  if (parent && !parent.querySelector(".badge-invite-fallback")) {
-                    const span = document.createElement("span");
-                    span.className = "badge-invite-fallback text-lg";
-                    span.innerText = "📜";
-                    parent.insertBefore(span, target);
-                  }
-                }}
                 className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]"
               />
               <span>{lang === "it" ? "Invita un Amico" : "Invite a Friend"}</span>

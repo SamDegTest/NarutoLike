@@ -7,7 +7,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Inter"', 'sans-serif'], // Un font pulito come esempio
+        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+        heading: ['"Outfit"', '"Inter"', 'sans-serif'],
+        pixel: ['"VT323"', 'monospace'],
       },
     },
   },
