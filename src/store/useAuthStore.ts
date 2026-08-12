@@ -18,6 +18,7 @@ interface AuthState {
   uploadAvatar: (file: File) => Promise<{ error: any; url?: string }>;
   resendConfirmationEmail: (email: string) => Promise<{ error: any }>;
   resetPassword: (emailOrUsername: string) => Promise<{ error: any }>;
+  updatePassword: (newPassword: string) => Promise<{ error: any }>;
   signInWithMagicLink: (email: string) => Promise<{ error: any }>;
   updateEmailAddress: (newEmail: string) => Promise<{ error: any }>;
   reauthenticateUser: (currentPassword?: string) => Promise<{ error: any }>;
@@ -284,7 +285,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       emailToUse = resolvedEmail;
     }
 
-    const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}` : undefined;
+    const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}/?resetPassword=true` : undefined;
 
     const { error } = await supabase.auth.resetPasswordForEmail(emailToUse, {
       redirectTo: redirectUrl,
@@ -294,9 +295,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return { error };
   },
 
+  updatePassword: async (newPassword: string) => {
+    set({ loading: true });
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword.trim(),
+    });
+    set({ loading: false });
+    return { error };
+  },
+
   signInWithMagicLink: async (email: string) => {
     set({ loading: true });
-    const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}` : undefined;
+    const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}/?signup=true` : undefined;
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {

@@ -15,12 +15,14 @@ import { useLanguageStore } from "@/store/useLanguageStore";
 import { TRANSLATIONS, translateNodeLabel, translateNinjaName, JUTSU_TRANSLATIONS } from "@/data/translations";
 import { useAuthStore } from "@/store/useAuthStore";
 import { AuthModal } from "@/components/game/AuthModal";
+import { ResetPasswordModal } from "@/components/game/ResetPasswordModal";
 import { CreditsModal } from "@/components/game/CreditsModal";
 import { PatchNotesModal } from "@/components/game/PatchNotesModal";
 import { PrivacyModal } from "@/components/game/PrivacyModal";
 import { ChakraChartModal } from "@/components/game/ChakraChartModal";
 import { UserProfileBadge } from "@/components/game/UserProfileBadge";
 import { UserProfileModal } from "@/components/game/UserProfileModal";
+import { InviteFriendModal } from "@/components/game/InviteFriendModal";
 import { LeaderboardModal } from "@/components/game/LeaderboardModal";
 import { AchievementsModal } from "@/components/game/AchievementsModal";
 import { TrophyUnlockNotification } from "@/components/game/TrophyUnlockNotification";
@@ -70,13 +72,16 @@ export default function Home() {
 
   const { user, username, avatarUrl, selectedTitle, initialize: initAuth, signOut: logOut } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalRegisterMode, setAuthModalRegisterMode] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showPatchNotesModal, setShowPatchNotesModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showChakraChartModal, setShowChakraChartModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [showAchievementsModal, setShowAchievementsModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -86,6 +91,27 @@ export default function Home() {
   useEffect(() => {
     setMounted(true);
     initAuth();
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const hash = window.location.hash;
+
+      if (
+        params.get("resetPassword") === "true" ||
+        params.get("type") === "recovery" ||
+        hash.includes("type=recovery")
+      ) {
+        setShowResetPasswordModal(true);
+      } else if (
+        params.get("signup") === "true" ||
+        params.get("register") === "true" ||
+        params.get("action") === "signup" ||
+        params.get("invite") === "true"
+      ) {
+        setAuthModalRegisterMode(true);
+        setShowAuthModal(true);
+      }
+    }
   }, [initAuth]);
 
   const { language: storeLang, setLanguage } = useLanguageStore();
@@ -118,19 +144,63 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  // Keyboard shortcuts listener (Spacebar/Enter for map node advance, C for Chakra chart, M for menu)
+  // Keyboard shortcuts listener (Spacebar/Enter for endless map progression)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) return;
 
       if (e.code === "Space" || e.code === "Enter") {
-        if (isRunActive && !isBattleActive) {
-          const selectable = activeMap.filter((n) => isNodeSelectable(n));
-          if (selectable.length > 0) {
-            e.preventDefault();
-            selectNode(selectable[0].id);
+        if (!isRunActive || isBattleActive) return;
+
+        // 1. Handle Power-up Jutsu Scroll Overlay
+        if (pendingJutsuToLearn) {
+          e.preventDefault();
+          const eligibleNinja =
+            runTeam.find(
+              (n) => n.currentHp > 0 && n.jutsuList.indexOf(n.activeJutsuId) < n.jutsuList.length - 1
+            ) ||
+            runTeam.find((n) => n.currentHp > 0) ||
+            runTeam[0];
+
+          if (eligibleNinja) {
+            learnJutsu(eligibleNinja.id);
           }
+          return;
+        }
+
+        // 2. Handle Recruitment Choice Overlay
+        if (availableRecruitChoices) {
+          e.preventDefault();
+          if (pendingRecruitId) {
+            if (runTeam.length > 0) {
+              chooseRecruit(pendingRecruitId, runTeam[0].id);
+              setPendingRecruitId(null);
+            }
+          } else {
+            if (runTeam.length >= 6) {
+              skipRecruit();
+              setPendingRecruitId(null);
+            } else if (availableRecruitChoices.length > 0) {
+              chooseRecruit(availableRecruitChoices[0].id);
+            }
+          }
+          return;
+        }
+
+        // 3. Handle Campfire (Ramen Ichiraku) Overlay
+        const current = activeMap.find((n) => n.id === currentNodeId);
+        if (current && current.type === "heal" && !current.resolved) {
+          e.preventDefault();
+          applyHealingAtCampfire();
+          return;
+        }
+
+        // 4. Standard Map Navigation: select next node
+        const selectable = activeMap.filter((n) => isNodeSelectable(n));
+        if (selectable.length > 0) {
+          e.preventDefault();
+          selectNode(selectable[0].id);
         }
       }
 
@@ -145,7 +215,21 @@ export default function Home() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRunActive, isBattleActive, activeMap, currentNodeId]);
+  }, [
+    isRunActive,
+    isBattleActive,
+    activeMap,
+    currentNodeId,
+    pendingJutsuToLearn,
+    availableRecruitChoices,
+    pendingRecruitId,
+    runTeam,
+    learnJutsu,
+    chooseRecruit,
+    skipRecruit,
+    applyHealingAtCampfire,
+    selectNode,
+  ]);
 
   // BFS to compute which nodes are reachable from the current state
   const getReachableNodeIds = () => {
@@ -380,6 +464,7 @@ export default function Home() {
           <UserProfileBadge
             onOpenAuthModal={() => setShowAuthModal(true)}
             onOpenProfileModal={() => setShowProfileModal(true)}
+            onOpenInviteModal={() => setShowInviteModal(true)}
           />
         </div>
 
@@ -467,8 +552,12 @@ export default function Home() {
                   
                   {/* Key Stats Chips */}
                   <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
-                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
-                      <span className="text-lg">👹</span>
+                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2.5">
+                      <img
+                        src="/sprites/gaara_kid.png"
+                        alt="Gaara"
+                        className="w-8 h-8 object-contain bg-gray-900/90 rounded-lg p-0.5 border border-amber-500/40 shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.5)]"
+                      />
                       <div>
                         <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Boss Finale" : "Final Boss"}</div>
                         <div className="font-bold text-amber-300">Gaara</div>
@@ -544,8 +633,12 @@ export default function Home() {
                   
                   {/* Key Stats Chips */}
                   <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
-                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
-                      <span className="text-lg">🌕</span>
+                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2.5">
+                      <img
+                        src="/sprites/madara_tt.png"
+                        alt="Madara 10T"
+                        className="w-8 h-8 object-contain bg-gray-900/90 rounded-lg p-0.5 border border-red-500/40 shrink-0 filter drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]"
+                      />
                       <div>
                         <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Boss Finale" : "Final Boss"}</div>
                         <div className="font-bold text-red-400">Madara 10T</div>
@@ -883,27 +976,37 @@ export default function Home() {
 
           {/* MIDDLE COLUMN: POKEROGUE MAP */}
           <div className="lg:col-span-2 flex flex-col items-center h-full min-h-0 relative w-full">
-            {/* THE RETRO MAP CONTAINER */}
-            <div className="flex-1 w-full max-w-[650px] bg-[#3a5a40] border-4 border-[#ff9f1c] rounded-2xl relative overflow-hidden shadow-2xl flex flex-col min-h-0">
+            {/* TOP HEADER NAVIGATION CONTROL BAR (Placed outside map box so it NEVER covers nodes) */}
+            {(() => {
+              const selectable = activeMap.filter((n) => isNodeSelectable(n));
+              if (selectable.length === 0) return null;
+              const targetNode = selectable[0];
+              const targetLabel = translateNodeLabel(targetNode.label, lang);
 
-              {/* QUICK AUTO-ADVANCE MAP BUTTON */}
-              {(() => {
-                const selectable = activeMap.filter((n) => isNodeSelectable(n));
-                if (selectable.length === 0) return null;
-                const targetNode = selectable[0];
-                const targetLabel = translateNodeLabel(targetNode.label, lang);
+              return (
+                <div className="w-full max-w-[650px] mb-2 flex items-center justify-between bg-[#0f152d] border-2 border-[#ff9f1c]/60 px-3.5 py-2 rounded-2xl shadow-lg shrink-0">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm font-extrabold text-[#ff9f1c] truncate">
+                    <span className="text-base">⚡</span>
+                    <span>{lang === "it" ? "Prossima Tappa:" : "Next Stage:"}</span>
+                    <span className="text-white font-black bg-[#070b19] px-2.5 py-0.5 rounded-xl border border-amber-500/40">
+                      {targetLabel}
+                    </span>
+                  </div>
 
-                return (
                   <button
                     onClick={() => selectNode(targetNode.id)}
-                    className="absolute top-2 right-10 z-20 bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-extrabold px-3 py-1 rounded-lg text-xs uppercase tracking-wider shadow-xl border border-yellow-300 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-1 font-mono"
-                    title={lang === "it" ? "Avanza al prossimo nodo (Spazio/Invio)" : "Advance to next node (Spacebar/Enter)"}
+                    className="bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-black px-3.5 py-1.5 rounded-xl text-xs uppercase tracking-wider shadow-md border-b-2 border-amber-700 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-2 shrink-0"
+                    title={lang === "it" ? "Avanza alla prossima tappa (Premi Spazio o Invio sulla tastiera)" : "Advance to next stage (Press Spacebar or Enter on keyboard)"}
                   >
-                    <span>⚡ {lang === "it" ? "Prossimo" : "Next"}: {targetLabel}</span>
-                    <span className="text-[10px] bg-black/20 px-1 rounded text-[#070b19]">↵</span>
+                    <span>{lang === "it" ? "Avanza" : "Advance"}</span>
+                    <span className="bg-[#070b19]/20 px-1.5 py-0.5 rounded text-[10px] border border-black/20 font-mono">SPAZIO / ↵</span>
                   </button>
-                );
-              })()}
+                </div>
+              );
+            })()}
+
+            {/* THE RETRO MAP CONTAINER */}
+            <div className="flex-1 w-full max-w-[650px] bg-[#3a5a40] border-4 border-[#ff9f1c] rounded-2xl relative overflow-hidden shadow-2xl flex flex-col min-h-0">
 
               {/* TREE BORDERS */}
               <div className="absolute inset-y-0 left-0 w-8 bg-[repeating-linear-gradient(#2d6a4f,#2d6a4f_20px,#1b4332_20px,#1b4332_40px)] flex flex-col justify-around text-center select-none text-xs border-r border-[#ff9f1c]/10">
@@ -961,21 +1064,21 @@ export default function Home() {
                 const isCurrent = node.id === currentNodeId;
                 const isReachable = reachableNodeIds.has(node.id);
 
-                let statusClass = "border-gray-800 bg-gray-900/60 text-gray-500 opacity-60";
+                let statusClass = "opacity-35 grayscale filter transition-all";
                 let disabledClass = "cursor-not-allowed pointer-events-none";
 
                 if (node.resolved) {
-                  statusClass = "border-[#ff9f1c] bg-[#ff9f1c]/10 text-[#ff9f1c] shadow-[0_0_10px_rgba(255,159,28,0.4)]";
+                  statusClass = "opacity-90 filter drop-shadow-[0_0_8px_rgba(255,159,28,0.7)] transition-all";
                   disabledClass = "cursor-default pointer-events-none";
                 } else if (selectable) {
                   const isPositiveNode = node.type === "recruit" || node.type === "powerup" || node.type === "heal";
                   statusClass = isPositiveNode
-                    ? "border-green-500 bg-green-950/40 text-green-400 hover:bg-green-900/30 hover:scale-110 shadow-[0_0_12px_rgba(34,197,94,0.4)] animate-pulse"
-                    : "border-red-500 bg-red-950/40 text-red-400 hover:bg-red-900/30 hover:scale-110 shadow-[0_0_12px_rgba(239,68,68,0.4)] animate-pulse";
-                  disabledClass = "cursor-pointer";
+                    ? "hover:scale-125 filter drop-shadow-[0_0_14px_rgba(34,197,94,0.9)] animate-pulse transition-all"
+                    : "hover:scale-125 filter drop-shadow-[0_0_14px_rgba(239,68,68,0.9)] animate-pulse transition-all";
+                  disabledClass = "cursor-pointer z-10";
                 } else if (isCurrent) {
-                  statusClass = "border-orange-500 bg-[#ff9f1c]/25 text-orange-400 font-extrabold shadow-[0_0_15px_rgba(249,115,22,0.6)]";
-                  disabledClass = "cursor-default pointer-events-none";
+                  statusClass = "scale-125 filter drop-shadow-[0_0_16px_rgba(249,115,22,1)] transition-all";
+                  disabledClass = "cursor-default pointer-events-none z-10";
                 }
 
                 let iconSymbol = "⚔️";
@@ -1000,28 +1103,28 @@ export default function Home() {
                     key={node.id}
                     onClick={() => selectable && selectNode(node.id)}
                     style={{ left: pos.left, top: pos.top }}
-                    className={`absolute -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full border-2 flex items-center justify-center font-bold text-xl transition-all ${statusClass} ${disabledClass}`}
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center font-bold text-xl ${statusClass} ${disabledClass}`}
                     title={isReachable ? fullTooltip : `${fullTooltip} (${lang === "it" ? "Non Raggiungibile" : "Unreachable"})`}
                   >
                     {node.type === "powerup" && (
                       <img
                         src="/sprites/jutsus/Scrolls.png"
                         alt="Tecnica"
-                        className="w-10 h-10 object-contain"
+                        className="w-12 h-12 object-contain"
                       />
                     )}
                     {node.type === "recruit" && (
                       <img
                         src="/academy.png"
                         alt="Recluta"
-                        className="w-10 h-10 object-contain"
+                        className="w-12 h-12 object-contain"
                       />
                     )}
                     {node.type === "heal" && (
                       <img
                         src="/ramen.png"
                         alt="Ramen"
-                        className="w-10 h-10 object-contain"
+                        className="w-12 h-12 object-contain"
                       />
                     )}
                     {(node.type === "battle" || node.type === "boss") && (() => {
@@ -1033,7 +1136,7 @@ export default function Home() {
                           <img
                             src={oppNinja.sprite}
                             alt={translatedName}
-                            className="w-full h-full object-contain rounded-full bg-gray-950 p-0.5"
+                            className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(0,0,0,0.8)]"
                           />
                         );
                       }
@@ -1047,7 +1150,7 @@ export default function Home() {
                         <ChakraNatureBadge
                           nature={firstOppNinja.chakraNature}
                           showText={false}
-                          className="scale-110"
+                          className="scale-100"
                         />
                       </div>
                     )}
@@ -1070,13 +1173,37 @@ export default function Home() {
               {/* OVERLAY: JUTSU LEARN TARGET SELECTOR */}
               {pendingJutsuToLearn && (
                 <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-5 text-center animate-fade-in">
-                  <div className="bg-green-950/40 border-4 border-green-500 rounded-2xl p-6 shadow-2xl max-w-sm w-full animate-pulse">
-                    <h3 className="text-xl font-bold text-green-400 mb-2 uppercase tracking-wider">
+                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-sm w-full">
+                    <img
+                      src="/sprites/jutsus/Scrolls.png"
+                      alt="Scroll"
+                      className="w-16 h-16 object-contain mx-auto mb-3 filter drop-shadow-[0_0_12px_rgba(34,197,94,0.7)] animate-bounce"
+                    />
+                    <h3 className="text-xl sm:text-2xl font-black text-green-400 mb-2 uppercase tracking-wider">
                       {lang === "it" ? "ROTOLO PROIBITO ATTIVO" : "ACTIVE FORBIDDEN SCROLL"} ⚡
                     </h3>
-                    <p className="text-sm text-gray-200 leading-relaxed">
-                      {lang === "it" ? "Seleziona il ninja direttamente dalla tua squadra a sinistra per potenziarne la mossa ed avanzare." : "Select the ninja directly from your team on the left to upgrade their move and advance."}
+                    <p className="text-xs sm:text-sm text-slate-200 leading-relaxed mb-4">
+                      {lang === "it"
+                        ? "Seleziona il ninja dalla tua squadra a sinistra oppure premi Spazio/Invio per potenziare il primo ninja della squadra."
+                        : "Select the ninja from your team on the left or press Spacebar/Enter to upgrade the first team ninja."}
                     </p>
+                    <button
+                      onClick={() => {
+                        const eligibleNinja =
+                          runTeam.find(
+                            (n) => n.currentHp > 0 && n.jutsuList.indexOf(n.activeJutsuId) < n.jutsuList.length - 1
+                          ) ||
+                          runTeam.find((n) => n.currentHp > 0) ||
+                          runTeam[0];
+                        if (eligibleNinja) {
+                          learnJutsu(eligibleNinja.id);
+                        }
+                      }}
+                      className="w-full py-3 bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-black rounded-2xl text-xs uppercase tracking-wider border-b-4 border-amber-700 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg hover:scale-105 active:scale-95"
+                    >
+                      <span>⚡ {lang === "it" ? "Potenzia Primo Ninja" : "Upgrade First Ninja"}</span>
+                      <span className="bg-[#070b19]/20 px-1.5 py-0.5 rounded text-[10px] border border-black/20 font-mono">SPAZIO / ↵</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1206,21 +1333,21 @@ export default function Home() {
               {/* OVERLAY: CAMPFIRE HEALING ACTION */}
               {currentNode && currentNode.type === "heal" && !currentNode.resolved && (
                 <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-5 animate-fade-in">
-                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-2xl p-6 shadow-2xl w-full max-w-md text-center">
+                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-3xl p-6 sm:p-8 shadow-2xl w-full max-w-sm text-center">
                     <img src="/ramen.png" alt="Ramen" className="w-20 h-20 object-contain mx-auto mb-4 filter drop-shadow-[0_0_15px_rgba(34,197,94,0.6)] animate-bounce" />
-                    <h3 className="text-2xl sm:text-3xl font-extrabold text-green-400 mb-3 uppercase tracking-wider font-mono">
-                      {lang === "it" ? "RAMEN ICHIRAKU" : "ICHIRAKU RAMEN"} 🍜
+                    <h3 className="text-2xl sm:text-3xl font-black text-green-400 mb-2 uppercase tracking-wider">
+                      {lang === "it" ? "RAMEN ICHIRAKU" : "ICHIRAKU RAMEN"}
                     </h3>
-                    <p className="text-sm sm:text-base text-gray-100 mb-6 leading-relaxed font-extrabold bg-[#070b19]/90 p-4 rounded-xl border border-green-500/40">
+                    <p className="text-sm font-semibold text-slate-200 mb-6">
                       {lang === "it"
-                        ? "Un delizioso zdello di Ramen Ichiraku caldo ripristina la Salute (HP) e il Chakra di TUTTI i ninja della tua squadra al 100%!"
-                        : "A hot bowl of Ichiraku Ramen restores Health (HP) and Chakra of ALL ninjas in your team to 100%!"}
+                        ? "Ripristina il 100% di HP e Chakra a tutta la squadra!"
+                        : "Restores 100% HP & Chakra for the entire team!"}
                     </p>
                     <button
                       onClick={applyHealingAtCampfire}
-                      className="w-full py-4 bg-green-600 hover:bg-green-500 text-white font-extrabold rounded-2xl shadow-2xl transition-all uppercase tracking-wider text-sm sm:text-base border-b-4 border-green-950 cursor-pointer hover:scale-105 active:scale-95"
+                      className="w-full py-3.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold rounded-2xl shadow-xl transition-all uppercase tracking-wider text-base border-b-4 border-green-950 cursor-pointer hover:scale-105 active:scale-95"
                     >
-                      {lang === "it" ? "🍜 MANGIA RAMEN (RIPRISTINA SQUADRA 100% HP & CHAKRA)" : "🍜 EAT RAMEN (RESTORE TEAM 100% HP & CHAKRA)"}
+                      {lang === "it" ? "MANGIA RAMEN" : "EAT RAMEN"}
                     </button>
                   </div>
                 </div>
@@ -1277,7 +1404,7 @@ export default function Home() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-500 italic">{lang === "it" ? "Nessun potenziamento attivo" : "No active power-ups"}</p>
+                  <p className="text-sm text-slate-300 font-medium italic">{lang === "it" ? "Nessun potenziamento attivo" : "No active power-ups"}</p>
                 )}
               </div>
             </div>
@@ -1287,69 +1414,75 @@ export default function Home() {
               <h2 className="text-lg font-bold border-b-2 border-gray-800 pb-1 text-[#ff9f1c] uppercase tracking-wider mb-2">
                 {lang === "it" ? "BOSS SCONFITTI" : "DEFEATED BOSSES"}
               </h2>
-              <div className="grid grid-cols-5 gap-1.5">
-                {(() => {
-                  const sagaBosses = activeSagaId === "classic_naruto" ? [
-                    { id: "mizuki", name: "Mizuki" },
-                    { id: "haku", name: "Haku" },
-                    { id: "zabuza", name: "Zabuza" },
-                    { id: "orochimaru_shippuden", name: "Orochimaru" },
-                    { id: "gaara_kid", name: "Gaara" },
-                  ] : [
-                    { id: "deidara_boss", name: "Deidara" },
-                    { id: "hidan_boss", name: "Hidan" },
-                    { id: "itachi_shippuden", name: "Itachi" },
-                    { id: "kisame_shippuden", name: "Kisame" },
-                    { id: "pain_boss", name: "Pain" },
-                    { id: "kabuto_shippuden", name: "Kabuto" },
-                    { id: "obito_boss", name: "Tobi" },
-                    { id: "madara_boss", name: "Madara" },
-                    { id: "obito_tt", name: "Obito 10T" },
-                    { id: "madara_tt", name: "Madara 10T" },
-                  ];
+              {(() => {
+                const sagaBosses = activeSagaId === "classic_naruto" ? [
+                  { id: "mizuki", name: "Mizuki" },
+                  { id: "haku", name: "Haku" },
+                  { id: "zabuza", name: "Zabuza" },
+                  { id: "orochimaru_shippuden", name: "Orochimaru" },
+                  { id: "gaara_kid", name: "Gaara" },
+                ] : [
+                  { id: "deidara_boss", name: "Deidara" },
+                  { id: "hidan_boss", name: "Hidan" },
+                  { id: "itachi_shippuden", name: "Itachi" },
+                  { id: "kisame_shippuden", name: "Kisame" },
+                  { id: "pain_boss", name: "Pain" },
+                  { id: "kabuto_shippuden", name: "Kabuto" },
+                  { id: "obito_boss", name: "Tobi" },
+                  { id: "madara_boss", name: "Madara" },
+                  { id: "obito_tt", name: "Obito 10T" },
+                  { id: "madara_tt", name: "Madara 10T" },
+                ];
 
-                  return (
-                    <div className="flex justify-around items-center gap-1 w-full py-1">
-                      {sagaBosses.map((boss) => {
-                        const isDefeated = defeatedBosses.includes(boss.id);
-                        const bossDisplayName = boss.name;
-                        const tooltipText = isDefeated
-                          ? (lang === "it" ? `Sconfitto: ${bossDisplayName}` : `Defeated: ${bossDisplayName}`)
-                          : (lang === "it" ? `Boss da sconfiggere: ${bossDisplayName}` : `Boss to defeat: ${bossDisplayName}`);
+                return (
+                  <div className="grid grid-cols-5 gap-y-3 gap-x-1.5 py-1 w-full">
+                    {sagaBosses.map((boss) => {
+                      const isDefeated = defeatedBosses.includes(boss.id);
+                      const bossDisplayName = boss.name;
+                      const tooltipText = isDefeated
+                        ? (lang === "it" ? `Sconfitto: ${bossDisplayName}` : `Defeated: ${bossDisplayName}`)
+                        : (lang === "it" ? `Boss da sconfiggere: ${bossDisplayName}` : `Boss to defeat: ${bossDisplayName}`);
 
-                        return (
-                          <div key={boss.id} className="flex flex-col items-center gap-1">
-                            <div
-                              className={`w-11 h-11 rounded-full border-2 flex items-center justify-center relative overflow-hidden transition-all shadow-md ${isDefeated
-                                ? "border-green-500 bg-green-500/10"
+                      return (
+                        <div key={boss.id} className="flex flex-col items-center gap-1 min-w-0">
+                          <div
+                            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 flex items-center justify-center relative overflow-hidden transition-all shadow-md shrink-0 ${
+                              isDefeated
+                                ? "border-green-500 bg-green-500/10 shadow-[0_0_8px_rgba(34,197,94,0.4)]"
                                 : "border-dashed border-gray-700 bg-gray-950/40 text-gray-500"
-                                }`}
-                              title={tooltipText}
-                            >
-                              {isDefeated ? (
-                                <img
-                                  src={`/bosses/${boss.id}.png`}
-                                  onError={(e) => {
-                                    const opp = NINJA_MAP.get(boss.id);
-                                    if (opp) {
-                                      e.currentTarget.src = opp.sprite;
-                                    }
-                                  }}
-                                  alt={bossDisplayName}
-                                  className="w-full h-full object-cover rounded-full absolute inset-0 bg-gray-950 p-0.5"
-                                />
-                              ) : (
-                                <span className="text-xs font-mono font-bold">?</span>
-                              )}
-                            </div>
-                            <span className="text-[7px] text-gray-400 truncate max-w-[44px] text-center font-semibold">{bossDisplayName}</span>
+                            }`}
+                            title={tooltipText}
+                          >
+                            {isDefeated ? (
+                              <img
+                                src={`/bosses/${boss.id}.png`}
+                                onError={(e) => {
+                                  const opp = NINJA_MAP.get(boss.id);
+                                  if (opp) {
+                                    e.currentTarget.src = opp.sprite;
+                                  }
+                                }}
+                                alt={bossDisplayName}
+                                className="w-full h-full object-cover rounded-full absolute inset-0 bg-gray-950 p-0.5"
+                              />
+                            ) : (
+                              <span className="text-xs font-mono font-bold">?</span>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-              </div>
+                          <span
+                            className={`text-[9px] font-mono leading-tight truncate text-center w-full ${
+                              isDefeated ? "text-green-400 font-bold" : "text-gray-400"
+                            }`}
+                            title={bossDisplayName}
+                          >
+                            {bossDisplayName}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </aside>
 
@@ -1374,12 +1507,29 @@ export default function Home() {
         </footer>
       )}
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => {
+            setShowAuthModal(false);
+            setAuthModalRegisterMode(false);
+          }}
+          initialRegister={authModalRegisterMode}
+        />
+      )}
+      {showResetPasswordModal && (
+        <ResetPasswordModal onClose={() => setShowResetPasswordModal(false)} />
+      )}
       {showCreditsModal && <CreditsModal onClose={() => setShowCreditsModal(false)} />}
       {showPatchNotesModal && <PatchNotesModal onClose={() => setShowPatchNotesModal(false)} />}
       {showPrivacyModal && <PrivacyModal onClose={() => setShowPrivacyModal(false)} />}
       {showChakraChartModal && <ChakraChartModal onClose={() => setShowChakraChartModal(false)} />}
-      {showProfileModal && <UserProfileModal onClose={() => setShowProfileModal(false)} />}
+      {showProfileModal && (
+        <UserProfileModal
+          onClose={() => setShowProfileModal(false)}
+          onOpenInviteModal={() => setShowInviteModal(true)}
+        />
+      )}
+      {showInviteModal && <InviteFriendModal onClose={() => setShowInviteModal(false)} />}
       {showLeaderboardModal && <LeaderboardModal onClose={() => setShowLeaderboardModal(false)} />}
       {showAchievementsModal && (
         <AchievementsModal 
@@ -1404,7 +1554,7 @@ export default function Home() {
           <div className="fixed top-0 left-0 h-full w-80 bg-[#0f152d] border-r-4 border-[#ff9f1c] shadow-2xl z-50 p-6 flex flex-col justify-between animate-slide-in overflow-y-auto">
             <div>
               <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3 mb-6">
-                <h2 className="text-xl font-extrabold text-[#ff9f1c] tracking-wider font-mono">
+                <h2 className="text-xl font-extrabold text-[#ff9f1c] tracking-wider">
                   {t.menuTitle}
                 </h2>
                 <button 
@@ -1430,7 +1580,7 @@ export default function Home() {
                           <span className="font-extrabold text-[#ff9f1c] text-sm block truncate">
                             {username || user?.user_metadata?.username || user?.email?.split("@")[0] || "Shinobi"}
                           </span>
-                          <span className="text-[11px] text-gray-400 block truncate">
+                          <span className="text-xs text-slate-300 font-medium block truncate mt-0.5">
                             {user.email}
                           </span>
                         </div>
@@ -1447,7 +1597,7 @@ export default function Home() {
                     </div>
                   ) : (
                     <div>
-                      <p className="text-[11px] text-gray-400 mb-3">
+                      <p className="text-xs text-slate-300 font-medium mb-3">
                         {lang === "it" 
                           ? "Accedi per sincronizzare i salvataggi ed i progressi in cloud."
                           : "Sign in to synchronize your active saves and progression to the cloud."}
@@ -1467,89 +1617,56 @@ export default function Home() {
 
                 {/* Run Statistics Box */}
                 <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl text-left space-y-2">
-                  <h3 className="text-xs text-[#ff9f1c]/90 uppercase font-mono font-bold tracking-widest mb-3 flex items-center justify-center gap-2.5 text-center border-b border-gray-800/60 pb-2">
+                  <h3 className="text-xs text-[#ff9f1c] uppercase font-bold tracking-widest mb-3 flex items-center justify-center gap-2.5 text-center border-b border-gray-800/60 pb-2">
                     <img
                       src="/menu_stats.png"
                       alt="Statistiche"
-                      onError={(e) => {
-                        const target = e.target as HTMLElement;
-                        target.style.display = "none";
-                        const parent = target.parentElement;
-                        if (parent && !parent.querySelector(".menu-stats-fallback")) {
-                          const span = document.createElement("span");
-                          span.className = "menu-stats-fallback text-base";
-                          span.innerText = "📊";
-                          parent.insertBefore(span, target);
-                        }
-                      }}
                       className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                     />
                     <span>{t.runStatsTitle}</span>
                   </h3>
-                  <div className="flex justify-between items-center text-xs font-mono border-b border-gray-800/80 pb-1.5 mb-1.5">
-                    <span className="text-gray-300 font-bold flex items-center gap-2">
+                  <div className="flex justify-between items-center text-xs border-b border-gray-800/80 pb-1.5 mb-1.5">
+                    <span className="text-slate-200 font-bold flex items-center gap-2">
                       <img
                         src="/score_icon.png"
                         alt="Punti"
-                        onError={(e) => {
-                          const target = e.target as HTMLElement;
-                          target.style.display = "none";
-                          const parent = target.parentElement;
-                          if (parent && !parent.querySelector(".score-drawer-fallback")) {
-                            const span = document.createElement("span");
-                            span.className = "score-drawer-fallback text-base";
-                            span.innerText = "🏆";
-                            parent.insertBefore(span, target);
-                          }
-                        }}
                         className="w-5 h-5 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                       />
                       <span>{lang === "it" ? "Punteggio Totale:" : "Total Score:"}</span>
                     </span>
                     <span className="font-extrabold text-amber-300">{totalScore.toLocaleString()} pts</span>
                   </div>
-                  <div className="flex justify-between items-center text-xs font-mono">
-                    <span className="text-gray-400">{t.totalRuns}:</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-300 font-medium">{t.totalRuns}:</span>
                     <span className="font-bold text-[#ff9f1c]">{totalRunsCount}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xs font-mono">
-                    <span className="text-gray-400">{t.classicRuns}:</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-300 font-medium">{t.classicRuns}:</span>
                     <span className="font-bold text-green-400">{classicRunsCount}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xs font-mono">
-                    <span className="text-gray-400">{t.shippudenRuns}:</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-300 font-medium">{t.shippudenRuns}:</span>
                     <span className="font-bold text-blue-400">{shippudenRunsCount}</span>
                   </div>
                 </div>
 
                 {/* Settings Item: Language */}
                 <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl text-left">
-                  <h3 className="text-xs text-[#ff9f1c]/90 uppercase font-mono font-bold tracking-widest mb-3 flex items-center justify-center gap-2.5 text-center border-b border-gray-800/60 pb-2">
+                  <h3 className="text-xs text-[#ff9f1c] uppercase font-bold tracking-widest mb-3 flex items-center justify-center gap-2.5 text-center border-b border-gray-800/60 pb-2">
                     <img
                       src="/menu_settings.png"
                       alt="Impostazioni"
-                      onError={(e) => {
-                        const target = e.target as HTMLElement;
-                        target.style.display = "none";
-                        const parent = target.parentElement;
-                        if (parent && !parent.querySelector(".menu-settings-fallback")) {
-                          const span = document.createElement("span");
-                          span.className = "menu-settings-fallback text-base";
-                          span.innerText = "⚙️";
-                          parent.insertBefore(span, target);
-                        }
-                      }}
                       className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                     />
                     <span>{t.menuSettings}</span>
                   </h3>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-gray-300">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-200 font-medium">
                       {lang === "it" ? "Lingua Gioco" : "Game Language"}
                     </span>
                     <button 
                       onClick={() => setLanguage(lang === "it" ? "en" : "it")}
-                      className="px-3 py-1 bg-gray-900 hover:bg-gray-800 text-[#ff9f1c] font-extrabold rounded border border-[#ff9f1c]/30 uppercase tracking-widest transition-all cursor-pointer"
+                      className="px-3.5 py-1.5 bg-gray-900 hover:bg-gray-800 text-[#ff9f1c] font-extrabold rounded-xl border border-[#ff9f1c]/40 uppercase tracking-widest transition-all cursor-pointer shadow-md"
                     >
                       🌐 {lang === "it" ? "IT" : "EN"}
                     </button>
@@ -1562,23 +1679,12 @@ export default function Home() {
                     setShowCreditsModal(true);
                     setIsMenuOpen(false);
                   }}
-                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
+                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-slate-100 font-semibold transition-all cursor-pointer"
                 >
                   <span className="flex items-center gap-3">
                     <img
                       src="/menu_credits.png"
                       alt="Crediti"
-                      onError={(e) => {
-                        const target = e.target as HTMLElement;
-                        target.style.display = "none";
-                        const parent = target.parentElement;
-                        if (parent && !parent.querySelector(".menu-credits-fallback")) {
-                          const span = document.createElement("span");
-                          span.className = "menu-credits-fallback text-base";
-                          span.innerText = "🍥";
-                          parent.insertBefore(span, target);
-                        }
-                      }}
                       className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                     />
                     <span>{t.menuCredits}</span>
@@ -1592,23 +1698,12 @@ export default function Home() {
                     setShowPatchNotesModal(true);
                     setIsMenuOpen(false);
                   }}
-                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
+                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-slate-100 font-semibold transition-all cursor-pointer"
                 >
                   <span className="flex items-center gap-3">
                     <img
                       src="/menu_notes.png"
                       alt="Note"
-                      onError={(e) => {
-                        const target = e.target as HTMLElement;
-                        target.style.display = "none";
-                        const parent = target.parentElement;
-                        if (parent && !parent.querySelector(".menu-notes-fallback")) {
-                          const span = document.createElement("span");
-                          span.className = "menu-notes-fallback text-base";
-                          span.innerText = "📜";
-                          parent.insertBefore(span, target);
-                        }
-                      }}
                       className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                     />
                     <span>{lang === "it" ? "Note sulla Versione" : "Patch Notes"}</span>
@@ -1622,23 +1717,12 @@ export default function Home() {
                     setShowPrivacyModal(true);
                     setIsMenuOpen(false);
                   }}
-                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-gray-300 font-bold transition-all cursor-pointer"
+                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-slate-100 font-semibold transition-all cursor-pointer"
                 >
                   <span className="flex items-center gap-3">
                     <img
                       src="/menu_privacy.png"
                       alt="Privacy"
-                      onError={(e) => {
-                        const target = e.target as HTMLElement;
-                        target.style.display = "none";
-                        const parent = target.parentElement;
-                        if (parent && !parent.querySelector(".menu-privacy-fallback")) {
-                          const span = document.createElement("span");
-                          span.className = "menu-privacy-fallback text-base";
-                          span.innerText = "🛡️";
-                          parent.insertBefore(span, target);
-                        }
-                      }}
                       className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                     />
                     <span>{lang === "it" ? "Privacy Policy" : "Privacy Policy"}</span>
