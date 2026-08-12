@@ -84,6 +84,7 @@ export default function Home() {
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [mobileActiveTab, setMobileActiveTab] = useState<"map" | "team" | "items">("map");
 
   const { newlyUnlockedTrophy, dismissTrophyNotification } = useGameStore();
 
@@ -357,139 +358,142 @@ export default function Home() {
       )}
 
       {/* HEADER */}
-      <header className={`text-center w-full shrink-0 relative ${isRunActive ? "mb-1 pb-1.5" : "mb-2 sm:mb-3 pb-2 sm:pb-3"}`}>
+      <header className={`w-full shrink-0 relative flex flex-col items-center ${isRunActive ? "mb-1 pb-1" : "mb-2 sm:mb-3 pb-1 sm:pb-2"}`}>
         
-        {/* TOP LEFT CONTROLS: HAMBURGER MENU, TROPHIES & LEADERBOARD (ANGOLO IN ALTO A SINISTRA) */}
-        <div className="absolute left-2 sm:left-4 top-2 flex items-center gap-2 sm:gap-3 z-40">
-          {mounted && (
-            <>
-              <button 
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="h-14 w-14 min-h-[56px] min-w-[56px] flex items-center justify-center text-xl text-[#ff9f1c] hover:text-yellow-300 focus:outline-none transition-all hover:scale-105 active:scale-95 cursor-pointer bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl shadow-xl shrink-0"
-                title="Menu"
-              >
-                ☰
-              </button>
+        {/* RESPONSIVE TOP TOOLBAR CONTAINER */}
+        <div className="w-full flex items-center justify-between gap-1 px-1 sm:px-2 z-40 mb-1 lg:mb-0 lg:absolute lg:left-0 lg:right-0 lg:top-1 pointer-events-none">
+          
+          {/* TOP LEFT CONTROLS: HAMBURGER MENU, TROPHIES & LEADERBOARD */}
+          <div className="flex items-center gap-1 sm:gap-2 pointer-events-auto">
+            {mounted && (
+              <>
+                <button 
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="h-9 sm:h-11 lg:h-14 w-9 sm:w-11 lg:w-14 flex items-center justify-center text-base sm:text-lg lg:text-xl text-[#ff9f1c] hover:text-yellow-300 focus:outline-none transition-all hover:scale-105 active:scale-95 cursor-pointer bg-[#0f152d]/90 backdrop-blur-md border border-amber-500/50 hover:border-amber-400 rounded-xl lg:rounded-2xl shadow-xl shrink-0"
+                  title="Menu"
+                >
+                  ☰
+                </button>
 
-              <button
-                onClick={() => setShowAchievementsModal(true)}
-                className="h-14 min-h-[56px] px-3.5 sm:px-4 flex items-center gap-2 text-xs sm:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-                title={lang === "it" ? "Trofei & Obiettivi" : "Trophies & Achievements"}
+                <button
+                  onClick={() => setShowAchievementsModal(true)}
+                  className="h-9 sm:h-11 lg:h-14 px-2 sm:px-3 lg:px-4 flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs lg:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border border-amber-500/50 hover:border-amber-400 rounded-xl lg:rounded-2xl shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                  title={lang === "it" ? "Trofei & Obiettivi" : "Trophies & Achievements"}
+                >
+                  <img
+                    src="/trophy.png"
+                    alt="Trofei"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target.src.endsWith("/trophy.png")) {
+                        target.src = "/trophies.png";
+                      } else {
+                        target.style.display = "none";
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector(".trophy-fallback")) {
+                          const span = document.createElement("span");
+                          span.className = "trophy-fallback text-xs sm:text-base";
+                          span.innerText = "🏆";
+                          parent.insertBefore(span, target);
+                        }
+                      }
+                    }}
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                  />
+                  <span className="hidden sm:inline">{lang === "it" ? "Trofei" : "Trophies"}</span>
+                </button>
+
+                <button
+                  onClick={() => setShowLeaderboardModal(true)}
+                  className="h-9 sm:h-11 lg:h-14 px-2 sm:px-3 lg:px-4 flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs lg:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border border-amber-500/50 hover:border-amber-400 rounded-xl lg:rounded-2xl shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                  title={lang === "it" ? "Classifica Globale Online" : "Global Online Leaderboard"}
+                >
+                  <img
+                    src="/leaderboard.png"
+                    alt="Classifica"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target.src.endsWith("/leaderboard.png")) {
+                        target.src = "/rank.png";
+                      } else {
+                        target.style.display = "none";
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector(".leaderboard-fallback")) {
+                          const span = document.createElement("span");
+                          span.className = "leaderboard-fallback text-xs sm:text-base";
+                          span.innerText = "📊";
+                          parent.insertBefore(span, target);
+                        }
+                      }
+                    }}
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                  />
+                  <span className="hidden sm:inline">{lang === "it" ? "Classifica" : "Leaderboard"}</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* TOP RIGHT CONTROLS: TOTAL CUMULATIVE SCORE & USER PROFILE */}
+          <div className="flex items-center gap-1 sm:gap-2 pointer-events-auto">
+            {mounted && (
+              <div
+                className="h-9 sm:h-11 lg:h-14 px-2 sm:px-3 lg:px-4 flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-xs lg:text-sm font-mono font-extrabold text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border border-amber-500/50 rounded-xl lg:rounded-2xl shadow-xl shrink-0 select-none"
               >
                 <img
-                  src="/trophy.png"
-                  alt="Trofei"
+                  src="/score_icon.png"
+                  alt="Punti"
                   onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target.src.endsWith("/trophy.png")) {
-                      target.src = "/trophies.png";
-                    } else {
-                      target.style.display = "none";
-                      const parent = target.parentElement;
-                      if (parent && !parent.querySelector(".trophy-fallback")) {
-                        const span = document.createElement("span");
-                        span.className = "trophy-fallback text-base";
-                        span.innerText = "🏆";
-                        parent.insertBefore(span, target);
-                      }
+                    const target = e.target as HTMLElement;
+                    target.style.display = "none";
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector(".header-score-fallback")) {
+                      const span = document.createElement("span");
+                      span.className = "header-score-fallback text-xs sm:text-base";
+                      span.innerText = "🏆";
+                      parent.insertBefore(span, target);
                     }
                   }}
-                  className="w-6 h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)] transition-transform hover:scale-110"
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                 />
-                <span>{lang === "it" ? "Trofei" : "Trophies"}</span>
-              </button>
-
-              <button
-                onClick={() => setShowLeaderboardModal(true)}
-                className="h-14 min-h-[56px] px-3.5 sm:px-4 flex items-center gap-2 text-xs sm:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
-                title={lang === "it" ? "Classifica Globale Online" : "Global Online Leaderboard"}
-              >
-                <img
-                  src="/leaderboard.png"
-                  alt="Classifica"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target.src.endsWith("/leaderboard.png")) {
-                      target.src = "/rank.png";
-                    } else {
-                      target.style.display = "none";
-                      const parent = target.parentElement;
-                      if (parent && !parent.querySelector(".leaderboard-fallback")) {
-                        const span = document.createElement("span");
-                        span.className = "leaderboard-fallback text-base";
-                        span.innerText = "📊";
-                        parent.insertBefore(span, target);
-                      }
-                    }
-                  }}
-                  className="w-6 h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)] transition-transform hover:scale-110"
-                />
-                <span>{lang === "it" ? "Classifica" : "Leaderboard"}</span>
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* TOP RIGHT CONTROLS: TOTAL CUMULATIVE SCORE & USER PROFILE (ANGOLO IN ALTO A DESTRA) */}
-        <div className="absolute right-2 sm:right-4 top-2 flex items-center gap-2 sm:gap-3 z-40">
-          {mounted && (
-            <div
-              className="h-14 min-h-[56px] px-3.5 sm:px-4 flex items-center justify-center gap-2.5 text-xs sm:text-sm font-mono font-extrabold text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 rounded-2xl shadow-xl shrink-0 select-none"
-            >
-              <img
-                src="/score_icon.png"
-                alt="Punti"
-                onError={(e) => {
-                  const target = e.target as HTMLElement;
-                  target.style.display = "none";
-                  const parent = target.parentElement;
-                  if (parent && !parent.querySelector(".header-score-fallback")) {
-                    const span = document.createElement("span");
-                    span.className = "header-score-fallback text-base";
-                    span.innerText = "🏆";
-                    parent.insertBefore(span, target);
-                  }
-                }}
-                className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
-              />
-              <div className="text-left flex flex-col justify-center leading-tight">
-                <span className="text-[9px] text-amber-400 uppercase tracking-widest font-mono hidden sm:inline">Punti Totali</span>
-                <span className="text-xs sm:text-sm font-black text-amber-300 font-mono">
-                  {totalScore.toLocaleString()} <span className="text-[10px] font-normal">pts</span>
-                </span>
+                <div className="text-left flex flex-col justify-center leading-tight">
+                  <span className="text-[7px] sm:text-[9px] text-amber-400 uppercase tracking-widest font-mono hidden sm:inline">Punti Totali</span>
+                  <span className="text-[10px] sm:text-xs lg:text-sm font-black text-amber-300 font-mono">
+                    {totalScore.toLocaleString()} <span className="text-[8px] sm:text-[9px] font-normal">pts</span>
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <UserProfileBadge
-            onOpenAuthModal={() => setShowAuthModal(true)}
-            onOpenProfileModal={() => setShowProfileModal(true)}
-            onOpenInviteModal={() => setShowInviteModal(true)}
-          />
+            <UserProfileBadge
+              onOpenAuthModal={() => setShowAuthModal(true)}
+              onOpenProfileModal={() => setShowProfileModal(true)}
+              onOpenInviteModal={() => setShowInviteModal(true)}
+            />
+          </div>
         </div>
 
         {/* LOGO & SUBTITLE (CENTERED IN HEADER) */}
-        <div className="flex flex-col items-center justify-center pt-1">
+        <div className="flex flex-col items-center justify-center pt-1 z-30 pointer-events-auto">
           <img
             src="/logo.png"
             alt="NarutoLike"
             onError={(e) => {
-              // Fallback to stylized text if logo image is not yet placed in public/
               (e.target as HTMLElement).style.display = "none";
               const parent = (e.target as HTMLElement).parentElement;
               if (parent && !parent.querySelector(".logo-fallback")) {
                 const fallback = document.createElement("h1");
-                fallback.className = `logo-fallback font-extrabold text-[#ff9f1c] tracking-widest drop-shadow-[0_0_20px_rgba(255,159,28,0.8)] uppercase ${isRunActive ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl md:text-6xl"}`;
+                fallback.className = `logo-fallback font-extrabold text-[#ff9f1c] tracking-widest drop-shadow-[0_0_20px_rgba(255,159,28,0.8)] uppercase ${isRunActive ? "text-2xl sm:text-3xl lg:text-4xl" : "text-3xl sm:text-4xl lg:text-5xl"}`;
                 fallback.innerText = "NARUTOLIKE";
                 parent.appendChild(fallback);
               }
             }}
             className={`object-contain transition-all drop-shadow-[0_0_25px_rgba(255,159,28,0.7)] ${
-              isRunActive ? "h-12 sm:h-14 md:h-16" : "h-18 sm:h-24 md:h-28"
+              isRunActive ? "h-10 sm:h-12 lg:h-16" : "h-14 sm:h-20 lg:h-26"
             }`}
           />
           {!isRunActive && (
-            <p className="text-gray-400 mt-0.5 text-xs sm:text-sm tracking-wide font-mono">
+            <p className="text-gray-400 mt-0.5 text-[11px] sm:text-xs lg:text-sm tracking-wide font-mono text-center">
               {t.subtitle}
             </p>
           )}
@@ -720,7 +724,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 flex-1 min-h-0 py-1 my-auto max-h-[480px]">
+            <div className="flex flex-col md:grid md:grid-cols-3 gap-4 flex-1 min-h-0 overflow-y-auto py-2 w-full px-1 max-w-4xl mx-auto">
               {startingChoices?.map((ninja) => {
                 const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
                 const translatedVersion = t[ninja.version as keyof typeof t] || ninja.version;
@@ -731,23 +735,23 @@ export default function Home() {
                     key={ninja.id}
                     onClick={() => selectStartingCharacter(ninja.id)}
                     style={rarity.cardStyle}
-                    className={`relative rounded-2xl sm:rounded-3xl p-3 sm:p-4 shadow-xl hover:scale-[1.02] transition-all cursor-pointer flex flex-col justify-between h-full min-h-0 ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow}`}
+                    className={`relative rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xl hover:scale-[1.02] transition-all cursor-pointer flex flex-col justify-between h-auto md:h-full w-full shrink-0 border-2 ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow}`}
                   >
                     {/* Rank Badge */}
-                    <span className={`absolute top-3 right-3 text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full ${rarity.badgeBg} ${rarity.badgeTextColor} shadow-md uppercase tracking-wider z-10`}>
+                    <span className={`absolute top-3 right-3 text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full ${rarity.badgeBg} ${rarity.badgeTextColor} shadow-md uppercase tracking-wider z-10 font-bold`}>
                       {rarity.rankSymbol}
                     </span>
 
-                    <div className="flex flex-col items-center flex-1 justify-center min-h-0">
+                    <div className="flex flex-col items-center flex-1 justify-center">
                       <NinjaAvatar
                         src={ninja.sprite}
                         name={translatedName}
                         rank={ninja.rank}
-                        className="w-16 h-16 sm:w-20 sm:h-20 object-contain bg-black/30 rounded-xl sm:rounded-2xl border-2 border-white/10 p-1 mb-1 mt-1 shadow-inner shrink-0"
+                        className="w-16 h-16 sm:w-20 sm:h-20 object-contain bg-black/40 rounded-xl sm:rounded-2xl border-2 border-white/10 p-1 mb-2 mt-1 shadow-inner shrink-0"
                       />
-                      <h3 className={`text-base sm:text-lg md:text-xl font-bold mb-0.5 ${rarity.textColor}`}>{translatedName}</h3>
+                      <h3 className={`text-base sm:text-lg md:text-xl font-bold mb-1 ${rarity.textColor}`}>{translatedName}</h3>
                       
-                      <div className="flex items-center gap-1.5 mb-2 shrink-0">
+                      <div className="flex items-center gap-1.5 mb-3 shrink-0">
                         <ChakraNatureBadge nature={ninja.chakraNature} />
                         <span className="text-[10px] bg-gray-900/80 border border-gray-700 px-1.5 py-0.5 rounded text-gray-300 uppercase tracking-wider">
                           {translatedVersion}
@@ -755,7 +759,7 @@ export default function Home() {
                       </div>
 
                       {/* STATS OVERVIEW */}
-                      <div className="w-full text-[10px] sm:text-xs text-gray-300 border-t border-gray-800/80 pt-1.5 space-y-1">
+                      <div className="w-full text-xs text-gray-300 border-t border-gray-800/80 pt-2 space-y-1 bg-black/30 p-2 rounded-xl border border-white/5">
                         <div className="flex justify-between font-mono">
                           <span>{t.statHp}</span>
                           <span className="font-bold text-green-400">{ninja.baseStats.hp}</span>
@@ -779,7 +783,7 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <button className="w-full mt-2 sm:mt-3 py-2 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-bold rounded-lg uppercase tracking-wider text-xs transition-colors border-b-4 border-amber-700 shadow-md shrink-0">
+                    <button className="w-full mt-3 py-2.5 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-amber-700 shadow-md shrink-0 cursor-pointer active:translate-y-0.5">
                       {t.chooseShinobi}
                     </button>
                   </div>
@@ -790,10 +794,52 @@ export default function Home() {
         )
       ) : (
         /* ==================== POKEROGUE-STYLE ACTIVE RUN VIEW ==================== */
-        <div className="flex-1 min-h-0 w-full max-w-6xl grid grid-cols-1 lg:grid-cols-4 gap-4 items-stretch">
+        <div className="flex-1 min-h-0 w-full max-w-6xl flex flex-col items-center">
 
-          {/* LEFT SIDEBAR: TEAM */}
-          <aside className="bg-[#0f152d] border-4 border-[#ff9f1c] rounded-2xl p-3 shadow-xl flex flex-col gap-2 h-full min-h-0">
+          {/* MOBILE VIEWPORT TAB SWITCHER (< lg) */}
+          <div className="flex lg:hidden w-full max-w-md mb-2 bg-[#0f152d] p-1 rounded-xl border border-amber-500/40 shadow-lg justify-between shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobileActiveTab("map")}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileActiveTab === "map"
+                  ? "bg-[#ff9f1c] text-[#070b19] shadow-md font-black"
+                  : "text-gray-300 hover:text-amber-300"
+              }`}
+            >
+              <span>🗺️</span>
+              <span>{lang === "it" ? "Mappa" : "Map"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileActiveTab("team")}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileActiveTab === "team"
+                  ? "bg-[#ff9f1c] text-[#070b19] shadow-md font-black"
+                  : "text-gray-300 hover:text-amber-300"
+              }`}
+            >
+              <span>🛡️</span>
+              <span>{lang === "it" ? "Squadra" : "Team"} ({runTeam.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileActiveTab("items")}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileActiveTab === "items"
+                  ? "bg-[#ff9f1c] text-[#070b19] shadow-md font-black"
+                  : "text-gray-300 hover:text-amber-300"
+              }`}
+            >
+              <span>📜</span>
+              <span>{lang === "it" ? "Info & Boss" : "Items & Bosses"}</span>
+            </button>
+          </div>
+
+          <div className="w-full h-full min-h-0 grid grid-cols-1 lg:grid-cols-4 gap-3 lg:gap-4 items-stretch">
+
+            {/* LEFT SIDEBAR: TEAM */}
+            <aside className={`bg-[#0f152d] border-4 border-[#ff9f1c] rounded-2xl p-3 shadow-xl flex-col gap-2 h-full min-h-0 ${mobileActiveTab === "team" ? "flex" : "hidden lg:flex"}`}>
             <div className="flex items-center justify-between border-b-2 border-gray-800 pb-1 shrink-0">
               <h2 className="text-lg font-bold text-[#ff9f1c] uppercase tracking-wider">
                 {t.team} ({runTeam.length} / 6)
@@ -975,7 +1021,7 @@ export default function Home() {
           </aside>
 
           {/* MIDDLE COLUMN: POKEROGUE MAP */}
-          <div className="lg:col-span-2 flex flex-col items-center h-full min-h-0 relative w-full">
+          <div className={`lg:col-span-2 flex-col items-center h-full min-h-0 relative w-full ${mobileActiveTab === "map" ? "flex" : "hidden lg:flex"}`}>
             {/* TOP HEADER NAVIGATION CONTROL BAR (Placed outside map box so it NEVER covers nodes) */}
             {(() => {
               const selectable = activeMap.filter((n) => isNodeSelectable(n));
@@ -984,37 +1030,37 @@ export default function Home() {
               const targetLabel = translateNodeLabel(targetNode.label, lang);
 
               return (
-                <div className="w-full max-w-[650px] mb-2 flex items-center justify-between bg-[#0f152d] border-2 border-[#ff9f1c]/60 px-3.5 py-2 rounded-2xl shadow-lg shrink-0">
-                  <div className="flex items-center gap-2 text-xs sm:text-sm font-extrabold text-[#ff9f1c] truncate">
-                    <span className="text-base">⚡</span>
-                    <span>{lang === "it" ? "Prossima Tappa:" : "Next Stage:"}</span>
-                    <span className="text-white font-black bg-[#070b19] px-2.5 py-0.5 rounded-xl border border-amber-500/40">
+                <div className="w-full max-w-[650px] mb-2 flex items-center justify-between bg-[#0f152d] border-2 border-[#ff9f1c]/60 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl shadow-lg shrink-0">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-extrabold text-[#ff9f1c] truncate">
+                    <span className="text-sm sm:text-base">⚡</span>
+                    <span className="hidden xs:inline">{lang === "it" ? "Prossima Tappa:" : "Next Stage:"}</span>
+                    <span className="text-white font-black bg-[#070b19] px-2 py-0.5 rounded-xl border border-amber-500/40 text-xs sm:text-sm">
                       {targetLabel}
                     </span>
                   </div>
 
                   <button
                     onClick={() => selectNode(targetNode.id)}
-                    className="bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-black px-3.5 py-1.5 rounded-xl text-xs uppercase tracking-wider shadow-md border-b-2 border-amber-700 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-2 shrink-0"
+                    className="bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-black px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl text-xs uppercase tracking-wider shadow-md border-b-2 border-amber-700 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-1.5 sm:gap-2 shrink-0"
                     title={lang === "it" ? "Avanza alla prossima tappa (Premi Spazio o Invio sulla tastiera)" : "Advance to next stage (Press Spacebar or Enter on keyboard)"}
                   >
                     <span>{lang === "it" ? "Avanza" : "Advance"}</span>
-                    <span className="bg-[#070b19]/20 px-1.5 py-0.5 rounded text-[10px] border border-black/20 font-mono">SPAZIO / ↵</span>
+                    <span className="hidden sm:inline-block bg-[#070b19]/20 px-1.5 py-0.5 rounded text-[10px] border border-black/20 font-mono">SPAZIO / ↵</span>
                   </button>
                 </div>
               );
             })()}
 
             {/* THE RETRO MAP CONTAINER */}
-            <div className="flex-1 w-full max-w-[650px] bg-[#3a5a40] border-4 border-[#ff9f1c] rounded-2xl relative overflow-hidden shadow-2xl flex flex-col min-h-0">
+            <div className="flex-1 w-full max-w-[650px] bg-[#3a5a40] border-4 border-[#ff9f1c] rounded-2xl relative overflow-hidden shadow-2xl flex flex-col min-h-[360px] lg:min-h-0">
 
               {/* TREE BORDERS */}
-              <div className="absolute inset-y-0 left-0 w-8 bg-[repeating-linear-gradient(#2d6a4f,#2d6a4f_20px,#1b4332_20px,#1b4332_40px)] flex flex-col justify-around text-center select-none text-xs border-r border-[#ff9f1c]/10">
+              <div className="absolute inset-y-0 left-0 w-6 sm:w-8 bg-[repeating-linear-gradient(#2d6a4f,#2d6a4f_20px,#1b4332_20px,#1b4332_40px)] flex flex-col justify-around text-center select-none text-[10px] sm:text-xs border-r border-[#ff9f1c]/10">
                 {Array.from({ length: 12 }).map((_, i) => (
                   <span key={i} className="filter grayscale opacity-25">🌲</span>
                 ))}
               </div>
-              <div className="absolute inset-y-0 right-0 w-8 bg-[repeating-linear-gradient(#2d6a4f,#2d6a4f_20px,#1b4332_20px,#1b4332_40px)] flex flex-col justify-around text-center select-none text-xs border-l border-[#ff9f1c]/10">
+              <div className="absolute inset-y-0 right-0 w-6 sm:w-8 bg-[repeating-linear-gradient(#2d6a4f,#2d6a4f_20px,#1b4332_20px,#1b4332_40px)] flex flex-col justify-around text-center select-none text-[10px] sm:text-xs border-l border-[#ff9f1c]/10">
                 {Array.from({ length: 12 }).map((_, i) => (
                   <span key={i} className="filter grayscale opacity-25">🌲</span>
                 ))}
@@ -1103,28 +1149,28 @@ export default function Home() {
                     key={node.id}
                     onClick={() => selectable && selectNode(node.id)}
                     style={{ left: pos.left, top: pos.top }}
-                    className={`absolute -translate-x-1/2 -translate-y-1/2 w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center font-bold text-xl ${statusClass} ${disabledClass}`}
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 sm:w-14 sm:h-14 lg:w-16 lg:h-16 flex items-center justify-center font-bold text-lg sm:text-xl ${statusClass} ${disabledClass}`}
                     title={isReachable ? fullTooltip : `${fullTooltip} (${lang === "it" ? "Non Raggiungibile" : "Unreachable"})`}
                   >
                     {node.type === "powerup" && (
                       <img
                         src="/sprites/jutsus/Scrolls.png"
                         alt="Tecnica"
-                        className="w-12 h-12 object-contain"
+                        className="w-10 h-10 sm:w-12 sm:h-12 object-contain"
                       />
                     )}
                     {node.type === "recruit" && (
                       <img
                         src="/academy.png"
                         alt="Recluta"
-                        className="w-12 h-12 object-contain"
+                        className="w-10 h-10 sm:w-12 sm:h-12 object-contain"
                       />
                     )}
                     {node.type === "heal" && (
                       <img
                         src="/ramen.png"
                         alt="Ramen"
-                        className="w-12 h-12 object-contain"
+                        className="w-10 h-10 sm:w-12 sm:h-12 object-contain"
                       />
                     )}
                     {(node.type === "battle" || node.type === "boss") && (() => {
@@ -1150,7 +1196,7 @@ export default function Home() {
                         <ChakraNatureBadge
                           nature={firstOppNinja.chakraNature}
                           showText={false}
-                          className="scale-100"
+                          className="scale-90 sm:scale-100"
                         />
                       </div>
                     )}
@@ -1172,20 +1218,20 @@ export default function Home() {
 
               {/* OVERLAY: JUTSU LEARN TARGET SELECTOR */}
               {pendingJutsuToLearn && (
-                <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-5 text-center animate-fade-in">
-                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-3xl p-6 sm:p-8 shadow-2xl max-w-sm w-full">
+                <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-4 sm:p-5 text-center animate-fade-in">
+                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-3xl p-5 sm:p-8 shadow-2xl max-w-sm w-full">
                     <img
                       src="/sprites/jutsus/Scrolls.png"
                       alt="Scroll"
-                      className="w-16 h-16 object-contain mx-auto mb-3 filter drop-shadow-[0_0_12px_rgba(34,197,94,0.7)] animate-bounce"
+                      className="w-12 h-12 sm:w-16 sm:h-16 object-contain mx-auto mb-3 filter drop-shadow-[0_0_12px_rgba(34,197,94,0.7)] animate-bounce"
                     />
-                    <h3 className="text-xl sm:text-2xl font-black text-green-400 mb-2 uppercase tracking-wider">
+                    <h3 className="text-lg sm:text-2xl font-black text-green-400 mb-2 uppercase tracking-wider">
                       {lang === "it" ? "ROTOLO PROIBITO ATTIVO" : "ACTIVE FORBIDDEN SCROLL"} ⚡
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-200 leading-relaxed mb-4">
                       {lang === "it"
-                        ? "Seleziona il ninja dalla tua squadra a sinistra oppure premi Spazio/Invio per potenziare il primo ninja della squadra."
-                        : "Select the ninja from your team on the left or press Spacebar/Enter to upgrade the first team ninja."}
+                        ? "Seleziona il ninja dalla tua squadra oppure premi Spazio/Invio per potenziare il primo ninja della squadra."
+                        : "Select the ninja from your team or press Spacebar/Enter to upgrade the first team ninja."}
                     </p>
                     <button
                       onClick={() => {
@@ -1199,10 +1245,10 @@ export default function Home() {
                           learnJutsu(eligibleNinja.id);
                         }
                       }}
-                      className="w-full py-3 bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-black rounded-2xl text-xs uppercase tracking-wider border-b-4 border-amber-700 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg hover:scale-105 active:scale-95"
+                      className="w-full py-2.5 sm:py-3 bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-black rounded-2xl text-xs uppercase tracking-wider border-b-4 border-amber-700 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg hover:scale-105 active:scale-95"
                     >
                       <span>⚡ {lang === "it" ? "Potenzia Primo Ninja" : "Upgrade First Ninja"}</span>
-                      <span className="bg-[#070b19]/20 px-1.5 py-0.5 rounded text-[10px] border border-black/20 font-mono">SPAZIO / ↵</span>
+                      <span className="hidden sm:inline-block bg-[#070b19]/20 px-1.5 py-0.5 rounded text-[10px] border border-black/20 font-mono">SPAZIO / ↵</span>
                     </button>
                   </div>
                 </div>
@@ -1210,17 +1256,17 @@ export default function Home() {
 
               {/* OVERLAY: NINJA RECRUIT CHOICE PANEL */}
               {availableRecruitChoices && (
-                <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-5 animate-fade-in overflow-y-auto">
-                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-2xl p-5 shadow-2xl w-full max-w-md my-auto">
+                <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-3 sm:p-5 animate-fade-in overflow-y-auto">
+                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-2xl p-4 sm:p-5 shadow-2xl w-full max-w-md my-auto">
                     {pendingRecruitId ? (
                       <div>
-                        <h3 className="text-lg font-bold text-green-400 mb-1 uppercase tracking-wider">
+                        <h3 className="text-base sm:text-lg font-bold text-green-400 mb-1 uppercase tracking-wider">
                           {lang === "it" ? "SOSTITUISCI UN MEMBRO" : "REPLACE A MEMBER"}
                         </h3>
-                        <p className="text-[11px] text-gray-400 mb-4">
+                        <p className="text-[10px] sm:text-[11px] text-gray-400 mb-3 sm:mb-4">
                           {lang === "it" ? "Squadra al completo (6/6). Seleziona chi congedare per far posto al nuovo ninja." : "Team is full (6/6). Select who to dismiss to make room for the new ninja."}
                         </p>
-                        <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto mb-4 pr-1">
+                        <div className="flex flex-col gap-2 max-h-[200px] sm:max-h-[220px] overflow-y-auto mb-3 sm:mb-4 pr-1">
                           {runTeam.map((ninja) => {
                             const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
                             const rarity = RARITY_CONFIGS[ninja.rank || "C"];
@@ -1232,14 +1278,14 @@ export default function Home() {
                                   setPendingRecruitId(null);
                                 }}
                                 style={rarity.cardStyle}
-                                className={`flex justify-between items-center ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow} rounded-xl p-2.5 text-left transition-all w-full cursor-pointer hover:scale-[1.01] shadow-md`}
+                                className={`flex justify-between items-center ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow} rounded-xl p-2 sm:p-2.5 text-left transition-all w-full cursor-pointer hover:scale-[1.01] shadow-md`}
                               >
-                                <div className="flex gap-2.5 items-center">
+                                <div className="flex gap-2 items-center">
                                   <NinjaAvatar
                                     src={ninja.sprite}
                                     name={translatedName}
                                     rank={ninja.rank}
-                                    className="w-9 h-9 object-contain bg-black/30 rounded border border-white/10 p-0.5 shrink-0"
+                                    className="w-8 h-8 sm:w-9 sm:h-9 object-contain bg-black/30 rounded border border-white/10 p-0.5 shrink-0"
                                   />
                                   <div>
                                     <div className="flex items-center gap-1.5">
@@ -1251,7 +1297,7 @@ export default function Home() {
                                     <p className="text-[9px] text-gray-400 font-mono">Lv. {ninja.level} • HP {ninja.baseStats.hp}</p>
                                   </div>
                                 </div>
-                                <span className="text-red-400 font-bold text-xs uppercase tracking-wider hover:text-red-300 bg-red-950/60 border border-red-500/30 px-2 py-1 rounded">
+                                <span className="text-red-400 font-bold text-[10px] sm:text-xs uppercase tracking-wider hover:text-red-300 bg-red-950/60 border border-red-500/30 px-2 py-0.5 sm:py-1 rounded">
                                   {lang === "it" ? "Congeda" : "Dismiss"}
                                 </span>
                               </button>
@@ -1267,13 +1313,13 @@ export default function Home() {
                       </div>
                     ) : (
                       <div>
-                        <h3 className="text-lg font-bold text-green-400 mb-1 uppercase tracking-wider">
+                        <h3 className="text-base sm:text-lg font-bold text-green-400 mb-1 uppercase tracking-wider">
                           {lang === "it" ? "RECLUTA UN NUOVO NINJA" : "RECRUIT A NEW NINJA"}
                         </h3>
-                        <p className="text-[11px] text-gray-400 mb-4">
+                        <p className="text-[10px] sm:text-[11px] text-gray-400 mb-3 sm:mb-4">
                           {lang === "it" ? "Scegli 1 ninja da aggiungere alla tua squadra" : "Choose 1 ninja to add to your team"} (Lv. {runTeam[0]?.level || 5}).
                         </p>
-                        <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3 sm:mb-4">
                           {availableRecruitChoices.map((ninja) => {
                             const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
                             const rarity = RARITY_CONFIGS[ninja.rank || "C"];
@@ -1288,26 +1334,26 @@ export default function Home() {
                                   }
                                 }}
                                 style={rarity.cardStyle}
-                                className={`relative p-2.5 rounded-xl cursor-pointer transition-all hover:scale-105 flex flex-col justify-between ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow}`}
+                                className={`relative p-2 sm:p-2.5 rounded-xl cursor-pointer transition-all hover:scale-105 flex flex-col justify-between ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow}`}
                               >
-                                <span className={`absolute top-1 right-1 text-[8px] px-1.5 py-0.2 rounded-full ${rarity.badgeBg} ${rarity.badgeTextColor}`}>
+                                <span className={`absolute top-1 right-1 text-[8px] px-1 py-0.2 rounded-full ${rarity.badgeBg} ${rarity.badgeTextColor}`}>
                                   {rarity.rankSymbol}
                                 </span>
                                 <NinjaAvatar
                                   src={ninja.sprite}
                                   name={translatedName}
                                   rank={ninja.rank}
-                                  className="w-12 h-12 object-contain mx-auto mb-1 mt-2 bg-black/30 rounded p-1 border border-white/10"
+                                  className="w-10 h-10 sm:w-12 sm:h-12 object-contain mx-auto mb-1 mt-1 sm:mt-2 bg-black/30 rounded p-1 border border-white/10"
                                 />
-                                <h4 className={`font-bold text-[10px] truncate text-center ${rarity.textColor}`}>{translatedName}</h4>
-                                <div className="flex justify-center my-1">
+                                <h4 className={`font-bold text-[9px] sm:text-[10px] truncate text-center ${rarity.textColor}`}>{translatedName}</h4>
+                                <div className="flex justify-center my-0.5 sm:my-1">
                                   <ChakraNatureBadge nature={ninja.chakraNature} showText={false} />
                                 </div>
-                                <div className="text-[8px] text-gray-300 font-mono grid grid-cols-2 gap-1 bg-black/40 p-1 rounded text-center border border-white/10">
-                                  <div>HP: {ninja.baseStats.hp}</div>
-                                  <div>ATK: {ninja.baseStats.attack}</div>
-                                  <div>DEF: {ninja.baseStats.defense}</div>
-                                  <div>SPD: {ninja.baseStats.speed}</div>
+                                <div className="text-[7px] sm:text-[8px] text-gray-300 font-mono grid grid-cols-2 gap-0.5 sm:gap-1 bg-black/40 p-0.5 sm:p-1 rounded text-center border border-white/10">
+                                  <div>HP:{ninja.baseStats.hp}</div>
+                                  <div>ATK:{ninja.baseStats.attack}</div>
+                                  <div>DEF:{ninja.baseStats.defense}</div>
+                                  <div>SPD:{ninja.baseStats.speed}</div>
                                 </div>
                               </div>
                             );
@@ -1319,9 +1365,9 @@ export default function Home() {
                               skipRecruit();
                               setPendingRecruitId(null);
                             }}
-                            className="w-full py-2.5 bg-[#070b19] hover:bg-gray-900 text-yellow-400 font-bold rounded-xl text-xs uppercase tracking-wider border-2 border-yellow-500/50 hover:border-yellow-400 transition-all cursor-pointer shadow-md"
+                            className="w-full py-2 sm:py-2.5 bg-[#070b19] hover:bg-gray-900 text-yellow-400 font-bold rounded-xl text-xs uppercase tracking-wider border-2 border-yellow-500/50 hover:border-yellow-400 transition-all cursor-pointer shadow-md"
                           >
-                            ⚡ {lang === "it" ? "Salta Reclutamento (Mantieni Squadra Attuale)" : "Skip Recruitment (Keep Current Team)"}
+                            ⚡ {lang === "it" ? "Salta Reclutamento" : "Skip Recruitment"}
                           </button>
                         )}
                       </div>
@@ -1332,20 +1378,20 @@ export default function Home() {
 
               {/* OVERLAY: CAMPFIRE HEALING ACTION */}
               {currentNode && currentNode.type === "heal" && !currentNode.resolved && (
-                <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-5 animate-fade-in">
-                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-3xl p-6 sm:p-8 shadow-2xl w-full max-w-sm text-center">
-                    <img src="/ramen.png" alt="Ramen" className="w-20 h-20 object-contain mx-auto mb-4 filter drop-shadow-[0_0_15px_rgba(34,197,94,0.6)] animate-bounce" />
-                    <h3 className="text-2xl sm:text-3xl font-black text-green-400 mb-2 uppercase tracking-wider">
+                <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-4 sm:p-5 animate-fade-in">
+                  <div className="bg-[#0f152d] border-4 border-green-500 rounded-3xl p-5 sm:p-8 shadow-2xl w-full max-w-sm text-center">
+                    <img src="/ramen.png" alt="Ramen" className="w-16 h-16 sm:w-20 sm:h-20 object-contain mx-auto mb-3 sm:mb-4 filter drop-shadow-[0_0_15px_rgba(34,197,94,0.6)] animate-bounce" />
+                    <h3 className="text-xl sm:text-3xl font-black text-green-400 mb-2 uppercase tracking-wider">
                       {lang === "it" ? "RAMEN ICHIRAKU" : "ICHIRAKU RAMEN"}
                     </h3>
-                    <p className="text-sm font-semibold text-slate-200 mb-6">
+                    <p className="text-xs sm:text-sm font-semibold text-slate-200 mb-4 sm:mb-6">
                       {lang === "it"
                         ? "Ripristina il 100% di HP e Chakra a tutta la squadra!"
                         : "Restores 100% HP & Chakra for the entire team!"}
                     </p>
                     <button
                       onClick={applyHealingAtCampfire}
-                      className="w-full py-3.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold rounded-2xl shadow-xl transition-all uppercase tracking-wider text-base border-b-4 border-green-950 cursor-pointer hover:scale-105 active:scale-95"
+                      className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold rounded-2xl shadow-xl transition-all uppercase tracking-wider text-sm sm:text-base border-b-4 border-green-950 cursor-pointer hover:scale-105 active:scale-95"
                     >
                       {lang === "it" ? "MANGIA RAMEN" : "EAT RAMEN"}
                     </button>
@@ -1357,7 +1403,7 @@ export default function Home() {
           </div>
 
           {/* RIGHT SIDEBAR: ITEMS & BADGES */}
-          <aside className="bg-[#0f152d] border-4 border-[#ff9f1c] rounded-2xl p-3 shadow-xl flex flex-col gap-4 h-full min-h-0">
+          <aside className={`bg-[#0f152d] border-4 border-[#ff9f1c] rounded-2xl p-3 shadow-xl flex-col gap-4 h-full min-h-0 ${mobileActiveTab === "items" ? "flex" : "hidden lg:flex"}`}>
             {/* POTENZIAMENTI BOX */}
             <div className="flex-1 min-h-0 flex flex-col">
               <h2 className="text-lg font-bold border-b-2 border-gray-800 pb-1 text-[#ff9f1c] uppercase tracking-wider mb-2 shrink-0">
@@ -1486,6 +1532,7 @@ export default function Home() {
             </div>
           </aside>
 
+          </div>
         </div>
       )}
 
