@@ -50,7 +50,7 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
     return (
       <button
         onClick={onOpenAuthModal}
-        className="h-14 min-h-[56px] flex items-center gap-2.5 bg-[#0f152d]/90 backdrop-blur-md hover:bg-amber-500/20 text-amber-300 font-extrabold px-4 rounded-2xl border-2 border-amber-500/50 hover:border-amber-400 shadow-2xl transition-all cursor-pointer hover:scale-105 active:scale-95 text-xs sm:text-sm font-mono tracking-wider uppercase shrink-0"
+        className="h-9 sm:h-11 lg:h-14 flex items-center gap-1 sm:gap-2 bg-[#0f152d]/90 backdrop-blur-md hover:bg-amber-500/20 text-amber-300 font-extrabold px-2 sm:px-3 lg:px-4 rounded-xl lg:rounded-2xl border border-amber-500/50 hover:border-amber-400 shadow-2xl transition-all cursor-pointer hover:scale-105 active:scale-95 text-[10px] sm:text-xs lg:text-sm font-mono tracking-wider uppercase shrink-0"
       >
         <img
           src="/cloud.png"
@@ -61,14 +61,14 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
             const parent = target.parentElement;
             if (parent && !parent.querySelector(".cloud-btn-fallback")) {
               const span = document.createElement("span");
-              span.className = "cloud-btn-fallback text-base";
+              span.className = "cloud-btn-fallback text-xs sm:text-base";
               span.innerText = "☁️";
               parent.insertBefore(span, target);
             }
           }}
-          className="h-7 w-auto object-contain shrink-0 filter drop-shadow-[0_0_8px_rgba(255,159,28,0.8)] transition-transform hover:scale-110"
+          className="h-4 sm:h-5 lg:h-7 w-auto object-contain shrink-0 filter drop-shadow-[0_0_8px_rgba(255,159,28,0.8)]"
         />
-        <span>{lang === "it" ? "Accedi / Registrati" : "Login / Register"}</span>
+        <span>{lang === "it" ? "Accedi" : "Login"}</span>
       </button>
     );
   }
@@ -90,10 +90,10 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
       {/* Main Profile Button - Clicking opens dropdown menu */}
       <div
         onClick={() => setShowDropdown((prev) => !prev)}
-        className="flex items-center gap-2.5 bg-[#0f152d]/90 backdrop-blur-md border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl px-3.5 shadow-xl transition-all h-14 min-h-[56px] cursor-pointer select-none hover:scale-105 active:scale-95 shrink-0"
+        className="flex items-center gap-1.5 sm:gap-2 bg-[#0f152d]/90 backdrop-blur-md border border-amber-500/50 hover:border-amber-400 rounded-xl lg:rounded-2xl px-2 sm:px-3 lg:px-3.5 shadow-xl transition-all h-9 sm:h-11 lg:h-14 cursor-pointer select-none hover:scale-105 active:scale-95 shrink-0"
       >
         {/* Avatar Frame */}
-        <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-amber-400/90 bg-black/60 shrink-0 shadow-inner">
+        <div className="relative w-6 h-6 sm:w-7 sm:h-7 lg:w-9 lg:h-9 rounded-lg lg:rounded-xl overflow-hidden border border-amber-400/90 bg-black/60 shrink-0 shadow-inner">
           {isUploading ? (
             <div className="w-full h-full flex items-center justify-center bg-black/80">
               <img
