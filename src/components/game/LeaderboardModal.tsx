@@ -233,6 +233,8 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
 
                     <img
                       src={entry.avatar_url || defaultAvatar}
+                      loading="lazy"
+                      decoding="async"
                       alt="Avatar"
                       className="w-10 h-10 rounded-full object-cover border-2 border-amber-500/50 shrink-0"
                     />

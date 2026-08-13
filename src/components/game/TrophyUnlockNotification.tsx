@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Achievement } from "@/data/achievements";
+import { Achievement, getAchievementIconSrc, getAchievementRewardCoins } from "@/data/achievements";
 import { useLanguageStore } from "@/store/useLanguageStore";
 
 interface TrophyUnlockNotificationProps {
@@ -42,8 +42,17 @@ export const TrophyUnlockNotification: React.FC<TrophyUnlockNotificationProps> =
         <div className="absolute inset-0 bg-yellow-500/10 animate-pulse pointer-events-none" />
 
         {/* Trophy Icon with Ring Glow */}
-        <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg border border-yellow-200 shrink-0 animate-pulse">
-          🏆
+        <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg border-2 border-yellow-300 shrink-0 animate-pulse overflow-hidden p-1">
+          <img
+            src={getAchievementIconSrc(achievement)}
+            alt={achievement.name[lang]}
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = "none";
+              const parent = (e.target as HTMLElement).parentElement;
+              if (parent) parent.innerText = achievement.icon;
+            }}
+            className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
+          />
         </div>
 
         {/* Info Text */}
@@ -60,9 +69,15 @@ export const TrophyUnlockNotification: React.FC<TrophyUnlockNotificationProps> =
           </div>
         </div>
 
-        {/* Sparkle badge */}
-        <div className="text-amber-400 text-xs font-mono font-bold bg-yellow-400/20 px-2 py-1 rounded-lg border border-yellow-400/40 shrink-0">
-          +1 🏆
+        {/* Sparkle & Coin reward badge */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <div className="text-amber-400 text-xs font-mono font-bold bg-yellow-400/20 px-2 py-0.5 rounded-lg border border-yellow-400/40">
+            +1 🏆
+          </div>
+          <div className="text-yellow-300 text-[10px] font-mono font-bold bg-black/60 px-1.5 py-0.5 rounded border border-yellow-500/40 flex items-center gap-1">
+            <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3 h-3 object-contain" />
+            <span>+{getAchievementRewardCoins(achievement)} ryo</span>
+          </div>
         </div>
       </div>
     </div>

@@ -68,7 +68,7 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({
           }}
           className="h-4 sm:h-5 lg:h-7 w-auto object-contain shrink-0 filter drop-shadow-[0_0_8px_rgba(255,159,28,0.8)]"
         />
-        <span>{lang === "it" ? "Accedi" : "Login"}</span>
+        <span>{lang === "it" ? "Accedi / Registrati" : "Login / Register"}</span>
       </button>
     );
   }

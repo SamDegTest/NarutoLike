@@ -27,6 +27,7 @@ CREATE TABLE public.profiles (
   total_score INT NOT NULL DEFAULT 0,
   classic_high_score INT NOT NULL DEFAULT 0,
   shippuden_high_score INT NOT NULL DEFAULT 0,
+  total_coins INT NOT NULL DEFAULT 0,
   selected_title TEXT,
   unlocked_achievements JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -62,6 +63,7 @@ CREATE TABLE public.game_saves (
   run_team JSONB DEFAULT '[]'::jsonb,
   active_map JSONB DEFAULT '[]'::jsonb,
   active_power_ups JSONB DEFAULT '[]'::jsonb,
+  inventory JSONB DEFAULT '[]'::jsonb,
   defeated_bosses JSONB DEFAULT '[]'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -159,6 +161,7 @@ SELECT
   total_score,
   classic_high_score,
   shippuden_high_score,
+  total_coins,
   updated_at
 FROM public.profiles
 ORDER BY total_score DESC, max_level_reached DESC;

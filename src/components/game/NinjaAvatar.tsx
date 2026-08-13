@@ -28,6 +28,8 @@ export function NinjaAvatar({ src, name, rank, className = "" }: Props) {
   return (
     <img
       src={src}
+      loading="lazy"
+      decoding="async"
       onError={() => setHasError(true)}
       alt={name}
       className={`${className} ${rankRingClass}`}

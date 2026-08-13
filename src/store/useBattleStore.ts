@@ -605,12 +605,14 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       if (currentNode.opponents && currentNode.opponents[0]) {
         useGameStore.getState().registerBossDefeat(currentNode.opponents[0]);
       }
+      useGameStore.getState().decrementConsumableEffectsOnBattle();
       useGameStore.getState().resolveCurrentNode();
       useGameStore.getState().advanceToNextLevel();
     } else if (currentNode?.type === "battle") {
       useGameStore.getState().gainTeamLevels(2);
       // Award 100 points for winning a battle
       useGameStore.setState((state) => ({ currentRunScore: state.currentRunScore + 100 }));
+      useGameStore.getState().decrementConsumableEffectsOnBattle();
       useGameStore.getState().resolveCurrentNode();
     }
 
