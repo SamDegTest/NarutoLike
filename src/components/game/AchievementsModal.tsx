@@ -7,7 +7,9 @@ import {
   getUnlockedAchievements, 
   Achievement, 
   AchievementCategory, 
-  CATEGORY_LABELS 
+  CATEGORY_LABELS,
+  getAchievementIconSrc,
+  getAchievementRewardCoins
 } from "@/data/achievements";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -148,7 +150,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ onClose, o
                 className="px-3 py-1.5 bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-black text-xs uppercase tracking-wider rounded-xl transition-all border-b-2 border-amber-700 shrink-0 cursor-pointer flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95"
               >
                 <img src="/cloud.png" alt="Cloud" className="w-4 h-4 object-contain shrink-0" />
-                <span>{lang === "it" ? "Accedi" : "Login"}</span>
+                <span>{lang === "it" ? "Registrati" : "Register"}</span>
               </button>
             )}
           </div>
@@ -228,9 +230,20 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ onClose, o
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-2xl sm:text-3xl p-2 bg-black/40 rounded-xl border border-white/10 shrink-0">
-                    {ach.icon}
-                  </span>
+                  <div className="w-13 h-13 sm:w-16 sm:h-16 p-1 bg-black/50 rounded-2xl border-2 border-amber-500/40 shrink-0 flex items-center justify-center shadow-lg">
+                    <img
+                      src={getAchievementIconSrc(ach)}
+                      alt={ach.name[lang]}
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                        const parent = (e.target as HTMLElement).parentElement;
+                        if (parent) {
+                          parent.innerText = ach.icon;
+                        }
+                      }}
+                      className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(255,159,28,0.5)]"
+                    />
+                  </div>
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -241,7 +254,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ onClose, o
                         </span>
                       ) : isGuestCompleted ? (
                         <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-mono font-bold">
-                          ⚠️ {lang === "it" ? "COMPLETATO (ACCEDI PER SALVARE)" : "COMPLETED (LOGIN TO CLAIM)"}
+                          ⚠️ {lang === "it" ? "COMPLETATO (REGISTRATI PER SALVARE)" : "COMPLETED (REGISTER TO SAVE)"}
                         </span>
                       ) : (
                         <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded font-mono">
@@ -250,8 +263,14 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ onClose, o
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">{ach.description[lang]}</p>
-                    <div className="text-xs text-amber-300 font-mono font-bold mt-1">
-                      {lang === "it" ? "Titolo:" : "Title:"} <span className="underline">{titleText}</span>
+                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                      <div className="text-xs text-amber-300 font-mono font-bold">
+                        {lang === "it" ? "Titolo:" : "Title:"} <span className="underline">{titleText}</span>
+                      </div>
+                      <div className="text-[10px] font-mono font-bold text-yellow-400 bg-black/60 px-2 py-0.5 rounded border border-yellow-500/40 flex items-center gap-1">
+                        <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3 h-3 object-contain" />
+                        <span>+{getAchievementRewardCoins(ach)} ryo</span>
+                      </div>
                     </div>
                     {isFullyUnlocked && formattedTimestamp && (
                       <div className="text-[10px] text-gray-400 font-mono mt-1 flex items-center gap-1">
@@ -290,7 +309,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ onClose, o
                         }}
                         className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.8)]"
                       />
-                      <span>{lang === "it" ? "ACCEDI" : "LOGIN"}</span>
+                      <span>{lang === "it" ? "REGISTRATI" : "REGISTER"}</span>
                     </button>
                   ) : (
                     <span className="text-xs text-gray-600 font-mono">🔒</span>

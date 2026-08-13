@@ -9,6 +9,7 @@ export interface AchievementStats {
   classicHighScore: number;
   shippudenHighScore: number;
   defeatedBosses: string[];
+  hasCompletedTutorial?: boolean;
 }
 
 export interface Achievement {
@@ -18,7 +19,46 @@ export interface Achievement {
   name: { it: string; en: string };
   description: { it: string; en: string };
   icon: string;
+  customIconSrc?: string;
+  rewardCoins?: number;
   check: (stats: AchievementStats) => boolean;
+}
+
+/**
+ * Calcola la ricompensa in monete Ryo per lo sblocco di un obiettivo (da 15 a 100 Ryo).
+ */
+export function getAchievementRewardCoins(ach: Achievement): number {
+  if (ach.rewardCoins) return ach.rewardCoins;
+  
+  if (ach.id.includes("master") || ach.id.includes("legend") || ach.id.includes("200k") || ach.id.includes("both")) {
+    return 100;
+  }
+  if (ach.id.includes("100k") || ach.id.includes("75k") || ach.id.includes("50k") || ach.id.includes("veteran") || ach.id.includes("boss_hunter_7")) {
+    return 50;
+  }
+  if (ach.id.includes("35k") || ach.id.includes("10k") || ach.id.includes("5k") || ach.id.includes("survivor")) {
+    return 30;
+  }
+  return 15;
+}
+
+/**
+ * Regola generale: Restituisce il percorso dell'immagine custom per un obiettivo basandosi sul suo ID.
+ * - Per i trofei dei Boss (es. defeat_mizuki, defeat_zabuza): usa automaticamente la medaglia del boss da "/bosses/<boss_id>.png".
+ * - Per tutti gli altri trofei: cerca l'immagine in "/achievements/<id>.png" (o usa customIconSrc se specificato).
+ */
+export function getAchievementIconSrc(ach: Achievement): string {
+  if (ach.customIconSrc) {
+    return ach.customIconSrc;
+  }
+
+  // Se è un trofeo relativo alla sconfitta di un boss specifico (es. defeat_zabuza -> zabuza)
+  if (ach.id.startsWith("defeat_")) {
+    const bossId = ach.id.replace("defeat_", "");
+    return `/bosses/${bossId}.png`;
+  }
+
+  return `/achievements/${ach.id}.png`;
 }
 
 export const CATEGORY_LABELS: Record<AchievementCategory, { it: string; en: string; icon: string }> = {
@@ -33,6 +73,16 @@ export const ACHIEVEMENTS: Achievement[] = [
   // ==========================================
   // 1. PROGRESSIONE & RUN (20 Trofei)
   // ==========================================
+  {
+    id: "tutorial_master",
+    category: "progression",
+    title: { it: "Diploma dell'Accademia Ninja", en: "Ninja Academy Diploma" },
+    name: { it: "Maestro del Tutorial", en: "Tutorial Master" },
+    description: { it: "Completa con successo il tutorial guidato.", en: "Successfully complete the guided tutorial." },
+    icon: "🎓",
+    customIconSrc: "/achievements/tutorial_master.png",
+    check: (stats) => !!stats.hasCompletedTutorial,
+  },
   {
     id: "first_step",
     category: "progression",

@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { Ninja, RunNinja, MapNode, PowerUpItem, NodeType } from "@/types/index";
+import { Ninja, RunNinja, MapNode, PowerUpItem, NodeType, GameItem, InventoryItem } from "@/types/index";
+import { sampleRandomItems } from "@/data/items";
 import { NINJA_MAP } from "@/data/ninjas";
 import { sampleNinjasByRarity } from "@/lib/rarity";
 import { useBattleStore } from "./useBattleStore";
@@ -7,7 +8,7 @@ import { useLanguageStore } from "./useLanguageStore";
 import { TRANSLATIONS } from "@/data/translations";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuthStore } from "./useAuthStore";
-import { getUnlockedAchievements, Achievement } from "@/data/achievements";
+import { getUnlockedAchievements, getAchievementRewardCoins, Achievement } from "@/data/achievements";
 
 interface GameState {
   playerRoster: Ninja[];
@@ -32,11 +33,38 @@ interface GameState {
   totalScore: number;
   classicHighScore: number;
   shippudenHighScore: number;
+  totalCoins: number;
+  sessionCoins: number;
   sagaStarterChoices: Record<string, Ninja[] | null>;
   unlockedAchievementsMap: Record<string, string>; // { [achievementId]: ISOStringTimestamp }
   newlyUnlockedTrophy: Achievement | null;
 
+  hasCompletedTutorial: boolean;
+  isTutorialActive: boolean;
+  tutorialStep: number;
+  explainedNodeTypes: string[];
+  activeNodeTutorialPopup: { titleKey: string; textKey: string } | null;
+
+  recruitRerollCost: number;
+  completedSagaVictory: { sagaId: string; scoreGained: number; coinsGained: number } | null;
+
+  inventory: InventoryItem[];
+  availableItemChoices: GameItem[] | null;
+  activeConsumableEffects: { item: GameItem; remainingBattles: number }[];
+
   // Actions
+  chooseItemFromNode: (item: GameItem) => void;
+  useConsumableItem: (itemId: string, targetNinjaId?: string) => void;
+  equipItemToNinja: (itemId: string, targetNinjaId: string) => void;
+  unequipItemFromNinja: (targetNinjaId: string) => void;
+  decrementConsumableEffectsOnBattle: () => void;
+  dismissSagaVictory: () => void;
+  startTutorial: () => void;
+  nextTutorialStep: () => void;
+  prevTutorialStep: () => void;
+  skipTutorial: () => void;
+  resetTutorial: () => void;
+  dismissNodeTutorialPopup: () => void;
   selectSaga: (sagaId: string | null) => void;
   selectStartingCharacter: (id: string) => void;
   addNinjaToTeam: (id: string) => void;
@@ -49,6 +77,9 @@ interface GameState {
   gainTeamLevels: (amount: number) => void;
   chooseRecruit: (id: string, replaceNinjaId?: string) => void;
   skipRecruit: () => void;
+  rerollRecruitChoices: () => boolean;
+  reviveAndContinueRun: (cost: number) => boolean;
+  buyAndRecruitNinja: (ninjaId: string, cost: number, replaceNinjaId?: string) => boolean;
   moveNinjaUp: (index: number) => void;
   moveNinjaDown: (index: number) => void;
   setLeaderNinja: (index: number) => void;
@@ -56,6 +87,7 @@ interface GameState {
   syncTeamStats: (updatedTeam: RunNinja[]) => void;
   advanceToNextLevel: () => void;
   endRun: () => void;
+  abandonRun: () => void;
   registerBossDefeat: (bossId: string) => void;
   checkAndUnlockAchievements: () => void;
   dismissTrophyNotification: () => void;
@@ -172,7 +204,7 @@ function generateLevelMap(sagaId: string, level: number): MapNode[] {
 
   const makeNode = (id: string, stage: number, label: string, connections: string[], type: NodeType): MapNode => {
     let suffix = " (Lotta)";
-    if (type === "powerup") suffix = " (Tecnica)";
+    if (type === "powerup" || type === "item") suffix = " (Oggetto)";
     if (type === "recruit") suffix = " (Recluta)";
     return {
       id,
@@ -194,14 +226,12 @@ function generateLevelMap(sagaId: string, level: number): MapNode[] {
     // Force first choice (Row 1) to always offer exactly one simple battle and one recruitment
     const row1Types = ["battle", "recruit"].sort(() => 0.5 - Math.random()) as NodeType[];
 
-    // Remaining 13 middle nodes (Row 2 to 5) are generated from the remaining pool:
-    // 3 recruits total - 1 used = 2 recruits remaining
-    // 3 powerups total - 0 used = 3 powerups remaining
-    // 9 battles total - 1 used = 8 battles remaining
+    // Remaining 13 middle nodes (Row 2 to 5) are generated from the pool:
+    // 2 recruits + 2 items + 9 battles
     const nodePool: NodeType[] = [
       "recruit", "recruit",
-      "powerup", "powerup", "powerup",
-      "battle", "battle", "battle", "battle", "battle", "battle", "battle", "battle"
+      "item", "item",
+      "battle", "battle", "battle", "battle", "battle", "battle", "battle", "battle", "battle"
     ];
     const shuffledPool = nodePool.sort(() => 0.5 - Math.random());
 
@@ -214,8 +244,8 @@ function generateLevelMap(sagaId: string, level: number): MapNode[] {
       // Row 0 (Top Start)
       {
         id: "0_start",
-        type: "powerup",
-        label: "Rotolo di Benvenuto",
+        type: "item",
+        label: "Cassa degli Oggetti",
         stage: 0,
         connections: ["1_A", "1_B"],
         resolved: false,
@@ -334,9 +364,64 @@ export const useGameStore = create<GameState>((set, get) => ({
   totalScore: typeof window !== "undefined" ? Number(localStorage.getItem("totalScore")) || 0 : 0,
   classicHighScore: typeof window !== "undefined" ? Number(localStorage.getItem("classicHighScore")) || 0 : 0,
   shippudenHighScore: typeof window !== "undefined" ? Number(localStorage.getItem("shippudenHighScore")) || 0 : 0,
+  totalCoins: typeof window !== "undefined" ? Number(localStorage.getItem("totalCoins")) || 0 : 0,
+  sessionCoins: typeof window !== "undefined" ? Number(localStorage.getItem("sessionCoins")) || 0 : 0,
+  inventory: [],
+  availableItemChoices: null,
+  activeConsumableEffects: [],
+  recruitRerollCost: 75,
+  completedSagaVictory: null,
+  dismissSagaVictory: () => set({ completedSagaVictory: null }),
   sagaStarterChoices: {},
   unlockedAchievementsMap: typeof window !== "undefined" ? JSON.parse(localStorage.getItem("unlockedAchievementsMap") || "{}") : {},
   newlyUnlockedTrophy: null,
+
+  hasCompletedTutorial: typeof window !== "undefined" 
+    ? localStorage.getItem("narutolike_tutorial_completed") === "true" && (Number(localStorage.getItem("totalRunsCount")) || 0) > 0 
+    : false,
+  isTutorialActive: false,
+  tutorialStep: 1,
+  explainedNodeTypes: typeof window !== "undefined" ? JSON.parse(localStorage.getItem("narutolike_explained_nodes") || "[]") : [],
+  activeNodeTutorialPopup: null,
+
+  dismissNodeTutorialPopup: () => set({ activeNodeTutorialPopup: null }),
+
+  startTutorial: () => {
+    set({ isTutorialActive: true, tutorialStep: 1 });
+  },
+  nextTutorialStep: () => {
+    const current = get().tutorialStep;
+    if (current >= 5) {
+      get().skipTutorial();
+    } else {
+      set({ tutorialStep: current + 1 });
+    }
+  },
+  prevTutorialStep: () => {
+    const current = get().tutorialStep;
+    if (current > 1) {
+      const prevStep = current - 1;
+      if (prevStep === 1) {
+        set({ tutorialStep: 1, isRunActive: false });
+      } else {
+        set({ tutorialStep: prevStep });
+      }
+    }
+  },
+  skipTutorial: () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("narutolike_tutorial_completed", "true");
+    }
+    set({ isTutorialActive: false, hasCompletedTutorial: true });
+    get().checkAndUnlockAchievements();
+  },
+  resetTutorial: () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("narutolike_tutorial_completed");
+      localStorage.removeItem("narutolike_explained_nodes");
+    }
+    set({ hasCompletedTutorial: false, isTutorialActive: true, tutorialStep: 1, explainedNodeTypes: [] });
+  },
 
   dismissTrophyNotification: () => {
     set({ newlyUnlockedTrophy: null });
@@ -353,6 +438,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       classicHighScore: state.classicHighScore || 0,
       shippudenHighScore: state.shippudenHighScore || 0,
       defeatedBosses: state.defeatedBosses || [],
+      hasCompletedTutorial: state.hasCompletedTutorial || false,
     };
 
     const unlockedList = getUnlockedAchievements(stats);
@@ -362,22 +448,32 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const nowISO = new Date().toISOString();
 
+    let addedCoins = 0;
+
     for (const ach of unlockedList) {
       if (!currentMap[ach.id]) {
         currentMap[ach.id] = nowISO;
         newlyUnlocked = ach;
         mapChanged = true;
+        addedCoins += getAchievementRewardCoins(ach);
       }
     }
 
     if (mapChanged) {
+      const updatedTotalCoins = state.totalCoins + addedCoins;
+      const updatedSessionCoins = state.sessionCoins + addedCoins;
+
       set({
         unlockedAchievementsMap: currentMap,
         newlyUnlockedTrophy: newlyUnlocked ? newlyUnlocked : state.newlyUnlockedTrophy,
+        totalCoins: updatedTotalCoins,
+        sessionCoins: updatedSessionCoins,
       });
 
       if (typeof window !== "undefined") {
         localStorage.setItem("unlockedAchievementsMap", JSON.stringify(currentMap));
+        localStorage.setItem("totalCoins", String(updatedTotalCoins));
+        localStorage.setItem("sessionCoins", String(updatedSessionCoins));
       }
 
       state.saveToCloud();
@@ -474,10 +570,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       availablePowerUpChoices: null,
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
+      availableItemChoices: null,
+      inventory: [],
+      activeConsumableEffects: [],
       defeatedBosses: [],
       totalRunsCount: newTotalRuns,
       classicRunsCount: newClassicRuns,
       shippudenRunsCount: newShippudenRuns,
+      recruitRerollCost: 75,
       sagaStarterChoices: {},
     });
 
@@ -485,24 +585,42 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   selectNode: (nodeId) => {
-    const { activeMap } = get();
+    const { activeMap, explainedNodeTypes } = get();
     const node = activeMap.find((n) => n.id === nodeId);
     if (!node || node.resolved) return;
 
     set({ currentNodeId: nodeId });
+
+    if (!explainedNodeTypes.includes(node.type)) {
+      const nodeTutorialKeys: Record<string, { titleKey: string; textKey: string }> = {
+        powerup: { titleKey: "tutorialNodePowerupTitle", textKey: "tutorialNodePowerupText" },
+        recruit: { titleKey: "tutorialNodeRecruitTitle", textKey: "tutorialNodeRecruitText" },
+        heal: { titleKey: "tutorialNodeHealTitle", textKey: "tutorialNodeHealText" },
+        boss: { titleKey: "tutorialNodeBossTitle", textKey: "tutorialNodeBossText" },
+      };
+
+      const popup = nodeTutorialKeys[node.type];
+      if (popup) {
+        const updatedExplained = [...explainedNodeTypes, node.type];
+        set({
+          activeNodeTutorialPopup: popup,
+          explainedNodeTypes: updatedExplained,
+        });
+        if (typeof window !== "undefined") {
+          localStorage.setItem("narutolike_explained_nodes", JSON.stringify(updatedExplained));
+        }
+      }
+    }
 
     if (node.type === "heal") {
       // Allow player to open Ramen Ichiraku modal overlay to eat Ramen for 100% HP & 100% Chakra team heal
       return;
     }
 
-    if (node.type === "powerup") {
-      const { activePowerUps } = get();
-      const powerUp = POWER_UP_POOL[0];
+    if (node.type === "powerup" || node.type === "item") {
+      const randomItems = sampleRandomItems(3);
       set({
-        activePowerUps: [...activePowerUps, powerUp],
-        pendingJutsuToLearn: "UPGRADE",
-        availablePowerUpChoices: null,
+        availableItemChoices: randomItems,
       });
     }
 
@@ -664,9 +782,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   chooseRecruit: (ninjaId, replaceNinjaId) => {
     const { runTeam, availableRecruitChoices } = get();
-    if (!availableRecruitChoices) return;
-
-    const chosen = availableRecruitChoices.find((n) => n.id === ninjaId);
+    const chosen = (availableRecruitChoices || []).find((n) => n.id === ninjaId) || NINJA_MAP.get(ninjaId);
     if (!chosen) return;
 
     // Dynamically scale recruited ninja level & stats to match current team level
@@ -701,6 +817,285 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     get().resolveCurrentNode();
+  },
+
+  reviveAndContinueRun: (cost: number) => {
+    const { totalCoins, sessionCoins, runTeam } = get();
+    const { user } = useAuthStore.getState();
+    const currentCoins = user ? totalCoins : sessionCoins;
+
+    if (currentCoins < cost) return false;
+
+    const newCoins = currentCoins - cost;
+
+    // Heal all team members back to full HP & Chakra
+    const revivedTeam = runTeam.map((ninja) => ({
+      ...ninja,
+      currentHp: ninja.baseStats.hp,
+      currentChakra: ninja.baseStats.chakra,
+    }));
+
+    if (user) {
+      set({ totalCoins: newCoins, runTeam: revivedTeam });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("totalCoins", String(newCoins));
+      }
+    } else {
+      set({ sessionCoins: newCoins, runTeam: revivedTeam });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sessionCoins", String(newCoins));
+      }
+    }
+
+    get().resolveCurrentNode();
+    get().saveToCloud();
+    return true;
+  },
+
+  buyAndRecruitNinja: (ninjaId: string, cost: number, replaceNinjaId?: string) => {
+    const { totalCoins, sessionCoins } = get();
+    const { user } = useAuthStore.getState();
+    const currentCoins = user ? totalCoins : sessionCoins;
+
+    if (currentCoins < cost) return false;
+
+    const newCoins = currentCoins - cost;
+
+    if (user) {
+      set({ totalCoins: newCoins });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("totalCoins", String(newCoins));
+      }
+    } else {
+      set({ sessionCoins: newCoins });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sessionCoins", String(newCoins));
+      }
+    }
+
+    get().chooseRecruit(ninjaId, replaceNinjaId);
+    get().saveToCloud();
+    return true;
+  },
+
+  rerollRecruitChoices: () => {
+    const { totalCoins, sessionCoins, recruitRerollCost, runTeam, defeatedBosses, activeSagaId } = get();
+    const { user } = useAuthStore.getState();
+    const currentCoins = user ? totalCoins : sessionCoins;
+
+    if (currentCoins < recruitRerollCost) return false;
+
+    const newCoins = currentCoins - recruitRerollCost;
+    const teamCharIds = runTeam.map((n) => n.characterId);
+    const isShippuden = activeSagaId === "shippuden_naruto";
+
+    const pool = Array.from(NINJA_MAP.values()).filter((n) => {
+      if (teamCharIds.includes(n.characterId)) return false;
+      if (isShippuden) {
+        if (n.version !== "shippuden") return false;
+      } else {
+        if (n.version !== "kid") return false;
+      }
+      if (ALL_BOSS_IDS.includes(n.id)) {
+        return defeatedBosses.includes(n.id);
+      }
+      return true;
+    });
+
+    const newChoices = sampleNinjasByRarity(pool, 3);
+    const nextCost = recruitRerollCost + 25;
+
+    if (user) {
+      set({ totalCoins: newCoins, availableRecruitChoices: newChoices, recruitRerollCost: nextCost });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("totalCoins", String(newCoins));
+      }
+    } else {
+      set({ sessionCoins: newCoins, availableRecruitChoices: newChoices, recruitRerollCost: nextCost });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sessionCoins", String(newCoins));
+      }
+    }
+
+    get().saveToCloud();
+    return true;
+  },
+
+  chooseItemFromNode: (item: GameItem) => {
+    const { inventory } = get();
+    const updatedInventory = [...inventory];
+
+    if (item.type === "consumable") {
+      const existingIndex = updatedInventory.findIndex((inv) => inv.item.id === item.id);
+      if (existingIndex >= 0) {
+        updatedInventory[existingIndex] = {
+          ...updatedInventory[existingIndex],
+          quantity: updatedInventory[existingIndex].quantity + 1,
+        };
+      } else {
+        updatedInventory.push({ item, quantity: 1 });
+      }
+    } else {
+      // Assignable item
+      updatedInventory.push({ item, quantity: 1 });
+    }
+
+    set({
+      inventory: updatedInventory,
+      availableItemChoices: null,
+    });
+
+    get().resolveCurrentNode();
+    get().saveToCloud();
+  },
+
+  useConsumableItem: (itemId: string, targetNinjaId?: string) => {
+    const { inventory, runTeam } = get();
+    const invIndex = inventory.findIndex((inv) => inv.item.id === itemId && inv.item.type === "consumable");
+    if (invIndex < 0) return;
+
+    const gameItem = inventory[invIndex].item;
+    let updatedTeam = [...runTeam];
+
+    // Effect: Heal percent HP & Chakra
+    if (gameItem.healPercent !== undefined || gameItem.healChakraPercent !== undefined) {
+      updatedTeam = updatedTeam.map((ninja) => {
+        let newHp = ninja.currentHp;
+        let newChakra = ninja.currentChakra;
+
+        if (gameItem.healPercent) {
+          const boostHp = Math.round((ninja.baseStats.hp * gameItem.healPercent) / 100);
+          newHp = Math.min(ninja.baseStats.hp, ninja.currentHp + boostHp);
+        }
+        if (gameItem.healChakraPercent) {
+          const boostChakra = Math.round((ninja.baseStats.chakra * gameItem.healChakraPercent) / 100);
+          newChakra = Math.min(ninja.baseStats.chakra, ninja.currentChakra + boostChakra);
+        }
+
+        return { ...ninja, currentHp: newHp, currentChakra: newChakra };
+      });
+    }
+
+    // Effect: Jutsu level upgrade (Forbidden Scroll)
+    if (gameItem.jutsuLevelUpgrade && targetNinjaId) {
+      set({ pendingJutsuToLearn: "UPGRADE" });
+      get().learnJutsu(targetNinjaId);
+    }
+
+    // Register active battle boost effect if consumable grants temporary fight boosts
+    const { activeConsumableEffects } = get();
+    let updatedActiveEffects = [...activeConsumableEffects];
+
+    let durationFights = 0;
+    if (gameItem.teamBattleStatBoost || gameItem.singleNinjaBattleStatBoost) {
+      durationFights = 1;
+    } else if (gameItem.coinMultiplierFights) {
+      durationFights = gameItem.coinMultiplierFights;
+    } else if (gameItem.luckRarityBoostFights) {
+      durationFights = gameItem.luckRarityBoostFights;
+    }
+
+    if (durationFights > 0) {
+      const existingIdx = updatedActiveEffects.findIndex((e) => e.item.id === gameItem.id);
+      if (existingIdx >= 0) {
+        updatedActiveEffects[existingIdx] = {
+          ...updatedActiveEffects[existingIdx],
+          remainingBattles: updatedActiveEffects[existingIdx].remainingBattles + durationFights,
+        };
+      } else {
+        updatedActiveEffects.push({ item: gameItem, remainingBattles: durationFights });
+      }
+    }
+
+    // Decrement quantity or remove from inventory
+    const updatedInventory = [...inventory];
+    if (updatedInventory[invIndex].quantity > 1) {
+      updatedInventory[invIndex] = {
+        ...updatedInventory[invIndex],
+        quantity: updatedInventory[invIndex].quantity - 1,
+      };
+    } else {
+      updatedInventory.splice(invIndex, 1);
+    }
+
+    set({
+      runTeam: updatedTeam,
+      inventory: updatedInventory,
+      activeConsumableEffects: updatedActiveEffects,
+    });
+
+    get().saveToCloud();
+  },
+
+  decrementConsumableEffectsOnBattle: () => {
+    const { activeConsumableEffects } = get();
+    if (activeConsumableEffects.length === 0) return;
+
+    const updated = activeConsumableEffects
+      .map((e) => ({ ...e, remainingBattles: e.remainingBattles - 1 }))
+      .filter((e) => e.remainingBattles > 0);
+
+    set({ activeConsumableEffects: updated });
+  },
+
+  equipItemToNinja: (itemId: string, targetNinjaId: string) => {
+    const { inventory, runTeam } = get();
+    const invIndex = inventory.findIndex((inv) => inv.item.id === itemId && inv.item.type === "assignable");
+    if (invIndex < 0) return;
+
+    const gameItem = inventory[invIndex].item;
+    const ninjaIndex = runTeam.findIndex((n) => n.id === targetNinjaId);
+    if (ninjaIndex < 0) return;
+
+    const updatedTeam = [...runTeam];
+    const targetNinja = updatedTeam[ninjaIndex];
+
+    // If ninja already had an item equipped, return old item back to inventory
+    const updatedInventory = [...inventory];
+    if (targetNinja.equippedItem) {
+      updatedInventory.push({ item: targetNinja.equippedItem, quantity: 1 });
+    }
+
+    // Remove newly equipped item from inventory
+    updatedInventory.splice(invIndex, 1);
+
+    // Equip item on target ninja
+    updatedTeam[ninjaIndex] = {
+      ...targetNinja,
+      equippedItem: gameItem,
+    };
+
+    set({
+      runTeam: updatedTeam,
+      inventory: updatedInventory,
+    });
+
+    get().saveToCloud();
+  },
+
+  unequipItemFromNinja: (targetNinjaId: string) => {
+    const { inventory, runTeam } = get();
+    const ninjaIndex = runTeam.findIndex((n) => n.id === targetNinjaId);
+    if (ninjaIndex < 0) return;
+
+    const targetNinja = runTeam[ninjaIndex];
+    if (!targetNinja.equippedItem) return;
+
+    const equipped = targetNinja.equippedItem;
+    const updatedTeam = [...runTeam];
+    updatedTeam[ninjaIndex] = {
+      ...targetNinja,
+      equippedItem: null,
+    };
+
+    const updatedInventory = [...inventory, { item: equipped, quantity: 1 }];
+
+    set({
+      runTeam: updatedTeam,
+      inventory: updatedInventory,
+    });
+
+    get().saveToCloud();
   },
 
   moveNinjaUp: (index) => {
@@ -746,9 +1141,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (activeSagaId === "classic_naruto" && currentLevel >= 5) {
       // Defeated final boss of Classic Naruto! (+2000 Final Boss Bonus + 200 Level Advance)
       const finalScore = currentRunScore + 2200;
+      const earnedCoins = Math.floor(finalScore * 0.01);
       set({
         shippudenUnlocked: true,
         currentRunScore: finalScore,
+        completedSagaVictory: {
+          sagaId: "classic_naruto",
+          scoreGained: finalScore,
+          coinsGained: earnedCoins,
+        },
       });
       if (typeof window !== "undefined") {
         localStorage.setItem("shippudenUnlocked", "true");
@@ -761,8 +1162,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (activeSagaId === "shippuden_naruto" && currentLevel >= 10) {
       // Defeated final boss of Shippuden! (+5000 Final Boss Bonus + 200 Level Advance)
       const finalScore = currentRunScore + 5200;
+      const earnedCoins = Math.floor(finalScore * 0.01);
       set({
         currentRunScore: finalScore,
+        completedSagaVictory: {
+          sagaId: "shippuden_naruto",
+          scoreGained: finalScore,
+          coinsGained: earnedCoins,
+        },
       });
 
       get().endRun();
@@ -787,7 +1194,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   endRun: () => {
-    const { currentRunScore, totalScore, classicHighScore, shippudenHighScore, activeSagaId, classicRunsCount, shippudenRunsCount, totalRunsCount } = get();
+    const { currentRunScore, totalScore, classicHighScore, shippudenHighScore, activeSagaId, classicRunsCount, shippudenRunsCount, totalRunsCount, totalCoins, sessionCoins } = get();
+
+    // Earn coins equal to 1% of points earned in this completed run (win or lose)
+    const earnedCoins = Math.floor(currentRunScore * 0.01);
+    const newTotalCoins = totalCoins + earnedCoins;
+    const newSessionCoins = sessionCoins + earnedCoins;
 
     // Accumulate current run score into total cumulative score if points were scored
     if (currentRunScore > 0) {
@@ -813,6 +1225,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         classicRunsCount: newClassicRuns,
         shippudenRunsCount: newShippudenRuns,
         totalRunsCount: newTotalRuns,
+        totalCoins: newTotalCoins,
+        sessionCoins: newSessionCoins,
       });
 
       if (typeof window !== "undefined") {
@@ -822,6 +1236,17 @@ export const useGameStore = create<GameState>((set, get) => ({
         localStorage.setItem("classicRunsCount", String(newClassicRuns));
         localStorage.setItem("shippudenRunsCount", String(newShippudenRuns));
         localStorage.setItem("totalRunsCount", String(newTotalRuns));
+        localStorage.setItem("totalCoins", String(newTotalCoins));
+        localStorage.setItem("sessionCoins", String(newSessionCoins));
+      }
+    } else {
+      set({
+        totalCoins: newTotalCoins,
+        sessionCoins: newSessionCoins,
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("totalCoins", String(newTotalCoins));
+        localStorage.setItem("sessionCoins", String(newSessionCoins));
       }
     }
 
@@ -838,10 +1263,34 @@ export const useGameStore = create<GameState>((set, get) => ({
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
       currentRunScore: 0,
+      inventory: [],
+      activeConsumableEffects: [],
     });
 
     get().saveToCloud();
     get().checkAndUnlockAchievements();
+  },
+
+  abandonRun: () => {
+    // Abandoning a run forfeits ALL points and coins for this run
+    set({
+      isRunActive: false,
+      activeSagaId: null,
+      playerTeam: [],
+      runTeam: [],
+      currentNodeId: null,
+      activeMap: [],
+      startingChoices: null,
+      sagaStarterChoices: {},
+      availablePowerUpChoices: null,
+      pendingJutsuToLearn: null,
+      availableRecruitChoices: null,
+      currentRunScore: 0,
+      inventory: [],
+      activeConsumableEffects: [],
+    });
+
+    get().saveToCloud();
   },
 
   registerBossDefeat: (bossId) => {
@@ -876,13 +1325,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       run_team: state.runTeam,
       active_map: state.activeMap,
       active_power_ups: state.activePowerUps,
+      inventory: state.inventory,
       defeated_bosses: state.defeatedBosses
     });
 
     // 2. Fetch existing profile stats using maybeSingle()
     const { data: existingProfile } = await supabase
       .from("profiles")
-      .select("total_runs, classic_runs, shippuden_runs, max_level_reached, total_score, classic_high_score, shippuden_high_score")
+      .select("total_runs, classic_runs, shippuden_runs, max_level_reached, total_score, classic_high_score, shippuden_high_score, total_coins")
       .eq("id", session.user.id)
       .maybeSingle();
 
@@ -903,6 +1353,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     const finalClassicHigh = Math.max(dbClassicHigh, state.classicHighScore);
     const finalShippudenHigh = Math.max(dbShippudenHigh, state.shippudenHighScore);
 
+    // State totalCoins holds the true current balance (reflecting earnings and expenditures)
+    const finalCoins = state.totalCoins;
+
     // Keep store synchronized
     set({
       totalRunsCount: finalTotal,
@@ -911,6 +1364,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       totalScore: finalTotalScore,
       classicHighScore: finalClassicHigh,
       shippudenHighScore: finalShippudenHigh,
+      totalCoins: finalCoins,
     });
 
     if (typeof window !== "undefined") {
@@ -920,6 +1374,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       localStorage.setItem("totalScore", String(finalTotalScore));
       localStorage.setItem("classicHighScore", String(finalClassicHigh));
       localStorage.setItem("shippudenHighScore", String(finalShippudenHigh));
+      localStorage.setItem("totalCoins", String(finalCoins));
       localStorage.setItem("shippudenUnlocked", String(finalMaxLevel >= 5));
       localStorage.setItem("defeatedBosses", JSON.stringify(state.defeatedBosses));
     }
@@ -936,6 +1391,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       total_score: finalTotalScore,
       classic_high_score: finalClassicHigh,
       shippuden_high_score: finalShippudenHigh,
+      total_coins: finalCoins,
       unlocked_achievements: state.unlockedAchievementsMap,
       updated_at: new Date()
     });
@@ -972,6 +1428,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         playerTeam: isRunActive ? loadedRunTeam : [],
         activeMap: loadedMap,
         activePowerUps: save.active_power_ups || [],
+        inventory: isRunActive ? (save.inventory || []) : [],
+        activeConsumableEffects: isRunActive ? (get().activeConsumableEffects || []) : [],
         defeatedBosses: loadedBosses,
         shippudenUnlocked: (profile?.max_level_reached || 0) >= 5 || false
       });
@@ -988,6 +1446,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const dbTotalScore = profile.total_score ?? 0;
       const dbClassicHigh = profile.classic_high_score ?? 0;
       const dbShippudenHigh = profile.shippuden_high_score ?? 0;
+      const dbCoins = profile.total_coins ?? 0;
 
       let loadedAchievementsMap: Record<string, string> = {};
       if (profile.unlocked_achievements) {
@@ -1013,6 +1472,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         totalScore: dbTotalScore,
         classicHighScore: dbClassicHigh,
         shippudenHighScore: dbShippudenHigh,
+        totalCoins: dbCoins,
         shippudenUnlocked: maxLevel >= 5,
         unlockedAchievementsMap: loadedAchievementsMap,
       });
@@ -1024,6 +1484,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         localStorage.setItem("totalScore", String(dbTotalScore));
         localStorage.setItem("classicHighScore", String(dbClassicHigh));
         localStorage.setItem("shippudenHighScore", String(dbShippudenHigh));
+        localStorage.setItem("totalCoins", String(dbCoins));
         localStorage.setItem("shippudenUnlocked", String(maxLevel >= 5));
         localStorage.setItem("unlockedAchievementsMap", JSON.stringify(loadedAchievementsMap));
       }
@@ -1063,6 +1524,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       availablePowerUpChoices: null,
       pendingJutsuToLearn: null,
       availableRecruitChoices: null,
+      availableItemChoices: null,
+      inventory: [],
+      activeConsumableEffects: [],
       shippudenUnlocked: false,
       defeatedBosses: [],
       totalRunsCount: 0,

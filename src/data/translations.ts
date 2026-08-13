@@ -17,6 +17,44 @@ export const TRANSLATIONS = {
     patchNotesVersion: "Versione",
     patchNotesDate: "Data",
 
+    // Tutorial
+    tutorialNext: "Avanti ➔",
+    tutorialPrev: "⬅ Indietro",
+    tutorialSkip: "Salta Tutorial ✕",
+    tutorialFinish: "Ho capito, Iniziamo! ⚡",
+    tutorialRestartBtn: "Riavvia Tutorial Guidato",
+    tutorialRestartSuccess: "Tutorial resettato! Si avvierà alla prossima avventura.",
+
+    tutorialStep1Title: "1/5 • Scegli il tuo Ninja iniziale",
+    tutorialStep1Text: "Per iniziare la partita devi scegliere il tuo ninja di partenza! Clicca direttamente su una delle 3 carte qui sotto per sceglierlo.",
+
+    tutorialStep2Title: "2/5 • Il primo nodo: Rotolo Proibito",
+    tutorialStep2Text: "Il primo nodo in cima alla mappa è sempre il Rotolo Proibito! Clicca sul nodo del Rotolo per riscattarlo.",
+    tutorialStep2TextPhase2: "Ottimo! Ora che hai attivato il Rotolo, clicca sulla carta del tuo ninja nella squadra a sinistra per potenziarlo!",
+
+    tutorialStep3Title: "3/5 • Scegli il tuo Percorso!",
+    tutorialStep3Text: "Perfetto, ora che hai potenziato il tuo ninja, devi fare una scelta! Puoi affrontare un Combattimento (rappresentato dall'immagine del primo nemico) per guadagnare punti, oppure visitare l'Accademia Ninja per reclutare un nuovo alleato in squadra. Clicca su uno dei nodi per proseguire!",
+
+    tutorialStep4Title: "4/5 • Tappa Ristoratrice: Ramen Ichiraku",
+    tutorialStep4Text: "Il nodo del Ramen Ichiraku (rappresentato dalla ciotola di Ramen) è fondamentale: una volta raggiunto, ristora e cura completamente la salute (HP) e il Chakra di tutta la squadra!",
+
+    tutorialStep5Title: "5/5 • Scontro col Boss Finale!",
+    tutorialStep5Text: "Infine c'è il Boss Finale della mappa (rappresentato dalla sprite del Boss). Affrontalo e sconfiggilo! Una volta battuto il boss, la tua squadra verrà curata completamente al 100%.",
+
+    tutorialEndTitle: "Tutorial Completato!",
+    tutorialEndText: "Ora sei pronto per l'avventura! Scegli il percorso che preferisci sulla mappa e affronta ogni sfida con strategia. Buona fortuna, Ninja!",
+
+    tutorialActionRequired: "Esegui l'azione evidenziata per proseguire",
+    tutorialActionRequiredUseScroll: "Clicca sul tuo ninja nella squadra a sinistra per usare il rotolo!",
+    tutorialNodePowerupTitle: "📜 Nodo Tecnica (Rotolo Proibito)",
+    tutorialNodePowerupText: "Questo nodo ti permette di insegnare una nuova mossa o migliorare i Jutsu dei tuoi ninja!",
+    tutorialNodeRecruitTitle: "🥷 Nodo Reclutamento Ninja",
+    tutorialNodeRecruitText: "Qui puoi scegliere un nuovo ninja tra 3 scelte casuali ed aggiungerlo al tuo team (fino a 6 membri).",
+    tutorialNodeHealTitle: "🍜 Ramen Ichiraku (Ripristino)",
+    tutorialNodeHealText: "Tappa ristoratrice! Mangiare il ramen Ichiraku ripristina la salute (HP) e il Chakra di tutto il team al 100%.",
+    tutorialNodeBossTitle: "👹 Scontro Boss Finale",
+    tutorialNodeBossText: "Attenzione! Questo nodo ospita il Boss del Capitolo. Sconfiggilo per completare la fase e sbloccare la storia!",
+
     // Auth Modal
     authTitleLogin: "ACCEDI AL CLOUD",
     authTitleRegister: "REGISTRATI NEL CLOUD",
@@ -112,14 +150,24 @@ export const TRANSLATIONS = {
 
     // Abandon Modal
     abandonConfirmTitle: "ABBANDONARE LA RUN?",
-    abandonConfirmDesc: "Sei sicuro di voler abbandonare? Tutti i progressi di questa run andranno persi per sempre!",
+    abandonConfirmDesc: "Sei sicuro di voler abbandonare? Se abbandoni la run perderai tutti i punti accumulati e non riceverai né punti né monete!",
     yesAbandon: "Sì, Abbandona",
     noCancel: "No, Annulla",
 
     // Node Suffixes
     suffixBattle: " (Lotta)",
-    suffixPowerup: " (Tecnica)",
+    suffixPowerup: " (Oggetto)",
     suffixRecruit: " (Recluta)",
+
+    // Backpack & Items
+    backpackTitle: "ZAINO DEGLI OGGETTI",
+    backpackEmpty: "Lo zaino è vuoto! Visita i nodi Oggetto sulla mappa per trovare consumabili e strumenti.",
+    consumablesTab: "Consumabili",
+    assignablesTab: "Equipaggiabili",
+    useBtn: "Usa",
+    equipBtn: "Equipaggia",
+    unequipBtn: "Rimuovi",
+    equippedLabel: "Equipaggiato",
 
     // Node Names
     nodeWelcomeScroll: "Rotolo di Benvenuto",
@@ -228,6 +276,44 @@ export const TRANSLATIONS = {
     patchNotesVersion: "Version",
     patchNotesDate: "Date",
 
+    // Tutorial
+    tutorialNext: "Next ➔",
+    tutorialPrev: "⬅ Previous",
+    tutorialSkip: "Skip Tutorial ✕",
+    tutorialFinish: "Got it, Let's Play! ⚡",
+    tutorialRestartBtn: "Restart Guided Tutorial",
+    tutorialRestartSuccess: "Tutorial reset! It will launch when starting a run.",
+
+    tutorialStep1Title: "1/5 • Choose your Starter Ninja",
+    tutorialStep1Text: "To start the game you must pick your starter ninja! Click directly on one of the 3 cards below to choose.",
+
+    tutorialStep2Title: "2/5 • The First Node: Forbidden Scroll 📜",
+    tutorialStep2Text: "The first node at the top of the map is always the Forbidden Scroll! Click on the Scroll node to claim it.",
+    tutorialStep2TextPhase2: "Great! Now that you activated the Scroll, click your ninja card in the team panel on the left to upgrade them!",
+
+    tutorialStep3Title: "3/5 • Choose Your Path! 🥷⚔️",
+    tutorialStep3Text: "Great! Now that you've upgraded your ninja, you have a choice to make! You can enter a Battle or visit the Ninja Academy (Recruitment) to recruit a new ally. Click one of the nodes to continue!",
+
+    tutorialStep4Title: "4/5 • Rest Stop: Ichiraku Ramen 🍜",
+    tutorialStep4Text: "The Ichiraku Ramen node is essential: once reached, it fully restores 100% HP and Chakra for all team members!",
+
+    tutorialStep5Title: "5/5 • Final Boss Showdown! 👹",
+    tutorialStep5Text: "Finally, here is the Final Boss of the map. Defeat them! Once defeated, your entire team will be completely healed 100%.",
+
+    tutorialEndTitle: "Tutorial Complete!",
+    tutorialEndText: "You are now ready for the adventure! Pick your preferred path on the map and face every battle strategically. Good luck, Ninja!",
+
+    tutorialActionRequired: "⚡ Perform highlighted action to continue",
+    tutorialActionRequiredUseScroll: "⚡ Click your ninja in the team panel on the left to use the scroll!",
+    tutorialNodePowerupTitle: "📜 Technique Node (Forbidden Scroll)",
+    tutorialNodePowerupText: "This node lets you teach a new move or upgrade your ninja squad Jutsus!",
+    tutorialNodeRecruitTitle: "🥷 Ninja Recruitment Node",
+    tutorialNodeRecruitText: "Here you can choose a new ninja from 3 random picks to expand your team up to 6 members.",
+    tutorialNodeHealTitle: "🍜 Ichiraku Ramen (Recovery)",
+    tutorialNodeHealText: "Rest spot! Eating Ichiraku ramen recovers 100% HP and Chakra for your entire team.",
+    tutorialNodeBossTitle: "👹 Final Boss Battle",
+    tutorialNodeBossText: "Warning! This node holds the Chapter Boss. Defeat them to complete the stage and progress!",
+
     // Auth Modal
     authTitleLogin: "CLOUD SIGN IN",
     authTitleRegister: "CREATE CLOUD ACCOUNT",
@@ -323,7 +409,7 @@ export const TRANSLATIONS = {
 
     // Abandon Modal
     abandonConfirmTitle: "ABANDON THE RUN?",
-    abandonConfirmDesc: "Are you sure you want to abandon? All progress in this run will be lost forever!",
+    abandonConfirmDesc: "Are you sure you want to abandon? If you abandon the run you will lose all accumulated points and receive neither points nor coins!",
     yesAbandon: "Yes, Abandon",
     noCancel: "No, Cancel",
 
@@ -331,6 +417,15 @@ export const TRANSLATIONS = {
     suffixBattle: " (Battle)",
     suffixPowerup: " (Technique)",
     suffixRecruit: " (Recruit)",
+    // Backpack & Items
+    backpackTitle: "ITEM BACKPACK",
+    backpackEmpty: "Your backpack is empty! Visit Item nodes on the map to find consumables and gear.",
+    consumablesTab: "Consumables",
+    assignablesTab: "Equippables",
+    useBtn: "Use",
+    equipBtn: "Equip",
+    unequipBtn: "Unequip",
+    equippedLabel: "Equipped",
 
     // Node Names
     nodeWelcomeScroll: "Welcome Scroll",
@@ -475,7 +570,7 @@ export function translateNodeLabel(label: string, lang: "it" | "en"): string {
 
   const key = map[workingLabel];
   if (key) {
-    return (TRANSLATIONS[lang][key] as string) + suffix;
+    return ((TRANSLATIONS[lang] as unknown as Record<string, string>)[key] || label) + suffix;
   }
   return label; // Fallback
 }

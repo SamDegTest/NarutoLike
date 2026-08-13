@@ -26,6 +26,8 @@ export const ChakraNatureBadge: React.FC<ChakraNatureBadgeProps> = ({
       {!imgError && config.image ? (
         <img
           src={config.image}
+          loading="lazy"
+          decoding="async"
           alt={config.japaneseName}
           onError={() => setImgError(true)}
           className={imgClassName}

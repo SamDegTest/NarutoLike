@@ -24,6 +24,8 @@ export function JutsuIcon({ src, name, className = "" }: Props) {
   return (
     <img
       src={src}
+      loading="lazy"
+      decoding="async"
       onError={() => setHasError(true)}
       alt={name}
       className={className}

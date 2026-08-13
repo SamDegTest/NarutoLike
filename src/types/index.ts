@@ -38,12 +38,6 @@ export interface Ninja {
   teamGroup?: NinjaTeamGroup;
 }
 
-export interface RunNinja extends Ninja {
-  level: number;
-  currentHp: number;
-  currentChakra: number;
-}
-
 export interface Jutsu {
   id: string;
   name: string;
@@ -54,7 +48,7 @@ export interface Jutsu {
   description: string;
 }
 
-export type NodeType = "battle" | "powerup" | "heal" | "boss" | "recruit";
+export type NodeType = "battle" | "powerup" | "item" | "heal" | "boss" | "recruit";
 
 export interface MapNode {
   id: string;
@@ -64,6 +58,53 @@ export interface MapNode {
   connections: string[];  // Next node IDs that can be reached
   resolved: boolean;
   opponents?: string[];   // Opponent Ninja IDs (if battle/boss)
+}
+
+export type ItemType = "consumable" | "assignable";
+
+export interface GameItem {
+  id: string;             // Item ID e nome immagine /items/${id}.png
+  type: ItemType;
+  name: { it: string; en: string };
+  description: { it: string; en: string };
+  iconEmoji: string;      // Emoji fallback se /items/${id}.png manca
+  // Effetti consumabili
+  healPercent?: number;              // es. Curare 50% o 100% HP
+  healChakraPercent?: number;        // es. Curare 50% o 100% Chakra
+  singleNinjaBattleStatBoost?: {     // Boost per 1 lotta a 1 ninja
+    attackMultiplier?: number;
+    defenseMultiplier?: number;
+    speedMultiplier?: number;
+  };
+  teamBattleStatBoost?: {            // Boost per 1 lotta a tutta la squadra
+    attackMultiplier?: number;
+    defenseMultiplier?: number;
+    speedMultiplier?: number;
+  };
+  coinMultiplierFights?: number;     // Aumento monete guadagnate per X combattimenti
+  luckRarityBoostFights?: number;    // Aumento fortuna (trovare ninja di rank alto) per X combattimenti
+  jutsuLevelUpgrade?: boolean;       // Permette di evolvere 1 mossa ninja (Rotolo Proibito)
+  
+  // Effetti assegnabili (1 per ninja)
+  equipStats?: {
+    hpMax?: number;
+    chakraMax?: number;
+    attack?: number;
+    defense?: number;
+    speed?: number;
+  };
+}
+
+export interface InventoryItem {
+  item: GameItem;
+  quantity: number; // Per i consumabili cumulabili
+}
+
+export interface RunNinja extends Ninja {
+  level: number;
+  currentHp: number;
+  currentChakra: number;
+  equippedItem?: GameItem | null;
 }
 
 export interface PowerUpItem {

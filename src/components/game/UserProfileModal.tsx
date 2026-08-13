@@ -12,7 +12,7 @@ interface UserProfileModalProps {
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onOpenInviteModal }) => {
   const { user, username, avatarUrl, uploadAvatar, signOut } = useAuthStore();
-  const { totalRunsCount, classicRunsCount, shippudenRunsCount, currentLevel, totalScore, classicHighScore, shippudenHighScore } = useGameStore();
+  const { totalRunsCount, classicRunsCount, shippudenRunsCount, currentLevel, totalScore, classicHighScore, shippudenHighScore, totalCoins } = useGameStore();
   const lang = useLanguageStore((state) => state.language);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -225,28 +225,55 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onO
 
         {/* Game Statistics Grid */}
         <div className="grid grid-cols-2 gap-2.5 mb-6 text-left">
-          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-2.5 text-center col-span-2">
-            <div className="text-[10px] text-gray-400 uppercase tracking-wider font-mono flex items-center justify-center gap-1.5">
-              <img
-                src="/score_icon.png"
-                alt="Punti"
-                onError={(e) => {
-                  const target = e.target as HTMLElement;
-                  target.style.display = "none";
-                  const parent = target.parentElement;
-                  if (parent && !parent.querySelector(".score-profile-fallback")) {
-                    const span = document.createElement("span");
-                    span.className = "score-profile-fallback";
-                    span.innerText = "🏆";
-                    parent.insertBefore(span, target);
-                  }
-                }}
-                className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
-              />
-              <span>{lang === "it" ? "Punteggio Totale Cumulativo" : "Total Cumulative Score"}</span>
+          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-2.5 text-center col-span-2 grid grid-cols-2 gap-2">
+            <div className="flex flex-col items-center justify-center">
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider font-mono flex items-center justify-center gap-1.5">
+                <img
+                  src="/score_icon.png"
+                  alt="Punti"
+                  onError={(e) => {
+                    const target = e.target as HTMLElement;
+                    target.style.display = "none";
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector(".score-profile-fallback")) {
+                      const span = document.createElement("span");
+                      span.className = "score-profile-fallback";
+                      span.innerText = "🏆";
+                      parent.insertBefore(span, target);
+                    }
+                  }}
+                  className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                />
+                <span>{lang === "it" ? "Punti Totali" : "Total Score"}</span>
+              </div>
+              <div className="text-xl font-black text-amber-300 font-mono mt-0.5">
+                {totalScore.toLocaleString()} <span className="text-xs font-normal">pts</span>
+              </div>
             </div>
-            <div className="text-2xl font-black text-amber-300 font-mono mt-0.5">
-              {totalScore.toLocaleString()} <span className="text-xs font-normal">pts</span>
+
+            <div className="flex flex-col items-center justify-center border-l border-amber-500/20">
+              <div className="text-[10px] text-yellow-400 uppercase tracking-wider font-mono flex items-center justify-center gap-1.5">
+                <img
+                  src="/coin.png"
+                  alt="Monete"
+                  onError={(e) => {
+                    const target = e.target as HTMLElement;
+                    target.style.display = "none";
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector(".coin-profile-fallback")) {
+                      const span = document.createElement("span");
+                      span.className = "coin-profile-fallback";
+                      span.innerText = "🪙";
+                      parent.insertBefore(span, target);
+                    }
+                  }}
+                  className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(234,179,8,0.8)]"
+                />
+                <span>{lang === "it" ? "Monete Ryo" : "Ryo Coins"}</span>
+              </div>
+              <div className="text-xl font-black text-yellow-400 font-mono mt-0.5">
+                {totalCoins.toLocaleString()} <span className="text-xs font-normal">ryo</span>
+              </div>
             </div>
           </div>
 
