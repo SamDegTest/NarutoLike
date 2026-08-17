@@ -4,17 +4,22 @@ import { TRANSLATIONS } from "@/data/translations";
 import { CHAKRA_NATURE_CONFIGS, ELEMENTAL_ADVANTAGES } from "@/lib/chakraNatures";
 import { ChakraNatureBadge } from "@/components/game/ChakraNatureBadge";
 import { ChakraNature } from "@/types/index";
+import { SYNERGIES, getActiveSynergies, getSynergyDisplayMembers } from "@/lib/synergies";
+import { useGameStore } from "@/store/useGameStore";
 
 interface ChakraChartModalProps {
   onClose: () => void;
+  initialTab?: "chakra" | "dropRates" | "synergies";
 }
 
-export const ChakraChartModal: React.FC<ChakraChartModalProps> = ({ onClose }) => {
+export const ChakraChartModal: React.FC<ChakraChartModalProps> = ({ onClose, initialTab = "chakra" }) => {
   const { language: storeLang } = useLanguageStore();
+  const activeSagaId = useGameStore((state) => state.activeSagaId);
   const lang = storeLang || "it";
   const t = TRANSLATIONS[lang];
+  const runTeam = useGameStore((state) => state.runTeam);
 
-  const [activeTab, setActiveTab] = useState<"chakra" | "dropRates">("chakra");
+  const [activeTab, setActiveTab] = useState<"chakra" | "dropRates" | "synergies">(initialTab);
 
   const allNatures: ChakraNature[] = [
     "Fire",
@@ -114,13 +119,23 @@ export const ChakraChartModal: React.FC<ChakraChartModalProps> = ({ onClose }) =
             </button>
             <button
               onClick={() => setActiveTab("dropRates")}
-              className={`px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border ${
+              className={`px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border ${
                 activeTab === "dropRates"
                   ? "bg-[#ff9f1c] text-[#070b19] border-yellow-300 shadow-lg scale-105"
                   : "bg-[#070b19] text-gray-400 border-gray-800 hover:text-white"
               }`}
             >
               🎲 {lang === "it" ? "Probabilità & Rank" : "Drop Rates & Ranks"}
+            </button>
+            <button
+              onClick={() => setActiveTab("synergies")}
+              className={`px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border ${
+                activeTab === "synergies"
+                  ? "bg-[#ff9f1c] text-[#070b19] border-yellow-300 shadow-lg scale-105"
+                  : "bg-[#070b19] text-gray-400 border-gray-800 hover:text-white"
+              }`}
+            >
+              ✨ {lang === "it" ? "Sinergie Squadra" : "Team Synergies"}
             </button>
           </div>
         </header>
@@ -243,6 +258,154 @@ export const ChakraChartModal: React.FC<ChakraChartModalProps> = ({ onClose }) =
                   </p>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: TEAM SYNERGIES WIKI */}
+        {activeTab === "synergies" && (
+          <div className="space-y-4 animate-fade-in">
+            <div className="bg-[#070b19]/90 border border-amber-500/40 rounded-2xl p-4 text-center">
+              <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider mb-1 font-mono">
+                ✨ {lang === "it" ? "SINERGIE DI SQUADRA SHINOBI (A SCAGLIONI MULTI-LIVELLO)" : "SHINOBI MULTI-TIER TEAM SYNERGIES"}
+              </h3>
+              <p className="text-xs text-gray-400">
+                {lang === "it"
+                  ? "Recluta ninja dello stesso team o fazione. Basta un minimo di 2 Ninja per attivare il 1° Livello, mentre completando la squadra fino a 6 Ninja sblocchi il livello ORO MAX!"
+                  : "Recruit ninjas of the same team or faction. At least 2 Ninjas unlock Level 1, while filling your squad up to 6 Ninjas unlocks the GOLD MAX level!"}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3.5">
+              {SYNERGIES.map((syn) => {
+                const activeResults = getActiveSynergies(runTeam);
+                const matchedRes = activeResults.find((r) => r.synergy.id === syn.id);
+                const isActiveInCurrentRun = matchedRes !== undefined;
+
+                return (
+                  <div
+                    key={syn.id}
+                    className={`p-4 rounded-2xl border-2 shadow-xl flex flex-col gap-3 transition-all ${
+                      isActiveInCurrentRun
+                        ? `${syn.colorClass} ${syn.borderClass} ring-2 ring-emerald-400/60`
+                        : "bg-[#070b19]/90 border-gray-800"
+                    }`}
+                  >
+                    {/* TOP HEADER */}
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                          {syn.image ? (
+                            <img
+                              src={syn.image}
+                              alt={syn.name[lang]}
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = "none";
+                                const parent = e.currentTarget.parentElement;
+                                if (parent && !parent.querySelector(".emoji-fallback")) {
+                                  const fallbackSpan = document.createElement("span");
+                                  fallbackSpan.className = "text-2xl emoji-fallback";
+                                  fallbackSpan.innerText = syn.icon;
+                                  parent.appendChild(fallbackSpan);
+                                }
+                              }}
+                              className="w-7 h-7 object-contain"
+                            />
+                          ) : (
+                            <span className="text-2xl">{syn.icon}</span>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-sm text-amber-300 flex items-center gap-2">
+                            {syn.name[lang]}
+                          </h4>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border shrink-0 ${
+                          isActiveInCurrentRun
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_8px_rgba(16,185,129,0.3)] animate-pulse"
+                            : "bg-gray-800 text-gray-400 border-gray-700"
+                        }`}
+                      >
+                        {isActiveInCurrentRun
+                          ? `🟢 ${matchedRes.tier.levelName[lang]}`
+                          : (lang === "it" ? "⚪ NON ATTIVA" : "⚪ INACTIVE")}
+                      </span>
+                    </div>
+
+                    {/* NINJA MEMBERS REQUIRED */}
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
+                        <span>{lang === "it" ? "Chi la forma (Membri Chiave):" : "Key Members:"}</span>
+                        <span className="text-amber-400 font-mono">
+                          {lang === "it" ? `Attiva da ${syn.tiers[0].requiredCount}+ Ninja` : `Unlocks at ${syn.tiers[0].requiredCount}+ Ninjas`}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {getSynergyDisplayMembers(syn, activeSagaId).map((mem) => {
+                          const isNinjaInTeam = runTeam.some(
+                            (n) => n.characterId === mem.characterId || (syn.matchType === "faction" && n.teamGroup === syn.clanOrFactionKey) || (syn.matchType === "clan" && n.clan === syn.clanOrFactionKey)
+                          );
+                          return (
+                            <div
+                              key={mem.characterId}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all ${
+                                isNinjaInTeam
+                                  ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/60 shadow-md scale-105"
+                                  : "bg-black/40 text-gray-400 border-gray-800 opacity-60"
+                              }`}
+                            >
+                              <img
+                                src={mem.sprite}
+                                alt={mem.name[lang]}
+                                className="w-5 h-5 object-contain shrink-0"
+                              />
+                              <span>{mem.name[lang]}</span>
+                              <span>{isNinjaInTeam ? "✓" : "🔒"}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* MULTI-TIER PROGRESSION TIERS */}
+                    <div className="space-y-1.5 bg-black/40 p-2.5 rounded-xl border border-white/10">
+                      <div className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-wider mb-1">
+                        {lang === "it" ? "Livelli di Potenziamento (Progressione Sinergia):" : "Synergy Boost Tier Levels:"}
+                      </div>
+                      {syn.tiers.map((t, idx) => {
+                        const isCurrentTier = matchedRes?.tierIndex === idx;
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-2 rounded-lg border text-[11px] flex items-center justify-between transition-all ${
+                              isCurrentTier
+                                ? "bg-emerald-950/80 border-emerald-500/80 text-emerald-200 font-bold scale-[1.01] shadow-md ring-1 ring-emerald-400"
+                                : "bg-black/30 border-gray-800 text-gray-400"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs">{isCurrentTier ? "⭐" : "🔹"}</span>
+                              <div>
+                                <span className="font-extrabold text-amber-300 mr-1.5">{t.levelName[lang]}:</span>
+                                <span className="text-gray-300 font-normal">{t.description[lang]}</span>
+                              </div>
+                            </div>
+                            {isCurrentTier && (
+                              <span className="text-[9px] bg-emerald-500/30 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/50 shrink-0 uppercase font-mono font-black animate-pulse">
+                                ATTIVO ORA 🟢
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

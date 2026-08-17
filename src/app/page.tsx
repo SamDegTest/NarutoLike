@@ -30,7 +30,7 @@ import { SealedSagaOverlay } from "@/components/game/SealedSagaOverlay";
 import { TutorialOverlay } from "@/components/game/TutorialOverlay";
 import { NinjaDetailModal } from "@/components/game/NinjaDetailModal";
 import { KeyboardShortcutsModal } from "@/components/game/KeyboardShortcutsModal";
-import { getActiveSynergies } from "@/lib/synergies";
+import { getActiveSynergies, getSynergiesUnlockedByCandidate, getSynergyDisplayMembers, SYNERGIES } from "@/lib/synergies";
 import { getUnlockedAchievements, Achievement } from "@/data/achievements";
 import { preloadImagesBatch } from "@/lib/imagePreloader";
 import { GAME_ITEMS_CATALOG } from "@/data/items";
@@ -132,6 +132,7 @@ export default function Home() {
   const [showPatchNotesModal, setShowPatchNotesModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showChakraChartModal, setShowChakraChartModal] = useState(false);
+  const [chakraModalTab, setChakraModalTab] = useState<"chakra" | "dropRates" | "synergies">("chakra");
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
@@ -205,6 +206,7 @@ export default function Home() {
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [pendingRecruitId, setPendingRecruitId] = useState<string | null>(null);
+  const [pendingRecruitPrice, setPendingRecruitPrice] = useState<number>(0);
 
   const isTeamFull = playerTeam.length >= 2;
   const isShippudenUnlocked = mounted ? shippudenUnlocked : false;
@@ -1012,28 +1014,112 @@ export default function Home() {
                 )}
               </div>
 
-              {/* ACTIVE TEAM SYNERGIES */}
+              {/* ACTIVE TEAM SYNERGIES PANEL */}
               {(() => {
                 const activeSyns = getActiveSynergies(runTeam);
-                if (activeSyns.length === 0) return null;
                 return (
-                  <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl shrink-0 space-y-1">
-                    <div className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-widest flex items-center justify-between">
-                      <span>{lang === "it" ? "Sinergie Attive" : "Active Synergies"}</span>
-                      <span className="text-emerald-400">+{activeSyns.length}</span>
+                  <div className="bg-[#070b19]/90 border border-amber-500/40 p-2.5 rounded-2xl shrink-0 space-y-1.5 shadow-lg">
+                    <div className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-widest flex items-center justify-between border-b border-white/10 pb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span>✨</span>
+                        <span>{lang === "it" ? "Sinergie Squadra" : "Team Synergies"}</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setChakraModalTab("synergies");
+                          setShowChakraChartModal(true);
+                        }}
+                        className="text-[9px] text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        title={lang === "it" ? "Apri Wiki Sinergie" : "Open Synergies Wiki"}
+                      >
+                        <span className="text-emerald-400 font-extrabold">+{activeSyns.length} {lang === "it" ? "Attive" : "Active"}</span>
+                        <span>📜</span>
+                      </button>
                     </div>
-                    <div className="flex flex-wrap gap-1">
-                      {activeSyns.map((syn) => (
-                        <div
-                          key={syn.id}
-                          className={`text-[10px] px-2 py-0.5 rounded-lg border font-bold flex items-center gap-1 ${syn.colorClass} ${syn.borderClass}`}
-                          title={syn.description[lang]}
-                        >
-                          <span>{syn.icon}</span>
-                          <span>{syn.name[lang]}</span>
-                        </div>
-                      ))}
-                    </div>
+
+                    {activeSyns.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {activeSyns.map((res) => {
+                          const syn = res.synergy;
+                          return (
+                            <div
+                              key={syn.id}
+                              onClick={() => {
+                                setChakraModalTab("synergies");
+                                setShowChakraChartModal(true);
+                              }}
+                              className={`p-1.5 rounded-xl border text-[10px] flex flex-col gap-1 cursor-pointer transition-all hover:scale-[1.02] ${syn.colorClass} ${syn.borderClass}`}
+                              title={res.tier.description[lang]}
+                            >
+                              <div className="flex items-center justify-between font-bold">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                                    {syn.image ? (
+                                      <img
+                                        src={syn.image}
+                                        alt={syn.name[lang]}
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLElement).style.display = "none";
+                                          const parent = e.currentTarget.parentElement;
+                                          if (parent && !parent.querySelector(".emoji-fallback")) {
+                                            const fallbackSpan = document.createElement("span");
+                                            fallbackSpan.className = "text-xs emoji-fallback";
+                                            fallbackSpan.innerText = syn.icon;
+                                            parent.appendChild(fallbackSpan);
+                                          }
+                                        }}
+                                        className="w-3.5 h-3.5 object-contain"
+                                      />
+                                    ) : (
+                                      <span className="text-xs">{syn.icon}</span>
+                                    )}
+                                  </span>
+                                  <span>{syn.name[lang]}</span>
+                                </span>
+                                <span className="text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded-full font-mono">
+                                  {res.tier.levelName[lang]} 🟢
+                                </span>
+                              </div>
+
+                              <div className="text-[8px] font-mono text-gray-300">
+                                {res.tier.description[lang]}
+                              </div>
+
+                              {/* WHO FORMS IT: MEMBERS PRESENT */}
+                              <div className="flex flex-wrap gap-1 text-[8px] font-mono text-gray-300 mt-0.5">
+                                {getSynergyDisplayMembers(syn, activeSagaId).map((mem) => {
+                                  const isPresent = runTeam.some(
+                                    (n) => n.characterId === mem.characterId || (syn.matchType === "faction" && n.teamGroup === syn.clanOrFactionKey) || (syn.matchType === "clan" && n.clan === syn.clanOrFactionKey)
+                                  );
+                                  return (
+                                    <span
+                                      key={mem.characterId}
+                                      className={`px-1 py-0.2 rounded border ${
+                                        isPresent
+                                          ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/50 font-bold"
+                                          : "bg-black/50 text-gray-500 border-gray-800"
+                                      }`}
+                                    >
+                                      {mem.name[lang].split(" ")[0]} {isPresent ? "✓" : "🔒"}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => {
+                          setChakraModalTab("synergies");
+                          setShowChakraChartModal(true);
+                        }}
+                        className="text-[9px] font-mono text-gray-400 italic text-center p-1.5 bg-black/40 rounded-xl border border-gray-800 cursor-pointer hover:border-amber-500/40 transition-colors"
+                      >
+                        {lang === "it" ? "Nessuna sinergia attiva. Clicca qui per la Guida Sinergie! 📜" : "No active synergies. Click here for the Synergies Guide! 📜"}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1289,11 +1375,10 @@ export default function Home() {
                     <button
                       data-tutorial="map-advance-btn"
                       onClick={() => selectNode(targetNode.id)}
-                      className="bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-black px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl text-xs uppercase tracking-wider shadow-md border-b-2 border-amber-700 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-1.5 sm:gap-2 shrink-0"
-                      title={lang === "it" ? "Avanza alla prossima tappa (Premi Spazio o Invio sulla tastiera)" : "Advance to next stage (Press Spacebar or Enter on keyboard)"}
+                      className="bg-[#ff9f1c] hover:bg-yellow-400 text-[#070b19] font-black px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm uppercase tracking-wider shadow-md border-b-2 border-amber-700 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center justify-center shrink-0"
+                      title={lang === "it" ? "Avanza alla prossima tappa" : "Advance to next stage"}
                     >
                       <span>{lang === "it" ? "Avanza" : "Advance"}</span>
-                      <span className="hidden sm:inline-block bg-[#070b19]/20 px-1.5 py-0.5 rounded text-[10px] border border-black/20 font-mono">SPAZIO / ↵</span>
                     </button>
                   </div>
                 );
@@ -1574,8 +1659,13 @@ export default function Home() {
                                 <button
                                   key={ninja.id}
                                   onClick={() => {
-                                    chooseRecruit(pendingRecruitId, ninja.id);
+                                    if (pendingRecruitPrice > 0) {
+                                      buyAndRecruitNinja(pendingRecruitId, pendingRecruitPrice, ninja.id);
+                                    } else {
+                                      chooseRecruit(pendingRecruitId, ninja.id);
+                                    }
                                     setPendingRecruitId(null);
+                                    setPendingRecruitPrice(0);
                                   }}
                                   style={rarity.cardStyle}
                                   className={`flex justify-between items-center ${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow} rounded-xl p-2 sm:p-2.5 text-left transition-all w-full cursor-pointer hover:scale-[1.01] shadow-md`}
@@ -1612,7 +1702,10 @@ export default function Home() {
                             })}
                           </div>
                           <button
-                            onClick={() => setPendingRecruitId(null)}
+                            onClick={() => {
+                              setPendingRecruitId(null);
+                              setPendingRecruitPrice(0);
+                            }}
                             className="w-full py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold rounded text-xs uppercase tracking-wider border border-gray-750 transition-colors"
                           >
                             {t.noCancel}
@@ -1664,6 +1757,7 @@ export default function Home() {
                                       onClick={() => {
                                         if (runTeam.length >= 6) {
                                           setPendingRecruitId(ninja.id);
+                                          setPendingRecruitPrice(0);
                                         } else {
                                           chooseRecruit(ninja.id);
                                         }
@@ -1776,6 +1870,8 @@ export default function Home() {
                                           {rankNinjas.map((ninja) => {
                                             const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
                                             const canAfford = currentCoins >= price;
+                                            const matches = getSynergiesUnlockedByCandidate(runTeam, ninja);
+                                            const hasSynergy = matches.length > 0;
 
                                             return (
                                               <div
@@ -1784,25 +1880,35 @@ export default function Home() {
                                                   if (!canAfford) return;
                                                   if (runTeam.length >= 6) {
                                                     setPendingRecruitId(ninja.id);
+                                                    setPendingRecruitPrice(price);
                                                   } else {
                                                     buyAndRecruitNinja(ninja.id, price);
                                                   }
                                                 }}
                                                 style={rarity.cardStyle}
                                                 className={`relative p-2 rounded-xl transition-all flex flex-col justify-between items-center text-center ${canAfford ? "cursor-pointer hover:scale-105 shadow-md" : "opacity-50 cursor-not-allowed"
-                                                  } ${rarity.cardBorder} ${rarity.cardBg}`}
+                                                  } ${rarity.cardBorder} ${rarity.cardBg} ${
+                                                    hasSynergy ? "ring-2 ring-amber-400 border-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.8)]" : ""
+                                                  }`}
                                               >
+                                                {/* SYNERGY HIGHLIGHT BOUNCING BADGE */}
+                                                {hasSynergy && (
+                                                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#070b19] text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.9)] border border-yellow-200 z-30 whitespace-nowrap animate-bounce flex items-center gap-0.5">
+                                                    <span>{matches[0].label[lang]}</span>
+                                                  </div>
+                                                )}
+
                                                 <NinjaAvatar
                                                   src={ninja.sprite}
                                                   name={translatedName}
                                                   rank={ninja.rank}
-                                                  className="w-10 h-10 object-contain mx-auto mb-1 bg-black/30 rounded-lg p-0.5 border border-white/10 shrink-0"
+                                                  className="w-10 h-10 object-contain mx-auto mb-1 bg-black/30 rounded-lg p-0.5 border border-white/10 shrink-0 mt-1"
                                                 />
                                                 <h4 className={`font-bold text-[9px] sm:text-[10px] truncate w-full ${rarity.textColor}`} title={translatedName}>
                                                   {translatedName}
                                                 </h4>
 
-                                                {/* CHAKRA NATURE TYPE BADGE (ICON ONLY) */}
+                                                {/* CHAKRA NATURE TYPE BADGE */}
                                                 <div className="my-1 flex items-center justify-center">
                                                   <ChakraNatureBadge
                                                     nature={ninja.chakraNature}
@@ -1810,6 +1916,12 @@ export default function Home() {
                                                     imgClassName="w-4 h-4 object-contain shrink-0"
                                                   />
                                                 </div>
+
+                                                {hasSynergy && (
+                                                  <div className="my-1 bg-amber-500/20 border border-amber-500/40 rounded px-1 py-0.5 text-[7px] font-mono font-extrabold text-amber-300 truncate max-w-full" title={matches[0].tierName ? matches[0].tierName[lang] : matches[0].synergy.name[lang]}>
+                                                    {matches[0].tierName ? matches[0].tierName[lang] : matches[0].synergy.name[lang]}
+                                                  </div>
+                                                )}
 
                                                 {/* PRICE TAG */}
                                                 <div className="w-full flex items-center justify-center gap-1 bg-black/70 py-0.5 px-1 rounded-lg border border-yellow-500/40 text-[9px] font-mono font-bold text-yellow-300 shadow-inner">
@@ -2146,7 +2258,9 @@ export default function Home() {
       {showCreditsModal && <CreditsModal onClose={() => setShowCreditsModal(false)} />}
       {showPatchNotesModal && <PatchNotesModal onClose={() => setShowPatchNotesModal(false)} />}
       {showPrivacyModal && <PrivacyModal onClose={() => setShowPrivacyModal(false)} />}
-      {showChakraChartModal && <ChakraChartModal onClose={() => setShowChakraChartModal(false)} />}
+      {showChakraChartModal && (
+        <ChakraChartModal initialTab={chakraModalTab} onClose={() => setShowChakraChartModal(false)} />
+      )}
       {/* ==================== BACKPACK MODAL (ZAINO DEGLI OGGETTI) ==================== */}
       {showBackpackModal && (
         <div

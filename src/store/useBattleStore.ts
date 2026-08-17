@@ -6,6 +6,7 @@ import { useLanguageStore } from "./useLanguageStore";
 import { TRANSLATIONS, JUTSU_TRANSLATIONS, translateNinjaName } from "@/data/translations";
 import { CHAKRA_NATURE_CONFIGS, isSuperEffective } from "@/lib/chakraNatures";
 import { getSynergyStatMultipliers } from "@/lib/synergies";
+import { getNinjaEffectiveStats } from "@/utils/statUtils";
 
 const getNinjaElementSymbol = (nature?: string): string => {
   if (!nature) return "👊";
@@ -125,233 +126,127 @@ interface BattleState {
 
   // Actions
   startBattle: (players: RunNinja[], opponents: Ninja[]) => void;
+  restartBattleKeepOpponents: (players: RunNinja[]) => void;
   claimVictory: () => void;
   resetBattle: () => void;
 }
 
-export const useBattleStore = create<BattleState>((set, get) => ({
-  isBattleActive: false,
-  playerTeam: [],
-  opponentTeam: [],
-  battleLogs: [],
-  battleStatus: null,
-  battleSteps: [],
+function executeBattleSimulation(pTeam: RunNinja[], oppTeam: RunNinja[]) {
+  const lang = useLanguageStore.getState().language;
+  const t = TRANSLATIONS[lang];
 
-  startBattle: (players, opponents) => {
-    // Deep copy to prevent side effects during dry run simulation
-    const pTeam: RunNinja[] = players.map((p) => ({ ...p }));
-    const activeNodeId = useGameStore.getState().currentNodeId;
-    const activeMap = useGameStore.getState().activeMap;
-    const currentNode = activeMap.find((n) => n.id === activeNodeId);
-    const stage = currentNode?.stage || 1;
-    const isBoss = currentNode?.type === "boss";
+  const logs: string[] = [t.battleLogStart];
+  const steps: BattleStep[] = [
+    {
+      playerTeam: pTeam.map((p) => ({ ...p })),
+      opponentTeam: oppTeam.map((o) => ({ ...o })),
+      log: t.battleLogStart,
+      attackerId: "",
+      targetId: "",
+      attackerName: "",
+      targetName: "",
+      actionText: "",
+      damage: 0,
+      isHealing: false,
+      elementSymbol: "",
+      isPlayerAttacking: false,
+    },
+  ];
 
-    const avgPlayerLevel = players.reduce((sum, n) => sum + n.level, 0) / players.length;
-    const gameLevel = useGameStore.getState().currentLevel; // 1 to 5
-    
-    // Balanced difficulty scaling: Smooth early progression, tactical mid-game, epic boss climaxes
-    let oppLevel = Math.max(5, Math.floor(avgPlayerLevel * (0.70 + (gameLevel * 0.08) + (stage * 0.05))));
-    if (isBoss) {
-      oppLevel = Math.max(8, Math.floor(avgPlayerLevel * (1.15 + (gameLevel * 0.08))));
+  const activeConsumableEffects = useGameStore.getState().activeConsumableEffects;
+  let consumableAtkMult = 1;
+  let consumableDefMult = 1;
+
+  activeConsumableEffects.forEach((eff) => {
+    if (eff.item.teamBattleStatBoost) {
+      if (eff.item.teamBattleStatBoost.attackMultiplier) {
+        consumableAtkMult *= eff.item.teamBattleStatBoost.attackMultiplier;
+      }
+      if (eff.item.teamBattleStatBoost.defenseMultiplier) {
+        consumableDefMult *= eff.item.teamBattleStatBoost.defenseMultiplier;
+      }
     }
+  });
 
-    const oppTeam: RunNinja[] = opponents.map((opp) => {
-      const diff = oppLevel - 5;
-      const stats = { ...opp.baseStats };
-      stats.hp += diff * 10;
-      stats.chakra += diff * 5;
-      stats.attack += diff * 2;
-      stats.defense += diff * 1;
-      stats.speed += diff * 1;
+  const getFighterSpeed = (n: RunNinja) => {
+    let spd = n.baseStats.speed;
+    if (n.equippedItem?.equipStats?.speed) {
+      spd += n.equippedItem.equipStats.speed;
+    }
+    return spd;
+  };
 
-      if (isBoss) {
-        // Boss Aura: Epic climaxes without artificial damage sponges
-        stats.hp = Math.floor(stats.hp * 1.20);
-        stats.attack = Math.floor(stats.attack * 1.12);
-        stats.defense = Math.floor(stats.defense * 1.10);
-        stats.speed = Math.floor(stats.speed * 1.05);
-      }
+  let round = 1;
+  while (pTeam.some((p) => p.currentHp > 0) && oppTeam.some((o) => o.currentHp > 0) && round <= 50) {
+    logs.push(t.battleLogRound.replace("{round}", round.toString()));
 
-      return {
-        ...opp,
-        level: oppLevel,
-        baseStats: stats,
-        currentHp: stats.hp,
-        currentChakra: stats.chakra,
-      };
-    });
+    const { atkMult: synAtkMult, defMult: synDefMult, critAdd, healMult } = getSynergyStatMultipliers(pTeam);
+    const atkMult = synAtkMult * consumableAtkMult;
+    const defMult = synDefMult * consumableDefMult;
 
-    const lang = useLanguageStore.getState().language;
-    const t = TRANSLATIONS[lang];
+    const fighters = [
+      ...pTeam.map((p) => ({ ref: p, isPlayer: true })),
+      ...oppTeam.map((o) => ({ ref: o, isPlayer: false })),
+    ]
+      .filter((f) => f.ref.currentHp > 0)
+      .sort((a, b) => getFighterSpeed(b.ref) - getFighterSpeed(a.ref));
 
-    const logs: string[] = [t.battleLogStart];
-    const steps: BattleStep[] = [
-      {
-        playerTeam: pTeam.map((p) => ({ ...p })),
-        opponentTeam: oppTeam.map((o) => ({ ...o })),
-        log: t.battleLogStart,
-        attackerId: "",
-        targetId: "",
-        attackerName: "",
-        targetName: "",
-        actionText: "",
-        damage: 0,
-        isHealing: false,
-        elementSymbol: "",
-        isPlayerAttacking: false,
-      },
-    ];
+    for (const fighter of fighters) {
+      if (fighter.ref.currentHp <= 0) continue;
 
-    // Check active consumable item stat boosts (e.g. Unguento del Rospo Eremita +30% ATK, Talismano Difesa +40% DEF)
-    const activeConsumableEffects = useGameStore.getState().activeConsumableEffects;
-    let consumableAtkMult = 1;
-    let consumableDefMult = 1;
+      const allOpponentsDead = oppTeam.every((o) => o.currentHp <= 0);
+      const allPlayersDead = pTeam.every((p) => p.currentHp <= 0);
+      if (allOpponentsDead || allPlayersDead) break;
 
-    activeConsumableEffects.forEach((eff) => {
-      if (eff.item.teamBattleStatBoost) {
-        if (eff.item.teamBattleStatBoost.attackMultiplier) {
-          consumableAtkMult *= eff.item.teamBattleStatBoost.attackMultiplier;
-        }
-        if (eff.item.teamBattleStatBoost.defenseMultiplier) {
-          consumableDefMult *= eff.item.teamBattleStatBoost.defenseMultiplier;
-        }
-      }
-    });
+      const fighterName = translateNinjaName(fighter.ref.id, fighter.ref.name, lang);
 
-    const getFighterSpeed = (n: RunNinja) => {
-      let spd = n.baseStats.speed;
-      if (n.equippedItem?.equipStats?.speed) {
-        spd += n.equippedItem.equipStats.speed;
-      }
-      return spd;
-    };
+      if (fighter.isPlayer) {
+        const target = oppTeam.find((o) => o.currentHp > 0);
+        if (!target) break;
 
-    let round = 1;
-    // Auto-battle loop
-    while (pTeam.some((p) => p.currentHp > 0) && oppTeam.some((o) => o.currentHp > 0) && round <= 50) {
-      logs.push(t.battleLogRound.replace("{round}", round.toString()));
+        const targetName = translateNinjaName(target.id, target.name, lang);
+        const jutsu = JUTSU_MAP.get(fighter.ref.activeJutsuId);
 
-      const { atkMult: synAtkMult, defMult: synDefMult, critAdd, healMult } = getSynergyStatMultipliers(pTeam);
-      const atkMult = synAtkMult * consumableAtkMult;
-      const defMult = synDefMult * consumableDefMult;
+        if (jutsu && fighter.ref.currentChakra >= jutsu.chakraCost) {
+          fighter.ref.currentChakra -= jutsu.chakraCost;
+          const jutsuName = JUTSU_TRANSLATIONS[jutsu.id]?.name[lang] || jutsu.name;
 
-      // Combine and sort alive fighters by speed (considering equipped item speed bonuses)
-      const fighters = [
-        ...pTeam.map((p) => ({ ref: p, isPlayer: true })),
-        ...oppTeam.map((o) => ({ ref: o, isPlayer: false })),
-      ]
-        .filter((f) => f.ref.currentHp > 0)
-        .sort((a, b) => getFighterSpeed(b.ref) - getFighterSpeed(a.ref));
-
-      for (const fighter of fighters) {
-        if (fighter.ref.currentHp <= 0) continue;
-
-        // Check if battle already finished
-        const allOpponentsDead = oppTeam.every((o) => o.currentHp <= 0);
-        const allPlayersDead = pTeam.every((p) => p.currentHp <= 0);
-        if (allOpponentsDead || allPlayersDead) break;
-
-        const fighterName = translateNinjaName(fighter.ref.id, fighter.ref.name, lang);
-
-        if (fighter.isPlayer) {
-          // Player attack choice
-          const target = oppTeam.find((o) => o.currentHp > 0);
-          if (!target) break;
-
-          const targetName = translateNinjaName(target.id, target.name, lang);
-          const jutsu = JUTSU_MAP.get(fighter.ref.activeJutsuId);
-
-          if (jutsu && fighter.ref.currentChakra >= jutsu.chakraCost) {
-            // Execute Jutsu
-            fighter.ref.currentChakra -= jutsu.chakraCost;
-            const jutsuName = JUTSU_TRANSLATIONS[jutsu.id]?.name[lang] || jutsu.name;
-
-            if (jutsu.power < 0) {
-              // Healing with synergy multiplier
-              const healVal = Math.floor(Math.abs(jutsu.power) * healMult);
-              const lowestHpTeammate = pTeam
-                .filter((p) => p.currentHp > 0)
-                .sort((a, b) => a.currentHp - b.currentHp)[0];
-              if (lowestHpTeammate) {
-                const teammateName = translateNinjaName(lowestHpTeammate.id, lowestHpTeammate.name, lang);
-                lowestHpTeammate.currentHp = Math.min(lowestHpTeammate.baseStats.hp, lowestHpTeammate.currentHp + healVal);
-                
-                const actionMsg = t.battleLogAttacks
-                  .replace("{attacker}", fighterName)
-                  .replace("{target}", teammateName)
-                  .replace("{jutsu}", jutsuName) + " " +
-                  t.battleLogHeal.replace("{target}", teammateName).replace("{heal}", healVal.toString());
-
-                const stepLog = `🟢 ${actionMsg}`;
-                logs.push(stepLog);
-                steps.push({
-                  playerTeam: pTeam.map((p) => ({ ...p })),
-                  opponentTeam: oppTeam.map((o) => ({ ...o })),
-                  log: stepLog,
-                  attackerId: fighter.ref.id,
-                  targetId: lowestHpTeammate.id,
-                  attackerName: fighterName,
-                  targetName: teammateName,
-                  actionText: jutsuName,
-                  damage: healVal,
-                  isHealing: true,
-                  elementSymbol: "🟢",
-                  isPlayerAttacking: true,
-                });
-              }
-            } else {
-              // Damage with player attack & crit synergy
-              const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power, atkMult, 1, critAdd);
-              target.currentHp = Math.max(0, target.currentHp - damage);
+          if (jutsu.power < 0) {
+            const healVal = Math.floor(Math.abs(jutsu.power) * healMult);
+            const lowestHpTeammate = pTeam
+              .filter((p) => p.currentHp > 0)
+              .sort((a, b) => a.currentHp - b.currentHp)[0];
+            if (lowestHpTeammate) {
+              const teammateName = translateNinjaName(lowestHpTeammate.id, lowestHpTeammate.name, lang);
+              const teammateEffMaxHp = getNinjaEffectiveStats(lowestHpTeammate, activeConsumableEffects, pTeam, lang).hpMax.total;
+              lowestHpTeammate.currentHp = Math.min(teammateEffMaxHp, lowestHpTeammate.currentHp + healVal);
 
               const actionMsg = t.battleLogAttacks
                 .replace("{attacker}", fighterName)
-                .replace("{target}", targetName)
+                .replace("{target}", teammateName)
                 .replace("{jutsu}", jutsuName) + " " +
-                t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
-                statusMsg;
+                t.battleLogHeal.replace("{target}", teammateName).replace("{heal}", healVal.toString());
 
-              const stepLog = `🔥 ${actionMsg}`;
+              const stepLog = `🟢 ${actionMsg}`;
               logs.push(stepLog);
               steps.push({
                 playerTeam: pTeam.map((p) => ({ ...p })),
                 opponentTeam: oppTeam.map((o) => ({ ...o })),
                 log: stepLog,
                 attackerId: fighter.ref.id,
-                targetId: target.id,
+                targetId: lowestHpTeammate.id,
                 attackerName: fighterName,
-                targetName: targetName,
+                targetName: teammateName,
                 actionText: jutsuName,
-                damage: damage,
-                isHealing: false,
-                elementSymbol: getNinjaElementSymbol(fighter.ref.chakraNature),
+                damage: healVal,
+                isHealing: true,
+                elementSymbol: "🟢",
                 isPlayerAttacking: true,
               });
-
-              if (target.currentHp <= 0) {
-                const deathLog = `💀 ${t.battleLogDefeated.replace("{target}", targetName)}`;
-                logs.push(deathLog);
-                steps.push({
-                  playerTeam: pTeam.map((p) => ({ ...p })),
-                  opponentTeam: oppTeam.map((o) => ({ ...o })),
-                  log: deathLog,
-                  attackerId: "",
-                  targetId: target.id,
-                  attackerName: "",
-                  targetName: targetName,
-                  actionText: "",
-                  damage: 0,
-                  isHealing: false,
-                  elementSymbol: "",
-                  isPlayerAttacking: true,
-                });
-              }
             }
           } else {
-            // Basic Physical Attack
-            const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, 15, atkMult, 1, critAdd);
+            const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power, atkMult, 1, critAdd);
             target.currentHp = Math.max(0, target.currentHp - damage);
-            const jutsuName = lang === "it" ? "Attacco Fisico" : "Physical Attack";
 
             const actionMsg = t.battleLogAttacks
               .replace("{attacker}", fighterName)
@@ -360,7 +255,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
               statusMsg;
 
-            const stepLog = `⚔️ ${actionMsg}`;
+            const stepLog = `🔥 ${actionMsg}`;
             logs.push(stepLog);
             steps.push({
               playerTeam: pTeam.map((p) => ({ ...p })),
@@ -397,98 +292,94 @@ export const useBattleStore = create<BattleState>((set, get) => ({
             }
           }
         } else {
-          // Opponent Attack Choice
-          const target = pTeam.find((p) => p.currentHp > 0);
-          if (!target) break;
+          const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, 15, atkMult, 1, critAdd);
+          target.currentHp = Math.max(0, target.currentHp - damage);
+          const jutsuName = lang === "it" ? "Attacco Fisico" : "Physical Attack";
 
-          const targetName = translateNinjaName(target.id, target.name, lang);
-          const jutsu = JUTSU_MAP.get(fighter.ref.activeJutsuId);
+          const actionMsg = t.battleLogAttacks
+            .replace("{attacker}", fighterName)
+            .replace("{target}", targetName)
+            .replace("{jutsu}", jutsuName) + " " +
+            t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
+            statusMsg;
 
-          if (jutsu && fighter.ref.currentChakra >= jutsu.chakraCost) {
-            // Execute Jutsu
-            fighter.ref.currentChakra -= jutsu.chakraCost;
-            const jutsuName = JUTSU_TRANSLATIONS[jutsu.id]?.name[lang] || jutsu.name;
+          const stepLog = `⚔️ ${actionMsg}`;
+          logs.push(stepLog);
+          steps.push({
+            playerTeam: pTeam.map((p) => ({ ...p })),
+            opponentTeam: oppTeam.map((o) => ({ ...o })),
+            log: stepLog,
+            attackerId: fighter.ref.id,
+            targetId: target.id,
+            attackerName: fighterName,
+            targetName: targetName,
+            actionText: jutsuName,
+            damage: damage,
+            isHealing: false,
+            elementSymbol: getNinjaElementSymbol(fighter.ref.chakraNature),
+            isPlayerAttacking: true,
+          });
 
-            if (jutsu.power < 0) {
-              // Healing
-              const healVal = Math.abs(jutsu.power);
-              fighter.ref.currentHp = Math.min(fighter.ref.baseStats.hp, fighter.ref.currentHp + healVal);
+          if (target.currentHp <= 0) {
+            const deathLog = `💀 ${t.battleLogDefeated.replace("{target}", targetName)}`;
+            logs.push(deathLog);
+            steps.push({
+              playerTeam: pTeam.map((p) => ({ ...p })),
+              opponentTeam: oppTeam.map((o) => ({ ...o })),
+              log: deathLog,
+              attackerId: "",
+              targetId: target.id,
+              attackerName: "",
+              targetName: targetName,
+              actionText: "",
+              damage: 0,
+              isHealing: false,
+              elementSymbol: "",
+              isPlayerAttacking: true,
+            });
+          }
+        }
+      } else {
+        const target = pTeam.find((p) => p.currentHp > 0);
+        if (!target) break;
 
-              const actionMsg = t.battleLogAttacks
-                .replace("{attacker}", fighterName)
-                .replace("{target}", fighterName)
-                .replace("{jutsu}", jutsuName) + " " +
-                t.battleLogHeal.replace("{target}", fighterName).replace("{heal}", healVal.toString());
+        const targetName = translateNinjaName(target.id, target.name, lang);
+        const jutsu = JUTSU_MAP.get(fighter.ref.activeJutsuId);
 
-              const stepLog = `🟢 ${actionMsg}`;
-              logs.push(stepLog);
-              steps.push({
-                playerTeam: pTeam.map((p) => ({ ...p })),
-                opponentTeam: oppTeam.map((o) => ({ ...o })),
-                log: stepLog,
-                attackerId: fighter.ref.id,
-                targetId: fighter.ref.id,
-                attackerName: fighterName,
-                targetName: fighterName,
-                actionText: jutsuName,
-                damage: healVal,
-                isHealing: true,
-                elementSymbol: "🟢",
-                isPlayerAttacking: false,
-              });
-            } else {
-              // Damage
-              const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power, 1, defMult, 0);
-              target.currentHp = Math.max(0, target.currentHp - damage);
+        if (jutsu && fighter.ref.currentChakra >= jutsu.chakraCost) {
+          fighter.ref.currentChakra -= jutsu.chakraCost;
+          const jutsuName = JUTSU_TRANSLATIONS[jutsu.id]?.name[lang] || jutsu.name;
 
-              const actionMsg = t.battleLogAttacks
-                .replace("{attacker}", fighterName)
-                .replace("{target}", targetName)
-                .replace("{jutsu}", jutsuName) + " " +
-                t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
-                statusMsg;
+          if (jutsu.power < 0) {
+            const healVal = Math.abs(jutsu.power);
+            const fighterEffMaxHp = getNinjaEffectiveStats(fighter.ref, activeConsumableEffects, fighter.isPlayer ? pTeam : oppTeam, lang).hpMax.total;
+            fighter.ref.currentHp = Math.min(fighterEffMaxHp, fighter.ref.currentHp + healVal);
 
-              const stepLog = `🔴 ${actionMsg}`;
-              logs.push(stepLog);
-              steps.push({
-                playerTeam: pTeam.map((p) => ({ ...p })),
-                opponentTeam: oppTeam.map((o) => ({ ...o })),
-                log: stepLog,
-                attackerId: fighter.ref.id,
-                targetId: target.id,
-                attackerName: fighterName,
-                targetName: targetName,
-                actionText: jutsuName,
-                damage: damage,
-                isHealing: false,
-                elementSymbol: getNinjaElementSymbol(fighter.ref.chakraNature),
-                isPlayerAttacking: false,
-              });
+            const actionMsg = t.battleLogAttacks
+              .replace("{attacker}", fighterName)
+              .replace("{target}", fighterName)
+              .replace("{jutsu}", jutsuName) + " " +
+              t.battleLogHeal.replace("{target}", fighterName).replace("{heal}", healVal.toString());
 
-              if (target.currentHp <= 0) {
-                const deathLog = `💀 ${t.battleLogDefeated.replace("{target}", targetName)}`;
-                logs.push(deathLog);
-                steps.push({
-                  playerTeam: pTeam.map((p) => ({ ...p })),
-                  opponentTeam: oppTeam.map((o) => ({ ...o })),
-                  log: deathLog,
-                  attackerId: "",
-                  targetId: target.id,
-                  attackerName: "",
-                  targetName: targetName,
-                  actionText: "",
-                  damage: 0,
-                  isHealing: false,
-                  elementSymbol: "",
-                  isPlayerAttacking: false,
-                });
-              }
-            }
+            const stepLog = `🟢 ${actionMsg}`;
+            logs.push(stepLog);
+            steps.push({
+              playerTeam: pTeam.map((p) => ({ ...p })),
+              opponentTeam: oppTeam.map((o) => ({ ...o })),
+              log: stepLog,
+              attackerId: fighter.ref.id,
+              targetId: fighter.ref.id,
+              attackerName: fighterName,
+              targetName: fighterName,
+              actionText: jutsuName,
+              damage: healVal,
+              isHealing: true,
+              elementSymbol: "🟢",
+              isPlayerAttacking: false,
+            });
           } else {
-            // Basic Physical Attack
-            const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, 15);
+            const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, jutsu.power, 1, defMult, 0);
             target.currentHp = Math.max(0, target.currentHp - damage);
-            const jutsuName = lang === "it" ? "Attacco Fisico" : "Physical Attack";
 
             const actionMsg = t.battleLogAttacks
               .replace("{attacker}", fighterName)
@@ -497,7 +388,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
               statusMsg;
 
-            const stepLog = `⚔️ ${actionMsg}`;
+            const stepLog = `🔥 ${actionMsg}`;
             logs.push(stepLog);
             steps.push({
               playerTeam: pTeam.map((p) => ({ ...p })),
@@ -510,7 +401,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               actionText: jutsuName,
               damage: damage,
               isHealing: false,
-              elementSymbol: "👊",
+              elementSymbol: getNinjaElementSymbol(fighter.ref.chakraNature),
               isPlayerAttacking: false,
             });
 
@@ -533,78 +424,195 @@ export const useBattleStore = create<BattleState>((set, get) => ({
               });
             }
           }
+        } else {
+          const { damage, statusMsg } = executeElementalAttack(fighter.ref, target, 15, 1, defMult, 0);
+          target.currentHp = Math.max(0, target.currentHp - damage);
+          const jutsuName = lang === "it" ? "Attacco Fisico" : "Physical Attack";
+
+          const actionMsg = t.battleLogAttacks
+            .replace("{attacker}", fighterName)
+            .replace("{target}", targetName)
+            .replace("{jutsu}", jutsuName) + " " +
+            t.battleLogDamage.replace("{target}", targetName).replace("{damage}", damage.toString()) +
+            statusMsg;
+
+          const stepLog = `⚔️ ${actionMsg}`;
+          logs.push(stepLog);
+          steps.push({
+            playerTeam: pTeam.map((p) => ({ ...p })),
+            opponentTeam: oppTeam.map((o) => ({ ...o })),
+            log: stepLog,
+            attackerId: fighter.ref.id,
+            targetId: target.id,
+            attackerName: fighterName,
+            targetName: targetName,
+            actionText: jutsuName,
+            damage: damage,
+            isHealing: false,
+            elementSymbol: "👊",
+            isPlayerAttacking: false,
+          });
+
+          if (target.currentHp <= 0) {
+            const deathLog = `💀 ${t.battleLogDefeated.replace("{target}", targetName)}`;
+            logs.push(deathLog);
+            steps.push({
+              playerTeam: pTeam.map((p) => ({ ...p })),
+              opponentTeam: oppTeam.map((o) => ({ ...o })),
+              log: deathLog,
+              attackerId: "",
+              targetId: target.id,
+              attackerName: "",
+              targetName: targetName,
+              actionText: "",
+              damage: 0,
+              isHealing: false,
+              elementSymbol: "",
+              isPlayerAttacking: false,
+            });
+          }
         }
       }
-      round++;
+    }
+    round++;
+  }
+
+  const allOpponentsDefeated = oppTeam.every((o) => o.currentHp <= 0);
+  const allPlayersDefeated = pTeam.every((p) => p.currentHp <= 0);
+
+  let finalStatus: "victory" | "defeat" = "defeat";
+  if (allOpponentsDefeated) {
+    finalStatus = "victory";
+    const victoryLog = t.battleLogVictory;
+    logs.push(victoryLog);
+    steps.push({
+      playerTeam: pTeam.map((p) => ({ ...p })),
+      opponentTeam: oppTeam.map((o) => ({ ...o })),
+      log: victoryLog,
+      attackerId: "", targetId: "", attackerName: "", targetName: "", actionText: "", damage: 0, isHealing: false, elementSymbol: "", isPlayerAttacking: false,
+    });
+  } else if (allPlayersDefeated) {
+    finalStatus = "defeat";
+    const defeatLog = t.battleLogDefeat;
+    logs.push(defeatLog);
+    steps.push({
+      playerTeam: pTeam.map((p) => ({ ...p })),
+      opponentTeam: oppTeam.map((o) => ({ ...o })),
+      log: defeatLog,
+      attackerId: "", targetId: "", attackerName: "", targetName: "", actionText: "", damage: 0, isHealing: false, elementSymbol: "", isPlayerAttacking: false,
+    });
+  } else {
+    finalStatus = "defeat";
+    const drawLog = lang === "it" ? "⏳ Scontro in stallo oltre i limiti consentiti." : "⏳ Battle stalled beyond allowed limit.";
+    logs.push(drawLog);
+    steps.push({
+      playerTeam: pTeam.map((p) => ({ ...p })),
+      opponentTeam: oppTeam.map((o) => ({ ...o })),
+      log: drawLog,
+      attackerId: "", targetId: "", attackerName: "", targetName: "", actionText: "", damage: 0, isHealing: false, elementSymbol: "", isPlayerAttacking: false,
+    });
+  }
+
+  return { pTeam, oppTeam, logs, steps, finalStatus };
+}
+
+export const useBattleStore = create<BattleState>((set, get) => ({
+  isBattleActive: false,
+  playerTeam: [],
+  opponentTeam: [],
+  battleLogs: [],
+  battleStatus: null,
+  battleSteps: [],
+
+  startBattle: (players, opponents) => {
+    const lang = useLanguageStore.getState().language;
+    const activeConsumableEffects = useGameStore.getState().activeConsumableEffects;
+
+    const pTeam: RunNinja[] = players.map((p) => {
+      const effStats = getNinjaEffectiveStats(p, activeConsumableEffects, players, lang);
+      const isFallen = p.currentHp <= 0;
+      return {
+        ...p,
+        currentHp: isFallen ? effStats.hpMax.total : Math.min(effStats.hpMax.total, p.currentHp),
+        currentChakra: isFallen ? effStats.chakraMax.total : Math.min(effStats.chakraMax.total, p.currentChakra),
+      };
+    });
+    const activeNodeId = useGameStore.getState().currentNodeId;
+    const activeMap = useGameStore.getState().activeMap;
+    const currentNode = activeMap.find((n) => n.id === activeNodeId);
+    const stage = currentNode?.stage || 1;
+    const isBoss = currentNode?.type === "boss";
+
+    const avgPlayerLevel = players.reduce((sum, n) => sum + n.level, 0) / players.length;
+    const gameLevel = useGameStore.getState().currentLevel;
+    
+    let oppLevel = Math.max(5, Math.floor(avgPlayerLevel * (0.70 + (gameLevel * 0.08) + (stage * 0.05))));
+    if (isBoss) {
+      oppLevel = Math.max(8, Math.floor(avgPlayerLevel * (1.15 + (gameLevel * 0.08))));
     }
 
-    const allOpponentsDefeated = oppTeam.every((o) => o.currentHp <= 0);
-    const allPlayersDefeated = pTeam.every((p) => p.currentHp <= 0);
+    const oppTeam: RunNinja[] = opponents.map((opp) => {
+      const diff = oppLevel - 5;
+      const stats = { ...opp.baseStats };
+      stats.hp += diff * 10;
+      stats.chakra += diff * 5;
+      stats.attack += diff * 2;
+      stats.defense += diff * 1;
+      stats.speed += diff * 1;
 
-    let finalStatus: "victory" | "defeat" = "defeat";
-    if (allOpponentsDefeated) {
-      finalStatus = "victory";
-      const victoryLog = t.battleLogVictory;
-      logs.push(victoryLog);
-      steps.push({
-        playerTeam: pTeam.map((p) => ({ ...p })),
-        opponentTeam: oppTeam.map((o) => ({ ...o })),
-        log: victoryLog,
-        attackerId: "",
-        targetId: "",
-        attackerName: "",
-        targetName: "",
-        actionText: "",
-        damage: 0,
-        isHealing: false,
-        elementSymbol: "",
-        isPlayerAttacking: false,
-      });
-    } else if (allPlayersDefeated) {
-      finalStatus = "defeat";
-      const defeatLog = t.battleLogDefeat;
-      logs.push(defeatLog);
-      steps.push({
-        playerTeam: pTeam.map((p) => ({ ...p })),
-        opponentTeam: oppTeam.map((o) => ({ ...o })),
-        log: defeatLog,
-        attackerId: "",
-        targetId: "",
-        attackerName: "",
-        targetName: "",
-        actionText: "",
-        damage: 0,
-        isHealing: false,
-        elementSymbol: "",
-        isPlayerAttacking: false,
-      });
-    } else {
-      finalStatus = "defeat";
-      const drawLog = lang === "it" ? "⏳ Scontro in stallo oltre i limiti consentiti." : "⏳ Battle stalled beyond allowed limit.";
-      logs.push(drawLog);
-      steps.push({
-        playerTeam: pTeam.map((p) => ({ ...p })),
-        opponentTeam: oppTeam.map((o) => ({ ...o })),
-        log: drawLog,
-        attackerId: "",
-        targetId: "",
-        attackerName: "",
-        targetName: "",
-        actionText: "",
-        damage: 0,
-        isHealing: false,
-        elementSymbol: "",
-        isPlayerAttacking: false,
-      });
-    }
+      if (isBoss) {
+        stats.hp = Math.floor(stats.hp * 1.20);
+        stats.attack = Math.floor(stats.attack * 1.12);
+        stats.defense = Math.floor(stats.defense * 1.10);
+        stats.speed = Math.floor(stats.speed * 1.05);
+      }
+
+      return {
+        ...opp,
+        level: oppLevel,
+        baseStats: stats,
+        currentHp: stats.hp,
+        currentChakra: stats.chakra,
+      };
+    });
+
+    const res = executeBattleSimulation(pTeam, oppTeam);
 
     set({
       isBattleActive: true,
-      playerTeam: pTeam,
-      opponentTeam: oppTeam,
-      battleLogs: logs,
-      battleStatus: finalStatus,
-      battleSteps: steps,
+      playerTeam: res.pTeam,
+      opponentTeam: res.oppTeam,
+      battleLogs: res.logs,
+      battleStatus: res.finalStatus,
+      battleSteps: res.steps,
+    });
+  },
+
+  restartBattleKeepOpponents: (players) => {
+    const lang = useLanguageStore.getState().language;
+    const activeConsumableEffects = useGameStore.getState().activeConsumableEffects;
+    const existingOpponents = get().opponentTeam;
+
+    const pTeam: RunNinja[] = players.map((p) => {
+      const effStats = getNinjaEffectiveStats(p, activeConsumableEffects, players, lang);
+      return {
+        ...p,
+        currentHp: effStats.hpMax.total,
+        currentChakra: effStats.chakraMax.total,
+      };
+    });
+
+    const oppTeam: RunNinja[] = existingOpponents.map((o) => ({ ...o }));
+
+    const res = executeBattleSimulation(pTeam, oppTeam);
+
+    set({
+      isBattleActive: true,
+      playerTeam: res.pTeam,
+      opponentTeam: res.oppTeam,
+      battleLogs: res.logs,
+      battleStatus: res.finalStatus,
+      battleSteps: res.steps,
     });
   },
 
@@ -624,13 +632,18 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       useGameStore.getState().gainTeamLevels(5);
       // Award 300 points for defeating a boss
       useGameStore.setState((state) => ({ currentRunScore: state.currentRunScore + 300 }));
-      // Fully heal team after boss defeat
+      // Fully heal team to 100% effective HP & Chakra (base + items + synergies) after boss defeat
       const currentTeam = useGameStore.getState().runTeam;
-      const fullyHealedTeam = currentTeam.map((ninja) => ({
-        ...ninja,
-        currentHp: ninja.baseStats.hp,
-        currentChakra: ninja.baseStats.chakra,
-      }));
+      const activeConsumables = useGameStore.getState().activeConsumableEffects;
+      const lang = useLanguageStore.getState().language;
+      const fullyHealedTeam = currentTeam.map((ninja) => {
+        const effStats = getNinjaEffectiveStats(ninja, activeConsumables, currentTeam, lang);
+        return {
+          ...ninja,
+          currentHp: effStats.hpMax.total,
+          currentChakra: effStats.chakraMax.total,
+        };
+      });
       useGameStore.setState({ runTeam: fullyHealedTeam });
 
       if (currentNode.opponents && currentNode.opponents[0]) {

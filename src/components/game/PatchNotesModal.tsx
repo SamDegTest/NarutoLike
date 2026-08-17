@@ -13,6 +13,27 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ onClose }) => 
 
   const patchLogs = [
     {
+      version: "v1.4.0",
+      date: "17-08-2026",
+      notes: lang === "it" ? [
+        "Sistema Sinergie Shinobi Multi-Livello: Introdotte 15 sinergie storiche con livelli di potenziamento a scaglioni (Bronzo, Argento, ORO MAX) basati sui membri della squadra.",
+        "Adattamento alla Saga (Kid & Shippuden): I membri e gli sprite delle sinergie si adattano automaticamente alla saga della run attuale (Kid o Shippuden).",
+        "Highlight Sinergie nel Negozio Ryo: Badge dorati animati e aura luminosa nello shop quando un ninja attiva o potenzia una sinergia di squadra.",
+        "Scheda Wiki Sinergie Dedicata: Aggiunto il 3° tab nelle note della Wiki per esplorare la guida completa a tutte le sinergie e i relativi livelli sbloccabili.",
+        "Ripristino Battaglia in Corso: Il riscatto con monete dopo una sconfitta riprende la battaglia dal Round 1 curando al 100% il team alleato e conservando i danni nemici.",
+        "Fix Gestione HP & Chakra Effettivi: Gli strumenti e il Ramen applicano ora il 100% del valore massimo effettivo considerando base stats, oggetti e sinergie.",
+        "Detrazione Istantanea Ryo: Le monete spese nello shop o per il continue vengono sottratte immediatamente dal profilo utente."
+      ] : [
+        "Multi-Tier Shinobi Synergy Engine: Introduced 15 lore synergies with scaled progression tiers (Bronze, Silver, GOLD MAX) based on active squad members.",
+        "Saga Consistency Adaptation (Kid & Shippuden): Synergy members and sprites automatically adapt to match the active run's saga era (Kid or Shippuden).",
+        "Ryo Shop Synergy Highlighting: Animated gold badges and glowing aura rings on shop cards when a candidate ninja activates or upgrades a team synergy.",
+        "Dedicated Synergy Wiki Tab: Added 3rd tab to the Shinobi Wiki to explore full synergy guides, scaling tiers, and active run status.",
+        "Ongoing Battle Continue Fix: Reviving after defeat restarts the current battle node from Round 1 with 100% allied effective HP & Chakra while preserving enemy damage.",
+        "Effective HP & Chakra Scaling Fix: Gear assignment, Ichiraku Ramen, campfire rests, and boss defeat victories now properly calculate 100% total effective HP & Chakra stats.",
+        "Instant Ryo Coin Deduction: Coins spent on recruitment, shop rerolls, or revives are immediately deducted from the user profile."
+      ]
+    },
+    {
       version: "v1.3.0",
       date: "17-08-2026",
       notes: lang === "it" ? [

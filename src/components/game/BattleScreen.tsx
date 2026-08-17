@@ -6,6 +6,9 @@ import { NinjaAvatar } from "@/components/game/NinjaAvatar";
 import { ChakraNatureBadge } from "@/components/game/ChakraNatureBadge";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { TRANSLATIONS, translateNinjaName } from "@/data/translations";
+import { getNinjaEffectiveStats } from "@/utils/statUtils";
+import { NINJA_MAP } from "@/data/ninjas";
+import { Ninja } from "@/types/index";
 
 function getElementImage(symbol: string): string {
   switch (symbol) {
@@ -38,6 +41,16 @@ export function BattleScreen() {
     setImageError(false);
     if (!animatingSymbol) setCoords(null);
   }, [animatingSymbol]);
+
+  // Reset step index and animation state whenever a new battle simulation starts or restarts (e.g. on revive)
+  useEffect(() => {
+    setCurrentStepIndex(0);
+    setActiveFighterId(null);
+    setActiveFighterSide(null);
+    setActiveTargetId(null);
+    setActiveTargetSide(null);
+    setAnimatingSymbol(null);
+  }, [battleSteps]);
 
   const stepsCount = battleSteps.length;
   const isFinished = currentStepIndex >= stepsCount - 1;
@@ -302,8 +315,12 @@ export function BattleScreen() {
               </div>
               <div className="space-y-1.5 sm:space-y-2 max-h-[60vh] overflow-y-auto pr-0.5">
                 {currentStep.playerTeam.map((ninja) => {
-                  const hpPercent = Math.max(0, (ninja.currentHp / ninja.baseStats.hp) * 100);
-                  const chakraPercent = Math.max(0, (ninja.currentChakra / ninja.baseStats.chakra) * 100);
+                  const activeConsumables = useGameStore.getState().activeConsumableEffects;
+                  const effStats = getNinjaEffectiveStats(ninja, activeConsumables, currentStep.playerTeam, lang);
+                  const maxHp = effStats.hpMax.total;
+                  const maxChakra = effStats.chakraMax.total;
+                  const hpPercent = Math.max(0, Math.min(100, (ninja.currentHp / maxHp) * 100));
+                  const chakraPercent = Math.max(0, Math.min(100, (ninja.currentChakra / maxChakra) * 100));
                   const isDefeated = ninja.currentHp <= 0;
 
                   const isAttacking = activeFighterSide === "player" && activeFighterId === ninja.id;
@@ -344,7 +361,7 @@ export function BattleScreen() {
                             </div>
                           </div>
                           <div className="text-[8px] sm:text-[10px] text-gray-400 font-mono font-bold leading-tight flex items-center justify-between">
-                            <span>{ninja.currentHp}/{ninja.baseStats.hp}</span>
+                            <span>{ninja.currentHp}/{maxHp}</span>
                             {ninja.equippedItem && (
                               <span
                                 className="text-[8px] text-purple-300 bg-purple-950/80 px-1 py-0.2 rounded border border-purple-500/40 flex items-center gap-0.5"
@@ -388,7 +405,9 @@ export function BattleScreen() {
               </div>
               <div className="space-y-1.5 sm:space-y-2 max-h-[60vh] overflow-y-auto pr-0.5">
                 {currentStep.opponentTeam.map((ninja) => {
-                  const hpPercent = Math.max(0, (ninja.currentHp / ninja.baseStats.hp) * 100);
+                  const oppEffStats = getNinjaEffectiveStats(ninja, [], currentStep.opponentTeam, lang);
+                  const maxHp = oppEffStats.hpMax.total;
+                  const hpPercent = Math.max(0, Math.min(100, (ninja.currentHp / maxHp) * 100));
                   const isDefeated = ninja.currentHp <= 0;
 
                   const isAttacking = activeFighterSide === "opp" && activeFighterId === ninja.id;
@@ -429,7 +448,7 @@ export function BattleScreen() {
                             </div>
                           </div>
                           <div className="text-[8px] sm:text-[10px] text-gray-400 font-mono font-bold leading-tight">
-                            {ninja.currentHp}/{ninja.baseStats.hp}
+                            {ninja.currentHp}/{maxHp}
                           </div>
                         </div>
                       </div>
@@ -559,7 +578,8 @@ export function BattleScreen() {
                           if (!canAffordRevive) return;
                           const success = useGameStore.getState().reviveAndContinueRun(reviveCost);
                           if (success) {
-                            resetBattle();
+                            const state = useGameStore.getState();
+                            useBattleStore.getState().restartBattleKeepOpponents(state.runTeam);
                           }
                         }}
                         disabled={!canAffordRevive}
