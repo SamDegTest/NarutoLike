@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 import { useBattleStore } from "@/store/useBattleStore";
 import { NINJA_MAP } from "@/data/ninjas";
 import { JUTSU_MAP } from "@/data/jutsus";
-import { Ninja, MapNode } from "@/types/index";
+import { Ninja, RunNinja, MapNode, GameItem } from "@/types/index";
 import { BattleScreen } from "@/components/game/BattleScreen";
 import { NinjaAvatar } from "@/components/game/NinjaAvatar";
 import { ChakraNatureBadge } from "@/components/game/ChakraNatureBadge";
@@ -28,10 +28,13 @@ import { AchievementsModal } from "@/components/game/AchievementsModal";
 import { TrophyUnlockNotification } from "@/components/game/TrophyUnlockNotification";
 import { SealedSagaOverlay } from "@/components/game/SealedSagaOverlay";
 import { TutorialOverlay } from "@/components/game/TutorialOverlay";
+import { NinjaDetailModal } from "@/components/game/NinjaDetailModal";
+import { KeyboardShortcutsModal } from "@/components/game/KeyboardShortcutsModal";
 import { getActiveSynergies } from "@/lib/synergies";
 import { getUnlockedAchievements, Achievement } from "@/data/achievements";
 import { preloadImagesBatch } from "@/lib/imagePreloader";
 import { GAME_ITEMS_CATALOG } from "@/data/items";
+import { getNinjaEffectiveStats } from "@/utils/statUtils";
 
 export default function Home() {
   const {
@@ -39,6 +42,7 @@ export default function Home() {
     playerTeam,
     runTeam,
     currentLevel,
+    currentRunScore,
     activeMap,
     currentNodeId,
     isRunActive,
@@ -65,6 +69,8 @@ export default function Home() {
     moveNinjaUp,
     moveNinjaDown,
     setLeaderNinja,
+    reorderTeam,
+    autoSortTeam,
     totalRunsCount,
     classicRunsCount,
     shippudenRunsCount,
@@ -91,6 +97,10 @@ export default function Home() {
 
   const [showBackpackModal, setShowBackpackModal] = useState(false);
   const [equipTargetItemId, setEquipTargetItemId] = useState<string | null>(null);
+  const [selectedNinjaDetail, setSelectedNinjaDetail] = useState<RunNinja | Ninja | null>(null);
+  const [draggedNinjaIndex, setDraggedNinjaIndex] = useState<number | null>(null);
+  const [dragOverNinjaIndex, setDragOverNinjaIndex] = useState<number | null>(null);
+  const [useTargetNinjaConsumableItem, setUseTargetNinjaConsumableItem] = useState<GameItem | null>(null);
 
   const selectSaga = (sagaId: string | null) => {
     rawSelectSaga(sagaId);
@@ -127,6 +137,7 @@ export default function Home() {
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [showAchievementsModal, setShowAchievementsModal] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] = useState<"map" | "team" | "items">("map");
   const [recruitTab, setRecruitTab] = useState<"random" | "shop">("random");
@@ -518,6 +529,15 @@ export default function Home() {
                     className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                   />
                   <span className="hidden sm:inline">{lang === "it" ? "Classifica" : "Leaderboard"}</span>
+                </button>
+
+                <button
+                  onClick={() => setShowShortcutsModal(true)}
+                  className="h-9 sm:h-11 lg:h-14 px-2 sm:px-3 lg:px-4 flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs lg:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border border-amber-500/50 hover:border-amber-400 rounded-xl lg:rounded-2xl shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                  title={lang === "it" ? "Scorciatoie da Tastiera" : "Keyboard Shortcuts"}
+                >
+                  <span className="font-extrabold font-mono text-xs sm:text-sm text-amber-400 border border-amber-500/40 px-1.5 py-0.2 rounded bg-black/40">⌨</span>
+                  <span className="hidden md:inline">{lang === "it" ? "Scorciatoie" : "Shortcuts"}</span>
                 </button>
               </>
             )}
@@ -925,7 +945,6 @@ export default function Home() {
                 : "text-gray-300 hover:text-amber-300"
                 }`}
             >
-              <span>🗺️</span>
               <span>{lang === "it" ? "Mappa" : "Map"}</span>
             </button>
             <button
@@ -936,7 +955,6 @@ export default function Home() {
                 : "text-gray-300 hover:text-amber-300"
                 }`}
             >
-              <span>🛡️</span>
               <span>{lang === "it" ? "Squadra" : "Team"} ({runTeam.length})</span>
             </button>
             <button
@@ -947,7 +965,6 @@ export default function Home() {
                 : "text-gray-300 hover:text-amber-300"
                 }`}
             >
-              <span>📜</span>
               <span>{lang === "it" ? "Info & Boss" : "Items & Bosses"}</span>
             </button>
           </div>
@@ -956,13 +973,43 @@ export default function Home() {
 
             {/* LEFT SIDEBAR: TEAM */}
             <aside data-tutorial="team-panel" className={`bg-[#0f152d] border-4 border-[#ff9f1c] rounded-2xl p-3 shadow-xl flex-col gap-2 h-full min-h-0 ${mobileActiveTab === "team" ? "flex" : "hidden lg:flex"}`}>
-              <div className="flex items-center justify-between border-b-2 border-gray-800 pb-1 shrink-0">
-                <h2 className="text-lg font-bold text-[#ff9f1c] uppercase tracking-wider">
-                  {t.team} ({runTeam.length} / 6)
-                </h2>
-                <div className="text-xs font-bold text-amber-300 font-mono bg-black/40 px-2 py-0.5 rounded border border-amber-500/30">
-                  🏆 {useGameStore.getState().currentRunScore.toLocaleString()} pts
+              <div className="border-b-2 border-gray-800 pb-2 shrink-0 space-y-1.5">
+                {/* TOP ROW: TITLE & SCORE */}
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-xs sm:text-sm font-extrabold text-[#ff9f1c] uppercase tracking-wider shrink-0 whitespace-nowrap flex items-center gap-1.5">
+                    <span>{t.team}</span>
+                    <span className="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-mono font-black border border-amber-500/40">
+                      {runTeam.length}/6
+                    </span>
+                  </h2>
+
+                  <div className="text-[10px] sm:text-xs font-bold text-amber-300 font-mono bg-black/50 px-2 py-0.5 rounded-lg border border-amber-500/30 shrink-0 shadow-sm flex items-center gap-1">
+                    <span>{currentRunScore.toLocaleString()} pts</span>
+                  </div>
                 </div>
+
+                {/* BOTTOM ROW: AUTO-SORT BUTTON */}
+                {runTeam.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      autoSortTeam();
+                      showToast(
+                        lang === "it"
+                          ? "Squadra ordinata dal più forte al più scarso"
+                          : "Squad sorted from strongest to weakest"
+                      );
+                    }}
+                    className="w-full py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-[10px] sm:text-[11px] font-extrabold font-mono rounded-lg border border-amber-500/35 transition-all flex items-center justify-center gap-1.5 cursor-pointer hover:scale-[1.01] active:scale-95 shadow-sm"
+                    title={
+                      lang === "it"
+                        ? "Riordina la squadra dal ninja più forte al più scarso"
+                        : "Reorder squad from strongest to weakest ninja"
+                    }
+                  >
+                    <span>{lang === "it" ? "Auto-Ordinamento Squadra" : "Auto-Squad Sorting"}</span>
+                  </button>
+                )}
               </div>
 
               {/* ACTIVE TEAM SYNERGIES */}
@@ -972,7 +1019,7 @@ export default function Home() {
                 return (
                   <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl shrink-0 space-y-1">
                     <div className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-widest flex items-center justify-between">
-                      <span>🌀 {lang === "it" ? "Sinergie Attive" : "Active Synergies"}</span>
+                      <span>{lang === "it" ? "Sinergie Attive" : "Active Synergies"}</span>
                       <span className="text-emerald-400">+{activeSyns.length}</span>
                     </div>
                     <div className="flex flex-wrap gap-1">
@@ -992,8 +1039,9 @@ export default function Home() {
               })()}
               <div className="space-y-2 flex-1 overflow-y-auto pr-1">
                 {runTeam.map((ninja, index) => {
-                  const hpPercent = (ninja.currentHp / ninja.baseStats.hp) * 100;
-                  const chakraPercent = (ninja.currentChakra / ninja.baseStats.chakra) * 100;
+                  const effStats = getNinjaEffectiveStats(ninja, activeConsumableEffects, runTeam, lang);
+                  const hpPercent = Math.max(0, Math.min(100, (ninja.currentHp / effStats.hpMax.total) * 100));
+                  const chakraPercent = Math.max(0, Math.min(100, (ninja.currentChakra / effStats.chakraMax.total) * 100));
                   const isDefeated = ninja.currentHp <= 0;
 
                   const currentIndex = ninja.jutsuList.indexOf(ninja.activeJutsuId);
@@ -1002,59 +1050,120 @@ export default function Home() {
                   const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
 
                   const rarity = RARITY_CONFIGS[ninja.rank || "C"];
+                  const isDragOver = dragOverNinjaIndex === index;
 
                   return (
                     <div
                       key={ninja.id}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (draggedNinjaIndex !== null && draggedNinjaIndex !== index) {
+                          setDragOverNinjaIndex(index);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverNinjaIndex === index) setDragOverNinjaIndex(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const fromIndexStr = e.dataTransfer.getData("text/plain");
+                        const fromIndex = parseInt(fromIndexStr, 10);
+                        if (!isNaN(fromIndex) && fromIndex !== index) {
+                          reorderTeam(fromIndex, index);
+                          showToast(lang === "it" ? "Ordine squadra aggiornato! 🔄" : "Squad order updated! 🔄");
+                        }
+                        setDraggedNinjaIndex(null);
+                        setDragOverNinjaIndex(null);
+                      }}
                       onClick={() => {
                         if (canUpgrade) {
                           learnJutsu(ninja.id);
                         }
                       }}
                       style={!isDefeated && !canUpgrade ? rarity.cardStyle : undefined}
-                      className={`p-3 rounded-xl transition-all ${isDefeated
+                      className={`p-2.5 rounded-xl transition-all relative ${isDefeated
                         ? "border-2 border-red-900 opacity-40 bg-[#070b19]"
                         : canUpgrade
-                          ? "border-2 border-green-500 cursor-pointer hover:border-green-400 hover:scale-[1.02] shadow-[0_0_10px_rgba(34,197,94,0.3)] animate-pulse bg-[#070b19]"
+                          ? "border-2 border-green-500 cursor-pointer hover:border-green-400 hover:scale-[1.01] shadow-[0_0_12px_rgba(34,197,94,0.3)] animate-pulse bg-[#070b19]"
                           : `${rarity.cardBorder} ${rarity.cardBg} ${rarity.cardGlow}`
-                        }`}
+                        } ${isDragOver ? "ring-4 ring-amber-400 scale-[1.02] bg-amber-500/20" : ""}`}
                     >
-                      <div className="flex gap-2 items-center mb-1.5">
-                        {/* Position Turn Order Badge */}
-                        <span className="text-xs font-black font-mono text-[#ff9f1c] bg-black/40 px-1.5 py-0.5 rounded border border-white/10 shrink-0">
-                          #{index + 1}
-                        </span>
+                      {/* TOP ROW: POSITION + FULL NAME + RANK BADGE & ACTIONS */}
+                      <div className="flex items-center justify-between gap-1.5 mb-2 pb-1.5 border-b border-white/10">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {/* Position Badge */}
+                          <span className={`text-[10px] font-black font-mono px-1.5 py-0.5 rounded border shrink-0 ${index === 0
+                            ? "bg-amber-500/20 text-amber-300 border-amber-500/50"
+                            : "bg-black/50 text-gray-300 border-white/10"
+                            }`}>
+                            #{index + 1}{index === 0 ? " 👑" : ""}
+                          </span>
 
+                          {/* Full Ninja Name */}
+                          <h4 className={`text-xs sm:text-sm font-extrabold truncate ${rarity.textColor}`} title={translatedName}>
+                            {translatedName}
+                          </h4>
+
+                          {/* Rank Badge */}
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${rarity.badgeBg} ${rarity.badgeTextColor} shrink-0`}>
+                            {rarity.rankSymbol}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {/* ? STATS & DETAILS BUTTON */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedNinjaDetail(ninja);
+                            }}
+                            className="w-5 h-5 text-[11px] font-extrabold font-mono bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 rounded-full border border-blue-500/50 flex items-center justify-center transition-all shrink-0 cursor-pointer hover:scale-110 active:scale-95 shadow-sm"
+                            title={lang === "it" ? "Mostra tutte le statistiche e dettagli del personaggio" : "Show full character stats & details"}
+                          >
+                            ?
+                          </button>
+
+                          {/* SINGLE DRAG & DROP HANDLE */}
+                          {runTeam.length > 1 && (
+                            <div
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData("text/plain", index.toString());
+                                e.dataTransfer.effectAllowed = "move";
+                                setDraggedNinjaIndex(index);
+                              }}
+                              onDragEnd={() => {
+                                setDraggedNinjaIndex(null);
+                                setDragOverNinjaIndex(null);
+                              }}
+                              className="w-6 h-6 text-amber-400/90 hover:text-amber-300 bg-black/60 hover:bg-amber-500/30 border border-white/10 hover:border-amber-500/50 rounded flex items-center justify-center cursor-grab active:cursor-grabbing transition-all shrink-0 select-none shadow-sm group/drag"
+                              title={lang === "it" ? "Trascina per riordinare la squadra (Drag & Drop ≡)" : "Drag to reorder squad (Drag & Drop ≡)"}
+                            >
+                              <span className="text-xs font-mono font-bold leading-none group-hover/drag:scale-110 transition-transform">
+                                ≡
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* MIDDLE ROW: AVATAR & LEVEL / ELEMENT / EQUIPPED ITEM */}
+                      <div className="flex items-center gap-2 mb-2">
                         <NinjaAvatar
                           src={ninja.sprite}
                           name={translatedName}
                           rank={ninja.rank}
-                          className="w-11 h-11 object-contain bg-black/30 rounded border border-white/10 p-0.5 shrink-0"
+                          className="w-11 h-11 object-contain bg-black/40 rounded-lg border border-white/10 p-0.5 shrink-0 shadow-inner"
                         />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <div className={`text-xs sm:text-sm font-extrabold truncate ${rarity.textColor}`}>{translatedName}</div>
-                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${rarity.badgeBg} ${rarity.badgeTextColor} shrink-0`}>
-                              {rarity.rankSymbol}
-                            </span>
-                          </div>
-                          <div className="text-xs text-[#ff9f1c] font-semibold font-mono flex items-center justify-between mt-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span>Lv. {ninja.level}</span>
-                              <ChakraNatureBadge nature={ninja.chakraNature} showText={false} />
-                            </div>
-                            {pendingJutsuToLearn && (
-                              isMax ? (
-                                <span className="text-red-400 font-extrabold text-xs">{t.maxTech}</span>
-                              ) : (
-                                <span className="text-green-400 font-extrabold text-xs animate-pulse">{t.useScroll}</span>
-                              )
-                            )}
-                          </div>
 
-                          {/* EQUIPPED ITEM COMPACT SLOT DISPLAY */}
-                          {ninja.equippedItem && (
-                            <div className="mt-1 flex items-center">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#ff9f1c] font-semibold font-mono">
+                            <span className="font-bold text-amber-400">Lv. {ninja.level}</span>
+                            <ChakraNatureBadge nature={ninja.chakraNature} showText={false} />
+
+                            {/* EQUIPPED ITEM COMPACT TAG */}
+                            {ninja.equippedItem && (
                               <div
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1067,98 +1176,82 @@ export default function Home() {
                                     itemToUnequip?.iconEmoji
                                   );
                                 }}
-                                className="bg-[#070b19]/90 border border-purple-500/60 rounded-lg p-1 flex items-center gap-1 cursor-pointer hover:border-purple-400 hover:scale-105 transition-all shadow-md group/item"
+                                className="bg-[#070b19]/90 border border-purple-500/60 rounded-md px-1.5 py-0.5 flex items-center gap-1 cursor-pointer hover:border-purple-400 hover:scale-105 transition-all shadow-md group/item text-[10px]"
                                 title={`${ninja.equippedItem.name[lang]}\n${ninja.equippedItem.description[lang]}\n(${lang === "it" ? "Clicca per rimuovere dallo shinobi" : "Click to unequip from shinobi"})`}
                               >
                                 <img
                                   src={`/items/${ninja.equippedItem.id}.png`}
                                   onError={(e) => {
                                     (e.currentTarget as HTMLElement).style.display = "none";
-                                    const parent = (e.currentTarget as HTMLElement).parentElement;
-                                    if (parent && !parent.querySelector(".item-emoji-icon")) {
-                                      const span = document.createElement("span");
-                                      span.className = "item-emoji-icon text-xs";
-                                      span.innerText = ninja.equippedItem?.iconEmoji || "🛡️";
-                                      parent.appendChild(span);
-                                    }
                                   }}
                                   alt={ninja.equippedItem.name[lang]}
-                                  className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_4px_rgba(168,85,247,0.6)]"
+                                  className="w-3.5 h-3.5 object-contain shrink-0 filter drop-shadow-[0_0_4px_rgba(168,85,247,0.6)]"
                                 />
-                                <span className="text-[9px] text-red-400 font-extrabold group-hover/item:text-red-300">✕</span>
+                                <span className="truncate max-w-[65px] text-purple-300 font-bold">{ninja.equippedItem.name[lang]}</span>
+                                <span className="text-red-400 font-extrabold group-hover/item:text-red-300">✕</span>
                               </div>
+                            )}
+                          </div>
+
+                          {/* JUTSU UPGRADE ALERT */}
+                          {pendingJutsuToLearn && (
+                            <div className="text-[10px] font-mono font-extrabold leading-tight">
+                              {isMax ? (
+                                <span className="text-red-400">{t.maxTech}</span>
+                              ) : (
+                                <span className="text-green-400 animate-pulse bg-green-950/60 px-1.5 py-0.5 rounded border border-green-500/40 inline-block">
+                                  ✨ {t.useScroll}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
+                      </div>
 
-                        {/* Reorder Team Turn Order Controls */}
-                        {runTeam.length > 1 && (
-                          <div className="flex flex-col gap-0.5 ml-0.5 shrink-0">
-                            {index > 0 && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLeaderNinja(index);
-                                  showToast(lang === "it" ? "Ninja impostato come Leader 👑!" : "Ninja set as Team Leader 👑!");
-                                }}
-                                className="w-5 h-4 text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 rounded flex items-center justify-center transition-all cursor-pointer border border-amber-500/40 active:scale-95 mb-0.5"
-                                title={lang === "it" ? "Imposta come Primo Ninja (Frontliner 👑)" : "Set as Team Leader (Slot 1 👑)"}
-                              >
-                                👑
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              disabled={index === 0}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                moveNinjaUp(index);
-                              }}
-                              className="w-5 h-4 text-[10px] font-bold bg-black/50 hover:bg-black/80 text-amber-300 rounded flex items-center justify-center disabled:opacity-20 transition-all cursor-pointer border border-white/10 active:scale-95"
-                              title={lang === "it" ? "Sposta in alto (Ordine Turno)" : "Move Up (Turn Order)"}
-                            >
-                              ▲
-                            </button>
-                            <button
-                              type="button"
-                              disabled={index === runTeam.length - 1}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                moveNinjaDown(index);
-                              }}
-                              className="w-5 h-4 text-[10px] font-bold bg-black/50 hover:bg-black/80 text-amber-300 rounded flex items-center justify-center disabled:opacity-20 transition-all cursor-pointer border border-white/10 active:scale-95"
-                              title={lang === "it" ? "Sposta in basso (Ordine Turno)" : "Move Down (Turn Order)"}
-                            >
-                              ▼
-                            </button>
+                      {/* BOTTOM ROW: HP & CHAKRA BARS + COMPACT STAT INDICATORS */}
+                      <div className="space-y-1 bg-black/30 p-1.5 rounded-lg border border-white/5 font-mono text-[10px]">
+                        {/* HP BAR */}
+                        <div>
+                          <div className="flex justify-between text-gray-300 font-bold leading-tight mb-0.5">
+                            <span className="text-gray-400 text-[9px] uppercase">HP</span>
+                            <span className={effStats.hpMax.isBoosted ? "text-emerald-300 font-extrabold flex items-center gap-0.5" : "text-emerald-400 font-extrabold"}>
+                              {ninja.currentHp} / {effStats.hpMax.total}
+                              {effStats.hpMax.isBoosted && <span className="text-[9px] text-emerald-400">▲</span>}
+                            </span>
                           </div>
-                        )}
-                      </div>
+                          <div className="w-full bg-gray-900 h-1.5 rounded overflow-hidden border border-gray-700">
+                            <div
+                              className={`h-full transition-all duration-300 ${hpPercent > 50 ? "bg-emerald-500" : hpPercent > 20 ? "bg-amber-500" : "bg-red-500"}`}
+                              style={{ width: `${hpPercent}%` }}
+                            />
+                          </div>
+                        </div>
 
-                      {/* HP BAR */}
-                      <div className="mb-1.5">
-                        <div className="flex justify-between text-xs text-gray-200 font-bold font-mono mb-0.5">
-                          <span className="text-gray-400">HP</span>
-                          <span>{ninja.currentHp} / {ninja.baseStats.hp}</span>
+                        {/* CHAKRA BAR */}
+                        <div>
+                          <div className="flex justify-between text-gray-300 font-bold leading-tight mb-0.5">
+                            <span className="text-gray-400 text-[9px] uppercase">CHK</span>
+                            <span className={effStats.chakraMax.isBoosted ? "text-blue-300 font-extrabold flex items-center gap-0.5" : "text-blue-400 font-extrabold"}>
+                              {ninja.currentChakra} / {effStats.chakraMax.total}
+                              {effStats.chakraMax.isBoosted && <span className="text-[9px] text-blue-400">▲</span>}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-900 h-1.5 rounded overflow-hidden border border-gray-700">
+                            <div className="bg-blue-500 h-full transition-all duration-300" style={{ width: `${chakraPercent}%` }} />
+                          </div>
                         </div>
-                        <div className="w-full bg-gray-800 h-2.5 rounded-sm overflow-hidden border border-gray-700">
-                          <div
-                            className={`h-full transition-all duration-300 ${hpPercent > 50 ? "bg-green-500" : hpPercent > 20 ? "bg-yellow-500" : "bg-red-500"
-                              }`}
-                            style={{ width: `${hpPercent}%` }}
-                          />
-                        </div>
-                      </div>
 
-                      {/* CHAKRA BAR */}
-                      <div>
-                        <div className="flex justify-between text-xs text-gray-200 font-bold font-mono mb-0.5">
-                          <span className="text-gray-400">CHAKRA</span>
-                          <span>{ninja.currentChakra} / {ninja.baseStats.chakra}</span>
-                        </div>
-                        <div className="w-full bg-gray-800 h-2.5 rounded-sm overflow-hidden border border-gray-700">
-                          <div className="bg-blue-500 h-full transition-all duration-300" style={{ width: `${chakraPercent}%` }} />
+                        {/* COMPACT STAT PREVIEW ROW */}
+                        <div className="flex items-center justify-between text-[9px] font-mono pt-1 border-t border-white/5 text-gray-400">
+                          <span className={effStats.attack.isBoosted ? "text-emerald-300 font-extrabold flex items-center gap-0.5" : ""}>
+                            ATK {effStats.attack.total}{effStats.attack.isBoosted && "▲"}
+                          </span>
+                          <span className={effStats.defense.isBoosted ? "text-emerald-300 font-extrabold flex items-center gap-0.5" : ""}>
+                            DEF {effStats.defense.total}{effStats.defense.isBoosted && "▲"}
+                          </span>
+                          <span className={effStats.speed.isBoosted ? "text-emerald-300 font-extrabold flex items-center gap-0.5" : ""}>
+                            SPD {effStats.speed.total}{effStats.speed.isBoosted && "▲"}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1361,11 +1454,11 @@ export default function Home() {
 
                       {/* FIRST ENEMY CHAKRA NATURE BADGE OVERLAY */}
                       {(node.type === "battle" || node.type === "boss") && firstOppNinja && (
-                        <div className="absolute -bottom-1 -right-1 z-20 pointer-events-none bg-black/80 p-0.5 rounded-full border border-yellow-500/50 shadow-lg">
+                        <div className="absolute -bottom-1 -right-1 z-20 pointer-events-none filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
                           <ChakraNatureBadge
                             nature={firstOppNinja.chakraNature}
                             showText={false}
-                            className="scale-90 sm:scale-100"
+                            imgClassName="w-5 h-5 sm:w-6 sm:h-6 object-contain"
                           />
                         </div>
                       )}
@@ -1404,14 +1497,14 @@ export default function Home() {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                         {availableItemChoices.map((item) => {
                           const isConsumable = item.type === "consumable";
+                          const rKey = (item.rarity || "C") as keyof typeof RARITY_CONFIGS;
+                          const itemRarity = RARITY_CONFIGS[rKey];
+
                           return (
                             <div
                               key={item.id}
                               onClick={() => chooseItemFromNode(item)}
-                              className={`p-3 rounded-2xl border cursor-pointer transition-all hover:scale-105 flex flex-col justify-between items-center bg-black/40 ${isConsumable
-                                  ? "border-emerald-500/50 hover:border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                                  : "border-purple-500/50 hover:border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.2)]"
-                                }`}
+                              className={`p-3 rounded-2xl border-2 cursor-pointer transition-all hover:scale-105 flex flex-col justify-between items-center ${itemRarity.cardBorder} ${itemRarity.cardBg} ${itemRarity.cardGlow}`}
                             >
                               <div className="w-14 h-14 p-1.5 bg-black/60 rounded-2xl border border-white/10 flex items-center justify-center mb-2 shrink-0">
                                 <img
@@ -1430,24 +1523,26 @@ export default function Home() {
                                   className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
                                 />
                               </div>
-                              <span
-                                className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold uppercase mb-1.5 ${isConsumable
+                              <div className="flex items-center gap-1 mb-1.5 flex-wrap justify-center">
+                                <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-black ${itemRarity.badgeBg} ${itemRarity.badgeTextColor}`}>
+                                  RANK {rKey}
+                                </span>
+                                <span
+                                  className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-bold uppercase ${isConsumable
                                     ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                                     : "bg-purple-500/20 text-purple-300 border border-purple-500/40"
-                                  }`}
-                              >
-                                {isConsumable
-                                  ? (lang === "it" ? "Consumabile" : "Consumable")
-                                  : (lang === "it" ? "Assegnabile" : "Assignable")}
-                              </span>
-                              <h4 className="font-extrabold text-xs text-white mb-1 leading-tight">{item.name[lang]}</h4>
-                              <p className="text-[10px] text-gray-300 leading-snug whitespace-pre-line font-mono mb-2 font-semibold text-left">{item.description[lang]}</p>
+                                    }`}
+                                >
+                                  {isConsumable
+                                    ? (lang === "it" ? "Consumabile" : "Consumable")
+                                    : (lang === "it" ? "Assegnabile" : "Assignable")}
+                                </span>
+                              </div>
+                              <h4 className={`font-extrabold text-xs mb-1 leading-tight text-center ${itemRarity.textColor}`}>{item.name[lang]}</h4>
+                              <p className="text-[10px] text-gray-300 leading-snug whitespace-pre-line font-mono mb-2 font-semibold text-left w-full">{item.description[lang]}</p>
                               <button
                                 type="button"
-                                className={`w-full py-1.5 rounded-xl font-bold font-mono text-[10px] uppercase tracking-wider transition-all border ${isConsumable
-                                    ? "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400"
-                                    : "bg-purple-600 hover:bg-purple-500 text-white border-purple-400"
-                                  }`}
+                                className={`w-full py-1.5 rounded-xl font-bold font-mono text-[10px] uppercase tracking-wider transition-all border shadow ${itemRarity.badgeBg} ${itemRarity.badgeTextColor} ${itemRarity.cardBorder}`}
                               >
                                 {lang === "it" ? "Raccogli" : "Collect"}
                               </button>
@@ -1499,7 +1594,14 @@ export default function Home() {
                                           {rarity.rankSymbol}
                                         </span>
                                       </div>
-                                      <p className="text-[9px] text-gray-400 font-mono">Lv. {ninja.level} • HP {ninja.baseStats.hp}</p>
+                                      <p className="text-[9px] text-gray-400 font-mono flex items-center gap-1.5 flex-wrap">
+                                        <span>Lv. {ninja.level} • HP {ninja.baseStats.hp}</span>
+                                        {ninja.equippedItem && (
+                                          <span className="text-purple-300 font-bold bg-purple-950/60 border border-purple-500/40 px-1 py-0.2 rounded text-[8px] flex items-center gap-0.5">
+                                            🎒 {ninja.equippedItem.name[lang]} ↩️
+                                          </span>
+                                        )}
+                                      </p>
                                     </div>
                                   </div>
                                   <span className="text-red-400 font-bold text-[10px] sm:text-xs uppercase tracking-wider hover:text-red-300 bg-red-950/60 border border-red-500/30 px-2 py-0.5 sm:py-1 rounded">
@@ -1524,8 +1626,8 @@ export default function Home() {
                               type="button"
                               onClick={() => setRecruitTab("random")}
                               className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${recruitTab === "random"
-                                  ? "bg-green-600 text-white shadow-md font-black"
-                                  : "text-gray-400 hover:text-gray-200"
+                                ? "bg-green-600 text-white shadow-md font-black"
+                                : "text-gray-400 hover:text-gray-200"
                                 }`}
                             >
                               <span>🎲</span>
@@ -1535,8 +1637,8 @@ export default function Home() {
                               type="button"
                               onClick={() => setRecruitTab("shop")}
                               className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${recruitTab === "shop"
-                                  ? "bg-yellow-500 text-gray-950 shadow-md font-black"
-                                  : "text-yellow-400/70 hover:text-yellow-300"
+                                ? "bg-yellow-500 text-gray-950 shadow-md font-black"
+                                : "text-yellow-400/70 hover:text-yellow-300"
                                 }`}
                             >
                               <span>🛒</span>
@@ -1606,8 +1708,8 @@ export default function Home() {
                                     }}
                                     disabled={!canAffordReroll}
                                     className={`w-full py-2 px-3 mb-2 rounded-xl font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 border transition-all ${canAffordReroll
-                                        ? "bg-gradient-to-r from-[#070b19] via-[#0f152d] to-[#070b19] hover:border-yellow-400 text-yellow-300 border-yellow-500/50 cursor-pointer shadow-md hover:scale-[1.01]"
-                                        : "bg-gray-900/60 text-gray-500 border-gray-800 cursor-not-allowed opacity-60"
+                                      ? "bg-gradient-to-r from-[#070b19] via-[#0f152d] to-[#070b19] hover:border-yellow-400 text-yellow-300 border-yellow-500/50 cursor-pointer shadow-md hover:scale-[1.01]"
+                                      : "bg-gray-900/60 text-gray-500 border-gray-800 cursor-not-allowed opacity-60"
                                       }`}
                                   >
                                     <span>🎲 {lang === "it" ? "Reroll Scelte" : "Reroll Choices"}</span>
@@ -1687,17 +1789,30 @@ export default function Home() {
                                                   }
                                                 }}
                                                 style={rarity.cardStyle}
-                                                className={`relative p-2 rounded-xl transition-all flex flex-col justify-between ${canAfford ? "cursor-pointer hover:scale-105" : "opacity-50 cursor-not-allowed"
+                                                className={`relative p-2 rounded-xl transition-all flex flex-col justify-between items-center text-center ${canAfford ? "cursor-pointer hover:scale-105 shadow-md" : "opacity-50 cursor-not-allowed"
                                                   } ${rarity.cardBorder} ${rarity.cardBg}`}
                                               >
                                                 <NinjaAvatar
                                                   src={ninja.sprite}
                                                   name={translatedName}
                                                   rank={ninja.rank}
-                                                  className="w-9 h-9 object-contain mx-auto mb-1 mt-1 bg-black/30 rounded p-0.5 border border-white/10"
+                                                  className="w-10 h-10 object-contain mx-auto mb-1 bg-black/30 rounded-lg p-0.5 border border-white/10 shrink-0"
                                                 />
-                                                <h4 className={`font-bold text-[9px] truncate text-center ${rarity.textColor}`}>{translatedName}</h4>
-                                                <div className="mt-1 flex items-center justify-center gap-1 bg-black/70 py-0.5 px-1 rounded border border-yellow-500/40 text-[9px] font-mono font-bold text-yellow-300">
+                                                <h4 className={`font-bold text-[9px] sm:text-[10px] truncate w-full ${rarity.textColor}`} title={translatedName}>
+                                                  {translatedName}
+                                                </h4>
+
+                                                {/* CHAKRA NATURE TYPE BADGE (ICON ONLY) */}
+                                                <div className="my-1 flex items-center justify-center">
+                                                  <ChakraNatureBadge
+                                                    nature={ninja.chakraNature}
+                                                    showText={false}
+                                                    imgClassName="w-4 h-4 object-contain shrink-0"
+                                                  />
+                                                </div>
+
+                                                {/* PRICE TAG */}
+                                                <div className="w-full flex items-center justify-center gap-1 bg-black/70 py-0.5 px-1 rounded-lg border border-yellow-500/40 text-[9px] font-mono font-bold text-yellow-300 shadow-inner">
                                                   <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3 h-3 object-contain" />
                                                   <span>{price} ryo</span>
                                                 </div>
@@ -1784,12 +1899,13 @@ export default function Home() {
                     inventory.map((invItem) => {
                       const item = invItem.item;
                       const isConsumable = item.type === "consumable";
+                      const rKey = (item.rarity || "C") as keyof typeof RARITY_CONFIGS;
+                      const itemRarity = RARITY_CONFIGS[rKey];
 
                       return (
                         <div
                           key={item.id}
-                          className={`p-2 sm:p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2 bg-[#070b19] ${isConsumable ? "border-emerald-500/40" : "border-purple-500/40"
-                            }`}
+                          className={`p-2 sm:p-2.5 rounded-xl border-2 transition-all flex items-center justify-between gap-2 ${itemRarity.cardBorder} ${itemRarity.cardBg}`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <div className="w-9 h-9 p-1 bg-black/60 rounded-xl border border-white/10 shrink-0 flex items-center justify-center relative">
@@ -1816,22 +1932,37 @@ export default function Home() {
                             </div>
 
                             <div className="min-w-0">
-                              <div className="font-extrabold text-xs text-white leading-tight mb-0.5">{item.name[lang]}</div>
-                              <div className="text-[9px] text-gray-300 whitespace-pre-line font-mono font-semibold leading-snug">{item.description[lang]}</div>
-                            </div>
+                               <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                 {(() => {
+                                   const rankKey = (item.rarity as keyof typeof RARITY_CONFIGS) || "C";
+                                   const itemRarity = RARITY_CONFIGS[rankKey];
+                                   return (
+                                     <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-black ${itemRarity.badgeBg} ${itemRarity.badgeTextColor}`}>
+                                       RANK {rankKey}
+                                     </span>
+                                   );
+                                 })()}
+                                 <div className="font-extrabold text-xs text-white leading-tight">{item.name[lang]}</div>
+                               </div>
+                               <div className="text-[9px] text-gray-300 whitespace-pre-line font-mono font-semibold leading-snug">{item.description[lang]}</div>
+                             </div>
                           </div>
 
                           <div className="shrink-0">
                             {isConsumable ? (
                               <button
                                 onClick={() => {
-                                  useConsumableItem(item.id);
-                                  showToast(
-                                    lang === "it" ? `Usato: ${item.name[lang]}` : `Used: ${item.name[lang]}`,
-                                    `/items/${item.id}.png`,
-                                    undefined,
-                                    item.iconEmoji
-                                  );
+                                  if (item.jutsuLevelUpgrade || item.id === "forbidden_jutsu_scroll") {
+                                    setUseTargetNinjaConsumableItem(item);
+                                  } else {
+                                    useConsumableItem(item.id);
+                                    showToast(
+                                      lang === "it" ? `Usato: ${item.name[lang]}` : `Used: ${item.name[lang]}`,
+                                      `/items/${item.id}.png`,
+                                      undefined,
+                                      item.iconEmoji
+                                    );
+                                  }
                                 }}
                                 className="px-2 py-1 rounded-lg text-[10px] font-bold font-mono bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer border border-emerald-400 shadow-sm"
                               >
@@ -2101,8 +2232,8 @@ export default function Home() {
                             <span className="font-extrabold text-sm text-white">{item.name[lang]}</span>
                             <span
                               className={`text-[9px] px-2 py-0.2 rounded-full font-mono font-bold uppercase ${isConsumable
-                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                  : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
                                 }`}
                             >
                               {isConsumable
@@ -2118,13 +2249,18 @@ export default function Home() {
                         {isConsumable ? (
                           <button
                             onClick={() => {
-                              useConsumableItem(item.id);
-                              showToast(
-                                lang === "it" ? `Usato: ${item.name[lang]}` : `Used: ${item.name[lang]}`,
-                                `/items/${item.id}.png`,
-                                undefined,
-                                item.iconEmoji
-                              );
+                              if (item.jutsuLevelUpgrade || item.id === "forbidden_jutsu_scroll") {
+                                setUseTargetNinjaConsumableItem(item);
+                                setShowBackpackModal(false);
+                              } else {
+                                useConsumableItem(item.id);
+                                showToast(
+                                  lang === "it" ? `Usato: ${item.name[lang]}` : `Used: ${item.name[lang]}`,
+                                  `/items/${item.id}.png`,
+                                  undefined,
+                                  item.iconEmoji
+                                );
+                              }
                             }}
                             className="px-3.5 py-2 rounded-xl text-xs font-bold font-mono bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer border border-emerald-400 shadow-md hover:scale-105 active:scale-95"
                           >
@@ -2226,8 +2362,126 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* MODAL: USE CONSUMABLE ON TARGET SQUAD NINJA (FORBIDDEN SCROLL) */}
+      {useTargetNinjaConsumableItem && (
+        <div
+          onClick={() => setUseTargetNinjaConsumableItem(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#0f152d] border-4 border-emerald-500 rounded-3xl max-w-md w-full p-5 sm:p-6 text-center relative shadow-2xl"
+          >
+            <div className="w-14 h-14 p-2 bg-black/60 rounded-2xl border border-emerald-400/50 flex items-center justify-center mx-auto mb-2 shrink-0">
+              <img
+                src={`/items/${useTargetNinjaConsumableItem.id}.png`}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = "none";
+                }}
+                alt={useTargetNinjaConsumableItem.name[lang]}
+                className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(52,211,153,0.8)]"
+              />
+            </div>
+
+            <h3 className="text-lg font-black text-emerald-300 uppercase tracking-wider mb-1">
+              {useTargetNinjaConsumableItem.name[lang]}
+            </h3>
+            <p className="text-xs text-gray-300 mb-4 font-mono">
+              {lang === "it"
+                ? "Seleziona su quale ninja della tua squadra applicare questo effetto."
+                : "Select which squad ninja to apply this effect to."}
+            </p>
+
+            <div className="space-y-2 mb-4 max-h-[260px] overflow-y-auto pr-1">
+              {runTeam.map((ninja) => {
+                const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
+                const rarity = RARITY_CONFIGS[ninja.rank || "C"];
+                const currentIndex = ninja.jutsuList.indexOf(ninja.activeJutsuId);
+                const isMax = currentIndex >= ninja.jutsuList.length - 1;
+
+                return (
+                  <div
+                    key={ninja.id}
+                    onClick={() => {
+                      const scrollItem = useTargetNinjaConsumableItem;
+                      useConsumableItem(scrollItem.id, ninja.id);
+                      setUseTargetNinjaConsumableItem(null);
+                      showToast(
+                        lang === "it"
+                          ? `Rotolo Proibito applicato a ${translatedName}! ✨`
+                          : `Forbidden Scroll applied to ${translatedName}! ✨`,
+                        `/items/${scrollItem.id}.png`,
+                        ninja.sprite,
+                        scrollItem.iconEmoji
+                      );
+                    }}
+                    style={rarity.cardStyle}
+                    className={`p-2.5 rounded-xl cursor-pointer transition-all hover:scale-[1.02] flex items-center justify-between gap-3 border ${rarity.cardBorder} ${rarity.cardBg}`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <NinjaAvatar
+                        src={ninja.sprite}
+                        name={translatedName}
+                        rank={ninja.rank}
+                        className="w-10 h-10 object-contain bg-black/30 rounded border border-white/10 p-0.5 shrink-0"
+                      />
+                      <div className="text-left min-w-0">
+                        <div className={`font-bold text-xs truncate ${rarity.textColor}`}>{translatedName}</div>
+                        <div className="text-[10px] text-gray-300 font-mono font-semibold leading-tight mt-0.5">
+                          {isMax ? (
+                            <span className="text-red-400 font-bold">{t.maxTech}</span>
+                          ) : (
+                            <span className="text-emerald-400 font-bold">
+                              {lang === "it" ? "Mossa potenziabile ➔" : "Jutsu upgradable ➔"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-xl font-bold font-mono text-xs bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400 shrink-0"
+                    >
+                      {lang === "it" ? "Applica" : "Apply"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setUseTargetNinjaConsumableItem(null)}
+              className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold rounded-xl text-xs uppercase tracking-wider border border-gray-700 transition-colors"
+            >
+              {t.noCancel}
+            </button>
+          </div>
+        </div>
+      )}
+      {selectedNinjaDetail && (
+        <NinjaDetailModal
+          ninja={selectedNinjaDetail}
+          onClose={() => setSelectedNinjaDetail(null)}
+          onUnequipItem={(ninjaId) => {
+            unequipItemFromNinja(ninjaId);
+            setSelectedNinjaDetail(null);
+          }}
+        />
+      )}
+      {showProfileModal && (
+        <UserProfileModal
+          onClose={() => setShowProfileModal(false)}
+          onOpenInviteModal={() => {
+            setShowProfileModal(false);
+            setShowInviteModal(true);
+          }}
+        />
+      )}
       {showInviteModal && <InviteFriendModal onClose={() => setShowInviteModal(false)} />}
       {showLeaderboardModal && <LeaderboardModal onClose={() => setShowLeaderboardModal(false)} />}
+      <KeyboardShortcutsModal isOpen={showShortcutsModal} onClose={() => setShowShortcutsModal(false)} />
       {showAchievementsModal && (
         <AchievementsModal
           onClose={() => setShowAchievementsModal(false)}
@@ -2336,18 +2590,24 @@ export default function Home() {
                 <div className="bg-[#070b19]/80 border border-gray-800 p-4 rounded-2xl flex flex-col gap-3 text-left">
                   {user ? (
                     <div>
-                      <div className="mb-3 flex items-center gap-3 bg-[#0f152d] p-2.5 rounded-xl border border-amber-500/40">
+                      <div
+                        onClick={() => {
+                          setShowProfileModal(true);
+                          setIsMenuOpen(false);
+                        }}
+                        className="mb-3 flex items-center gap-3 bg-[#0f152d] hover:bg-amber-500/20 p-2.5 rounded-xl border border-amber-500/40 cursor-pointer transition-all"
+                      >
                         <img
                           src={avatarUrl || "/default_avatar.png"}
                           alt={username || "User"}
                           className="w-10 h-10 rounded-full object-cover border border-amber-500"
                         />
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <span className="font-extrabold text-[#ff9f1c] text-sm block truncate">
                             {username || user?.user_metadata?.username || user?.email?.split("@")[0] || "Shinobi"}
                           </span>
-                          <span className="text-xs text-slate-300 font-medium block truncate mt-0.5">
-                            {user.email}
+                          <span className="text-xs text-amber-300 font-medium block truncate mt-0.5">
+                            {lang === "it" ? "Profilo & Statistiche ➔" : "Profile & Stats ➔"}
                           </span>
                         </div>
                       </div>
@@ -2501,6 +2761,23 @@ export default function Home() {
                       className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                     />
                     <span>{lang === "it" ? "Privacy Policy" : "Privacy Policy"}</span>
+                  </span>
+                  <span className="text-[#ff9f1c]">➔</span>
+                </button>
+
+                {/* Keyboard Shortcuts Link */}
+                <button
+                  onClick={() => {
+                    setShowShortcutsModal(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-[#ff9f1c]/40 p-4 rounded-2xl flex items-center justify-between text-sm text-slate-100 font-semibold transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-black/60 border border-amber-500/40 font-mono font-extrabold text-amber-400 text-xs flex items-center justify-center shrink-0 shadow-md">
+                      ⌨
+                    </span>
+                    <span>{lang === "it" ? "Scorciatoie da Tastiera" : "Keyboard Shortcuts"}</span>
                   </span>
                   <span className="text-[#ff9f1c]">➔</span>
                 </button>

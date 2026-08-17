@@ -83,6 +83,8 @@ interface GameState {
   moveNinjaUp: (index: number) => void;
   moveNinjaDown: (index: number) => void;
   setLeaderNinja: (index: number) => void;
+  reorderTeam: (fromIndex: number, toIndex: number) => void;
+  autoSortTeam: () => void;
   applyHealingAtCampfire: () => void;
   syncTeamStats: (updatedTeam: RunNinja[]) => void;
   advanceToNextLevel: () => void;
@@ -110,7 +112,7 @@ function generateLevelMap(sagaId: string, level: number): MapNode[] {
   let bossId = "mizuki";
   let bossLabel = "Il Tradimento di Mizuki";
   let opponentsPool = [
-    "naruto_kid", "sasuke_kid", "sakura_kid", "gaara_kid", "kakashi_kid",
+    "naruto_kid", "sasuke_kid", "sakura_kid", "kakashi_kid",
     "lee_kid", "neji_kid", "shikamaru_kid", "hinata_kid", "tenten_kid",
     "choji_kid", "ino_kid", "kiba_kid", "shino_kid", "temari_kid", "kankuro_kid", "iruka_kid"
   ];
@@ -193,13 +195,56 @@ function generateLevelMap(sagaId: string, level: number): MapNode[] {
     }
   }
 
+  const maxLevel = sagaId === "classic_naruto" ? 5 : 10;
+  const p = Math.max(0, Math.min(1, (level - 1) / Math.max(1, maxLevel - 1)));
+
+  // Calculate rank weights based on level progression
+  // Level 1: C ~60%, B ~30%, A ~10%, S ~1%
+  // Final Level: C ~2%, B ~10%, A ~46%, S ~42%
+  const weightC = Math.max(2, 60 * (1 - p) * (1 - p));
+  const weightB = Math.max(10, 30 + 20 * Math.sin(p * Math.PI));
+  const weightA = Math.max(10, 10 + 35 * p);
+  const weightS = Math.max(1, 1 + 39 * p * p);
+
+  const poolNinjas = opponentsPool
+    .map((id) => NINJA_MAP.get(id))
+    .filter((n): n is Ninja => n !== undefined);
+
+  const byRank: Record<string, Ninja[]> = {
+    C: poolNinjas.filter((n) => (n.rank || "C") === "C"),
+    B: poolNinjas.filter((n) => (n.rank || "C") === "B"),
+    A: poolNinjas.filter((n) => (n.rank || "C") === "A"),
+    S: poolNinjas.filter((n) => (n.rank || "C") === "S"),
+  };
+
+  const sampleOpponentByWeightedRank = (): string => {
+    const activeRanks: { rank: string; weight: number }[] = [];
+    if (byRank.C.length > 0) activeRanks.push({ rank: "C", weight: weightC });
+    if (byRank.B.length > 0) activeRanks.push({ rank: "B", weight: weightB });
+    if (byRank.A.length > 0) activeRanks.push({ rank: "A", weight: weightA });
+    if (byRank.S.length > 0) activeRanks.push({ rank: "S", weight: weightS });
+
+    const totalWeight = activeRanks.reduce((sum, r) => sum + r.weight, 0);
+    let rand = Math.random() * totalWeight;
+
+    for (const r of activeRanks) {
+      if (rand < r.weight) {
+        const candidates = byRank[r.rank];
+        return candidates[Math.floor(Math.random() * candidates.length)].id;
+      }
+      rand -= r.weight;
+    }
+
+    return opponentsPool[Math.floor(Math.random() * opponentsPool.length)];
+  };
+
   const getRandomOpponents = (stage: number) => {
     let count = 1;
     if (stage === 2) count = Math.random() > 0.5 ? 2 : 1;
     else if (stage === 3 || stage === 4 || stage === 5) count = 2;
     else if (stage === 6) count = Math.random() > 0.5 ? 3 : 2;
 
-    return Array.from({ length: count }).map(() => opponentsPool[Math.floor(Math.random() * opponentsPool.length)]);
+    return Array.from({ length: count }).map(() => sampleOpponentByWeightedRank());
   };
 
   const makeNode = (id: string, stage: number, label: string, connections: string[], type: NodeType): MapNode => {
@@ -639,6 +684,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 
         if (ALL_BOSS_IDS.includes(n.id)) {
+          if (n.id === "gaara_kid") return true;
           return defeatedBosses.includes(n.id);
         }
 
@@ -781,7 +827,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   chooseRecruit: (ninjaId, replaceNinjaId) => {
-    const { runTeam, availableRecruitChoices } = get();
+    const { runTeam, availableRecruitChoices, inventory } = get();
     const chosen = (availableRecruitChoices || []).find((n) => n.id === ninjaId) || NINJA_MAP.get(ninjaId);
     if (!chosen) return;
 
@@ -805,7 +851,22 @@ export const useGameStore = create<GameState>((set, get) => ({
     };
 
     let updatedTeam = [...runTeam];
+    let updatedInventory = [...inventory];
+
     if (replaceNinjaId) {
+      const dismissedNinja = runTeam.find((n) => n.id === replaceNinjaId);
+      if (dismissedNinja?.equippedItem) {
+        const itemToReturn = dismissedNinja.equippedItem;
+        const existingIdx = updatedInventory.findIndex((inv) => inv.item.id === itemToReturn.id);
+        if (existingIdx >= 0) {
+          updatedInventory[existingIdx] = {
+            ...updatedInventory[existingIdx],
+            quantity: updatedInventory[existingIdx].quantity + 1,
+          };
+        } else {
+          updatedInventory.push({ item: itemToReturn, quantity: 1 });
+        }
+      }
       updatedTeam = updatedTeam.map((n) => (n.id === replaceNinjaId ? newNinja : n));
     } else if (updatedTeam.length < 6) {
       updatedTeam.push(newNinja);
@@ -813,6 +874,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     set({
       runTeam: updatedTeam,
+      inventory: updatedInventory,
       availableRecruitChoices: null,
     });
 
@@ -897,6 +959,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (n.version !== "kid") return false;
       }
       if (ALL_BOSS_IDS.includes(n.id)) {
+        if (n.id === "gaara_kid") return true;
         return defeatedBosses.includes(n.id);
       }
       return true;
@@ -960,16 +1023,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Effect: Heal percent HP & Chakra
     if (gameItem.healPercent !== undefined || gameItem.healChakraPercent !== undefined) {
       updatedTeam = updatedTeam.map((ninja) => {
+        const maxHp = ninja.baseStats.hp + (ninja.equippedItem?.equipStats?.hpMax || 0);
+        const maxChakra = ninja.baseStats.chakra + (ninja.equippedItem?.equipStats?.chakraMax || 0);
+
         let newHp = ninja.currentHp;
         let newChakra = ninja.currentChakra;
 
         if (gameItem.healPercent) {
-          const boostHp = Math.round((ninja.baseStats.hp * gameItem.healPercent) / 100);
-          newHp = Math.min(ninja.baseStats.hp, ninja.currentHp + boostHp);
+          const boostHp = Math.round((maxHp * gameItem.healPercent) / 100);
+          newHp = Math.min(maxHp, ninja.currentHp + boostHp);
         }
         if (gameItem.healChakraPercent) {
-          const boostChakra = Math.round((ninja.baseStats.chakra * gameItem.healChakraPercent) / 100);
-          newChakra = Math.min(ninja.baseStats.chakra, ninja.currentChakra + boostChakra);
+          const boostChakra = Math.round((maxChakra * gameItem.healChakraPercent) / 100);
+          newChakra = Math.min(maxChakra, ninja.currentChakra + boostChakra);
         }
 
         return { ...ninja, currentHp: newHp, currentChakra: newChakra };
@@ -978,8 +1044,21 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     // Effect: Jutsu level upgrade (Forbidden Scroll)
     if (gameItem.jutsuLevelUpgrade && targetNinjaId) {
-      set({ pendingJutsuToLearn: "UPGRADE" });
-      get().learnJutsu(targetNinjaId);
+      updatedTeam = updatedTeam.map((ninja) => {
+        if (ninja.id === targetNinjaId) {
+          const currentIndex = ninja.jutsuList.indexOf(ninja.activeJutsuId);
+          const nextJutsuId =
+            currentIndex < ninja.jutsuList.length - 1
+              ? ninja.jutsuList[currentIndex + 1]
+              : ninja.activeJutsuId;
+
+          return {
+            ...ninja,
+            activeJutsuId: nextJutsuId,
+          };
+        }
+        return ninja;
+      });
     }
 
     // Register active battle boost effect if consumable grants temporary fight boosts
@@ -988,7 +1067,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     let durationFights = 0;
     if (gameItem.teamBattleStatBoost || gameItem.singleNinjaBattleStatBoost) {
-      durationFights = 1;
+      durationFights = gameItem.durationFights || 3;
     } else if (gameItem.coinMultiplierFights) {
       durationFights = gameItem.coinMultiplierFights;
     } else if (gameItem.luckRarityBoostFights) {
@@ -1130,6 +1209,45 @@ export const useGameStore = create<GameState>((set, get) => ({
     const leader = updated.splice(index, 1)[0];
     updated.unshift(leader);
 
+    set({ runTeam: updated });
+  },
+
+  reorderTeam: (fromIndex, toIndex) => {
+    const { runTeam } = get();
+    if (
+      fromIndex < 0 ||
+      fromIndex >= runTeam.length ||
+      toIndex < 0 ||
+      toIndex >= runTeam.length ||
+      fromIndex === toIndex
+    ) {
+      return;
+    }
+    const updated = [...runTeam];
+    const [dragged] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, dragged);
+    set({ runTeam: updated });
+  },
+
+  autoSortTeam: () => {
+    const { runTeam } = get();
+    if (runTeam.length <= 1) return;
+
+    const rankBonusMap: Record<string, number> = { S: 400, A: 250, B: 100, C: 0 };
+    const getStrength = (ninja: RunNinja) => {
+      const rankBonus = rankBonusMap[ninja.rank || "C"] || 0;
+      return (
+        ninja.level * 100 +
+        ninja.baseStats.attack * 4 +
+        ninja.baseStats.hp +
+        ninja.baseStats.chakra * 2 +
+        ninja.baseStats.defense * 2 +
+        ninja.baseStats.speed * 2 +
+        rankBonus
+      );
+    };
+
+    const updated = [...runTeam].sort((a, b) => getStrength(b) - getStrength(a));
     set({ runTeam: updated });
   },
 

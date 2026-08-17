@@ -65,6 +65,7 @@ export type ItemType = "consumable" | "assignable";
 export interface GameItem {
   id: string;             // Item ID e nome immagine /items/${id}.png
   type: ItemType;
+  rarity: NinjaRank;      // Rank S, A, B, C (Leggendario, Epico, Raro, Comune)
   name: { it: string; en: string };
   description: { it: string; en: string };
   iconEmoji: string;      // Emoji fallback se /items/${id}.png manca
@@ -76,11 +77,12 @@ export interface GameItem {
     defenseMultiplier?: number;
     speedMultiplier?: number;
   };
-  teamBattleStatBoost?: {            // Boost per 1 lotta a tutta la squadra
+  teamBattleStatBoost?: {            // Boost per la squadra
     attackMultiplier?: number;
     defenseMultiplier?: number;
     speedMultiplier?: number;
   };
+  durationFights?: number;           // Durata in battaglie del boost temporaneo
   coinMultiplierFights?: number;     // Aumento monete guadagnate per X combattimenti
   luckRarityBoostFights?: number;    // Aumento fortuna (trovare ninja di rank alto) per X combattimenti
   jutsuLevelUpgrade?: boolean;       // Permette di evolvere 1 mossa ninja (Rotolo Proibito)

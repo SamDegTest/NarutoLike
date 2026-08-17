@@ -21,8 +21,8 @@ const SASUKE_JUTSUS = [
   "dragon_fire_jutsu",
   "chidori_shippuden",
   "chidori_spear",
-  "amaterasu",
   "susanoo_slash",
+  "amaterasu",
   "kirin",
   "indras_arrow"
 ];
@@ -120,8 +120,8 @@ const HINATA_JUTSUS = [
 
 const ITACHI_JUTSUS = [
   "shuriken_jutsu_itachi",
-  "clone_great_explosion",
   "genjutsu_crow",
+  "clone_great_explosion",
   "fireball_itachi",
   "tsukuyomi",
   "amaterasu_itachi",
@@ -146,9 +146,8 @@ const JIRAIYA_JUTSUS = [
 
 const TSUNADE_JUTSUS = [
   "tsunade_kick",
-  "chakra_burst",
   "body_flicker_tsunade",
-  "basic_healing",
+  "chakra_burst",
   "nervous_system_rupture",
   "heaven_spear_kick",
   "katsuyu_summon",
@@ -213,8 +212,8 @@ const MADARA_JUTSUS = [
 const PAIN_JUTSUS = [
   "bansho_tenin",
   "almighty_push",
-  "chibaku_tensei",
   "summoning_rinnegan",
+  "chibaku_tensei",
   "shinra_tensei_cataclysm"
 ];
 
@@ -516,7 +515,7 @@ export const NINJA_MAP = new Map<string, Ninja>([
     {
       id: "kakashi_kid",
       characterId: "kakashi",
-      name: "Kakashi Hatake (Kid)",
+      name: "Kakashi Hatake",
       rank: "S",
       chakraNature: "Lightning",
       version: "kid",
