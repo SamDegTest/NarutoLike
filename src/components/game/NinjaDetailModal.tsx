@@ -301,35 +301,34 @@ export function NinjaDetailModal({ ninja, onClose, onUnequipItem }: Props) {
                 </div>
 
                 {item ? (
-                  <div className="flex items-center gap-3 bg-[#070b19] p-2.5 rounded-xl border border-purple-500/40">
-                    <div className="w-10 h-10 p-1 bg-black/60 rounded-xl border border-purple-400/50 flex items-center justify-center shrink-0">
-                      <img
-                        src={`/items/${item.id}.png`}
-                        onError={(e) => {
-                          (e.currentTarget as HTMLElement).style.display = "none";
-                        }}
-                        alt={item.name[lang]}
-                        className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(168,85,247,0.8)]"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                        {(() => {
-                          const rKey = (item.rarity || "C") as keyof typeof RARITY_CONFIGS;
-                          const itemRarity = RARITY_CONFIGS[rKey];
-                          return (
+                  (() => {
+                    const itemRarity = RARITY_CONFIGS[(item.rarity || "C") as keyof typeof RARITY_CONFIGS];
+                    return (
+                      <div className={`flex items-center gap-3 p-2.5 rounded-xl border-2 ${itemRarity.cardBorder} ${itemRarity.cardBg}`}>
+                        <div className="w-10 h-10 p-1 bg-black/60 rounded-xl border border-white/20 flex items-center justify-center shrink-0">
+                          <img
+                            src={`/items/${item.id}.png`}
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = "none";
+                            }}
+                            alt={item.name[lang]}
+                            className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                             <span className={`text-[8px] px-1.5 py-0.2 rounded font-mono font-black ${itemRarity.badgeBg} ${itemRarity.badgeTextColor}`}>
-                              RANK {rKey}
+                              RANK {item.rarity || "C"}
                             </span>
-                          );
-                        })()}
-                        <div className="font-bold text-xs text-purple-300">{item.name[lang]}</div>
+                            <div className={`font-bold text-xs ${itemRarity.textColor}`}>{item.name[lang]}</div>
+                          </div>
+                          <div className="text-[10px] text-gray-300 font-mono leading-tight mt-0.5 whitespace-pre-line">
+                            {item.description[lang]}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-gray-300 font-mono leading-tight mt-0.5 whitespace-pre-line">
-                        {item.description[lang]}
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()
                 ) : (
                   <div className="text-xs text-gray-400 italic font-mono text-center py-2 bg-gray-950/40 rounded-xl border border-gray-800">
                     {lang === "it" ? "Nessuno strumento equipaggiato." : "No item currently equipped."}

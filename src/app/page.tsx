@@ -1497,14 +1497,14 @@ export default function Home() {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                         {availableItemChoices.map((item) => {
                           const isConsumable = item.type === "consumable";
+                          const rKey = (item.rarity || "C") as keyof typeof RARITY_CONFIGS;
+                          const itemRarity = RARITY_CONFIGS[rKey];
+
                           return (
                             <div
                               key={item.id}
                               onClick={() => chooseItemFromNode(item)}
-                              className={`p-3 rounded-2xl border cursor-pointer transition-all hover:scale-105 flex flex-col justify-between items-center bg-black/40 ${isConsumable
-                                ? "border-emerald-500/50 hover:border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                                : "border-purple-500/50 hover:border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.2)]"
-                                }`}
+                              className={`p-3 rounded-2xl border-2 cursor-pointer transition-all hover:scale-105 flex flex-col justify-between items-center ${itemRarity.cardBorder} ${itemRarity.cardBg} ${itemRarity.cardGlow}`}
                             >
                               <div className="w-14 h-14 p-1.5 bg-black/60 rounded-2xl border border-white/10 flex items-center justify-center mb-2 shrink-0">
                                 <img
@@ -1524,15 +1524,9 @@ export default function Home() {
                                 />
                               </div>
                               <div className="flex items-center gap-1 mb-1.5 flex-wrap justify-center">
-                                {(() => {
-                                  const rKey = (item.rarity || "C") as keyof typeof RARITY_CONFIGS;
-                                  const itemRarity = RARITY_CONFIGS[rKey];
-                                  return (
-                                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-black ${itemRarity.badgeBg} ${itemRarity.badgeTextColor}`}>
-                                      RANK {rKey}
-                                    </span>
-                                  );
-                                })()}
+                                <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-black ${itemRarity.badgeBg} ${itemRarity.badgeTextColor}`}>
+                                  RANK {rKey}
+                                </span>
                                 <span
                                   className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-bold uppercase ${isConsumable
                                     ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
@@ -1544,14 +1538,11 @@ export default function Home() {
                                     : (lang === "it" ? "Assegnabile" : "Assignable")}
                                 </span>
                               </div>
-                              <h4 className="font-extrabold text-xs text-white mb-1 leading-tight">{item.name[lang]}</h4>
-                              <p className="text-[10px] text-gray-300 leading-snug whitespace-pre-line font-mono mb-2 font-semibold text-left">{item.description[lang]}</p>
+                              <h4 className={`font-extrabold text-xs mb-1 leading-tight text-center ${itemRarity.textColor}`}>{item.name[lang]}</h4>
+                              <p className="text-[10px] text-gray-300 leading-snug whitespace-pre-line font-mono mb-2 font-semibold text-left w-full">{item.description[lang]}</p>
                               <button
                                 type="button"
-                                className={`w-full py-1.5 rounded-xl font-bold font-mono text-[10px] uppercase tracking-wider transition-all border ${isConsumable
-                                  ? "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400"
-                                  : "bg-purple-600 hover:bg-purple-500 text-white border-purple-400"
-                                  }`}
+                                className={`w-full py-1.5 rounded-xl font-bold font-mono text-[10px] uppercase tracking-wider transition-all border shadow ${itemRarity.badgeBg} ${itemRarity.badgeTextColor} ${itemRarity.cardBorder}`}
                               >
                                 {lang === "it" ? "Raccogli" : "Collect"}
                               </button>
@@ -1908,12 +1899,13 @@ export default function Home() {
                     inventory.map((invItem) => {
                       const item = invItem.item;
                       const isConsumable = item.type === "consumable";
+                      const rKey = (item.rarity || "C") as keyof typeof RARITY_CONFIGS;
+                      const itemRarity = RARITY_CONFIGS[rKey];
 
                       return (
                         <div
                           key={item.id}
-                          className={`p-2 sm:p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2 bg-[#070b19] ${isConsumable ? "border-emerald-500/40" : "border-purple-500/40"
-                            }`}
+                          className={`p-2 sm:p-2.5 rounded-xl border-2 transition-all flex items-center justify-between gap-2 ${itemRarity.cardBorder} ${itemRarity.cardBg}`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <div className="w-9 h-9 p-1 bg-black/60 rounded-xl border border-white/10 shrink-0 flex items-center justify-center relative">

@@ -515,7 +515,7 @@ export const NINJA_MAP = new Map<string, Ninja>([
     {
       id: "kakashi_kid",
       characterId: "kakashi",
-      name: "Kakashi Hatake (Kid)",
+      name: "Kakashi Hatake",
       rank: "S",
       chakraNature: "Lightning",
       version: "kid",
