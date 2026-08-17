@@ -3,6 +3,7 @@ import { useBattleStore } from "@/store/useBattleStore";
 import { useGameStore } from "@/store/useGameStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { NinjaAvatar } from "@/components/game/NinjaAvatar";
+import { ChakraNatureBadge } from "@/components/game/ChakraNatureBadge";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import { TRANSLATIONS, translateNinjaName } from "@/data/translations";
 
@@ -29,7 +30,9 @@ export function BattleScreen() {
   const [coords, setCoords] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [imageError, setImageError] = useState(false);
   const [activeFighterId, setActiveFighterId] = useState<string | null>(null);
+  const [activeFighterSide, setActiveFighterSide] = useState<"player" | "opp" | null>(null);
   const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
+  const [activeTargetSide, setActiveTargetSide] = useState<"player" | "opp" | null>(null);
 
   useEffect(() => {
     setImageError(false);
@@ -92,19 +95,21 @@ export function BattleScreen() {
 
       if (nextStep) {
         if (nextStep.attackerId && nextStep.elementSymbol) {
+          const attackerSide = nextStep.isPlayerAttacking ? "player" : "opp";
+          const targetSide = nextStep.isHealing 
+            ? (nextStep.isPlayerAttacking ? "player" : "opp")
+            : (nextStep.isPlayerAttacking ? "opp" : "player");
+
           setAnimatingSymbol({
             symbol: nextStep.elementSymbol,
             direction: nextStep.isPlayerAttacking ? "left-to-right" : "right-to-left"
           });
           setActiveFighterId(nextStep.attackerId);
+          setActiveFighterSide(attackerSide);
           setActiveTargetId(nextStep.targetId);
+          setActiveTargetSide(targetSide);
 
           setTimeout(() => {
-            const attackerSide = nextStep.isPlayerAttacking ? "player" : "opponent";
-            const targetSide = nextStep.isHealing 
-              ? (nextStep.isPlayerAttacking ? "player" : "opponent")
-              : (nextStep.isPlayerAttacking ? "opponent" : "player");
-
             const attackerEl = document.getElementById(`battle-${attackerSide}-${nextStep.attackerId}`);
             const targetEl = document.getElementById(`battle-${targetSide}-${nextStep.targetId}`);
 
@@ -123,7 +128,9 @@ export function BattleScreen() {
           setTimeout(() => {
             setAnimatingSymbol(null);
             setActiveFighterId(null);
+            setActiveFighterSide(null);
             setActiveTargetId(null);
+            setActiveTargetSide(null);
             setCoords(null);
           }, speed === "fast" ? 180 : 700);
         }
@@ -149,7 +156,9 @@ export function BattleScreen() {
     setCurrentStepIndex(stepsCount - 1);
     setAnimatingSymbol(null);
     setActiveFighterId(null);
+    setActiveFighterSide(null);
     setActiveTargetId(null);
+    setActiveTargetSide(null);
     setCoords(null);
   };
 
@@ -297,8 +306,8 @@ export function BattleScreen() {
                   const chakraPercent = Math.max(0, (ninja.currentChakra / ninja.baseStats.chakra) * 100);
                   const isDefeated = ninja.currentHp <= 0;
 
-                  const isAttacking = activeFighterId === ninja.id;
-                  const isBeingTargeted = activeTargetId === ninja.id;
+                  const isAttacking = activeFighterSide === "player" && activeFighterId === ninja.id;
+                  const isBeingTargeted = activeTargetSide === "player" && activeTargetId === ninja.id;
 
                   let stateGlowClass = "";
                   if (isAttacking) stateGlowClass = "pulse-glow-blue scale-[1.01]";
@@ -327,9 +336,12 @@ export function BattleScreen() {
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <div className="flex items-center justify-between gap-1 w-full">
                             <span className="font-bold text-gray-200 text-[10px] sm:text-xs truncate">{translatedName}</span>
-                            <span className="text-[9px] sm:text-[10px] text-[#ff9f1c] font-mono shrink-0 font-bold">
-                              Lv.{(ninja as any).level || 1}
-                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <ChakraNatureBadge nature={ninja.chakraNature} showText={false} />
+                              <span className="text-[9px] sm:text-[10px] text-[#ff9f1c] font-mono shrink-0 font-bold">
+                                Lv.{(ninja as any).level || 1}
+                              </span>
+                            </div>
                           </div>
                           <div className="text-[8px] sm:text-[10px] text-gray-400 font-mono font-bold leading-tight flex items-center justify-between">
                             <span>{ninja.currentHp}/{ninja.baseStats.hp}</span>
@@ -379,8 +391,8 @@ export function BattleScreen() {
                   const hpPercent = Math.max(0, (ninja.currentHp / ninja.baseStats.hp) * 100);
                   const isDefeated = ninja.currentHp <= 0;
 
-                  const isAttacking = activeFighterId === ninja.id;
-                  const isBeingTargeted = activeTargetId === ninja.id;
+                  const isAttacking = activeFighterSide === "opp" && activeFighterId === ninja.id;
+                  const isBeingTargeted = activeTargetSide === "opp" && activeTargetId === ninja.id;
 
                   let stateGlowClass = "";
                   if (isAttacking) stateGlowClass = "pulse-glow-red scale-[1.01]";
@@ -409,9 +421,12 @@ export function BattleScreen() {
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <div className="flex items-center justify-between gap-1 w-full">
                             <span className="font-bold text-gray-200 text-[10px] sm:text-xs truncate">{translatedName}</span>
-                            <span className="text-[9px] sm:text-[10px] text-[#ff9f1c] font-mono shrink-0 font-bold">
-                              Lv.{(ninja as any).level || 1}
-                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <ChakraNatureBadge nature={ninja.chakraNature} showText={false} />
+                              <span className="text-[9px] sm:text-[10px] text-[#ff9f1c] font-mono shrink-0 font-bold">
+                                Lv.{(ninja as any).level || 1}
+                              </span>
+                            </div>
                           </div>
                           <div className="text-[8px] sm:text-[10px] text-gray-400 font-mono font-bold leading-tight">
                             {ninja.currentHp}/{ninja.baseStats.hp}

@@ -13,14 +13,14 @@ export const ChakraNatureBadge: React.FC<ChakraNatureBadgeProps> = ({
   nature,
   showText = true,
   className = "",
-  imgClassName = "w-3.5 h-3.5 object-contain shrink-0",
+  imgClassName = "w-5 h-5 object-contain shrink-0",
 }) => {
   const config = CHAKRA_NATURE_CONFIGS[nature] || CHAKRA_NATURE_CONFIGS.Taijutsu;
   const [imgError, setImgError] = useState(false);
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border shadow-sm ${config.badgeBg} ${config.badgeBorder} ${config.badgeTextColor} ${className}`}
+      className={`inline-flex items-center gap-1.5 ${className}`}
       title={`${config.japaneseName} - ${config.effectName.it}: ${config.effectDescription.it}`}
     >
       {!imgError && config.image ? (
@@ -33,9 +33,13 @@ export const ChakraNatureBadge: React.FC<ChakraNatureBadgeProps> = ({
           className={imgClassName}
         />
       ) : (
-        <span>{config.icon}</span>
+        <span className="text-sm">{config.icon}</span>
       )}
-      {showText && <span>{config.japaneseName}</span>}
+      {showText && (
+        <span className="font-mono text-white text-xs font-extrabold tracking-wide">
+          {config.japaneseName}
+        </span>
+      )}
     </span>
   );
 };

@@ -157,35 +157,45 @@ export const ChakraChartModal: React.FC<ChakraChartModalProps> = ({ onClose }) =
                   return (
                     <div
                       key={nat}
-                      className="bg-[#070b19] border border-gray-800 hover:border-[#ff9f1c]/40 rounded-xl p-3 flex flex-col justify-between shadow-md transition-colors"
+                      className="bg-[#070b19]/90 border border-gray-800 hover:border-amber-500/50 rounded-2xl p-3.5 flex flex-col justify-between shadow-md transition-all space-y-2.5"
                     >
-                      <div className="flex items-center justify-between border-b border-gray-850 pb-2 mb-2">
+                      {/* HEADER: ELEMENT BADGE & 1.5x DAMAGE CHIP */}
+                      <div className="flex items-center justify-between border-b border-gray-800 pb-2">
                         <div className="flex items-center gap-2">
-                          <ChakraNatureBadge nature={nat} />
-                          <span className="text-xs font-mono text-gray-400">({cfg.japaneseName})</span>
+                          <ChakraNatureBadge
+                            nature={nat}
+                            imgClassName="w-6 h-6 object-contain shrink-0"
+                          />
+                          <span className="text-[11px] font-mono text-gray-400">({cfg.name[lang]})</span>
                         </div>
 
-                        <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded border border-amber-500/30">
-                          ⚡ 1.5x Danno
+                        <span className="text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-lg border border-amber-500/30 shrink-0">
+                          1.5x Danno
                         </span>
                       </div>
 
-                      <div className="space-y-1.5 text-xs">
-                        {/* Super Effective Against Targets */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-gray-400 text-[11px] font-semibold">
-                            {lang === "it" ? "Super Efficace su:" : "Super Effective vs:"}
-                          </span>
-                          {targets.map((tgt) => (
-                            <ChakraNatureBadge key={tgt} nature={tgt} />
-                          ))}
-                        </div>
+                      {/* MIDDLE: SUPER EFFECTIVE VS TARGETS */}
+                      <div className="flex items-center gap-2 flex-wrap text-xs">
+                        <span className="text-gray-400 text-[11px] font-bold font-mono">
+                          {lang === "it" ? "Super Efficace su:" : "Super Effective vs:"}
+                        </span>
+                        {targets.length > 0 ? (
+                          targets.map((tgt) => (
+                            <ChakraNatureBadge
+                              key={tgt}
+                              nature={tgt}
+                              imgClassName="w-5 h-5 object-contain shrink-0"
+                            />
+                          ))
+                        ) : (
+                          <span className="text-gray-500 text-[11px] italic font-mono">-</span>
+                        )}
+                      </div>
 
-                        {/* Effect description */}
-                        <div className="text-[11px] text-gray-300 bg-gray-950/60 p-2 rounded border border-white/5 mt-1">
-                          <span className="font-bold text-[#ff9f1c]">{cfg.effectName[lang]}:</span>{" "}
-                          <span className="text-gray-400">{cfg.effectDescription[lang]}</span>
-                        </div>
+                      {/* BOTTOM: SPECIAL EFFECT DESCRIPTION */}
+                      <div className="text-[11px] text-gray-300 bg-black/50 p-2.5 rounded-xl border border-white/5 font-mono leading-relaxed">
+                        <span className="font-extrabold text-amber-400">{cfg.effectName[lang]}:</span>{" "}
+                        <span className="text-gray-300">{cfg.effectDescription[lang]}</span>
                       </div>
                     </div>
                   );

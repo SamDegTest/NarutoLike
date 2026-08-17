@@ -13,6 +13,25 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ onClose }) => 
 
   const patchLogs = [
     {
+      version: "v1.3.0",
+      date: "17-08-2026",
+      notes: lang === "it" ? [
+        "Rarità e Bilanciamento Oggetti: Assegnati i Rank (S, A, B, C) a tutti gli oggetti consumabili ed equipaggiabili con stats da Game Changer e potenziamenti da 3 battaglie.",
+        "Progressione Nemici Scalabile: I nemici casuali della mappa scalano ora di Rank in base al capitolo (Rank S rari all'inizio, Rank C rari nella fase finale).",
+        "Negozio Ryo Migliorato: Aggiunta l'icona della Natura del Chakra per ogni ninja acquistabile nel negozio.",
+        "UX Redesign & Grafica Pulita: Icone elementali del Chakra senza contorni o sfondi ovali, dimensioni ridimensionate nella Wiki Shinobi.",
+        "Gestione Zaino & Congedo Ninja: Gli strumenti assegnati ai ninja congedati tornano automaticamente nello zaino.",
+        "Scorciatoie da Tastiera: Aggiunto il pannello dedicato con la guida ai tasti rapidi (Spazio / Invio, C, M, Esc)."
+      ] : [
+        "Item Rarities & Rebalance: Assigned explicit Rarity Ranks (S, A, B, C) to all consumables and assignable gear with game-changing stats and 3-fight boost durations.",
+        "Scaling Enemy Progression: Random map opponents now scale in rank based on chapter progression (Rank S rare early on, Rank C rare in final levels).",
+        "Ryo Shop Enhancement: Added Chakra Nature icons to each ninja available in the Ryo shop.",
+        "UX Redesign & Clean Graphics: Chakra elemental icons cleaned without oval borders, resized crisp graphics in the Shinobi Wiki.",
+        "Backpack & Dismissal UX: Assigned items are automatically returned to inventory when dismissing a ninja.",
+        "Keyboard Shortcuts Panel: Added dedicated quick controls modal (Space / Enter, C, M, Esc)."
+      ]
+    },
+    {
       version: "v1.2.0",
       date: "06-08-2026",
       notes: lang === "it" ? [

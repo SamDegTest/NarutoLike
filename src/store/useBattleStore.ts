@@ -24,8 +24,13 @@ function executeElementalAttack(
 ): { damage: number; statusMsg: string } {
   const nature = attacker.chakraNature || "Taijutsu";
   const targetNature = target.chakraNature || "Taijutsu";
-  let targetDefense = target.baseStats.defense * defMult;
-  let attackerAttack = attacker.baseStats.attack * atkMult;
+
+  // Incorporate equipped item stats into attack and defense calculations
+  const attackerEquipAtk = attacker.equippedItem?.equipStats?.attack || 0;
+  const targetEquipDef = target.equippedItem?.equipStats?.defense || 0;
+
+  let attackerAttack = (attacker.baseStats.attack + attackerEquipAtk) * atkMult;
+  let targetDefense = (target.baseStats.defense + targetEquipDef) * defMult;
   let attackPower = basePower;
   let statusMsg = "";
 
@@ -197,20 +202,46 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       },
     ];
 
+    // Check active consumable item stat boosts (e.g. Unguento del Rospo Eremita +30% ATK, Talismano Difesa +40% DEF)
+    const activeConsumableEffects = useGameStore.getState().activeConsumableEffects;
+    let consumableAtkMult = 1;
+    let consumableDefMult = 1;
+
+    activeConsumableEffects.forEach((eff) => {
+      if (eff.item.teamBattleStatBoost) {
+        if (eff.item.teamBattleStatBoost.attackMultiplier) {
+          consumableAtkMult *= eff.item.teamBattleStatBoost.attackMultiplier;
+        }
+        if (eff.item.teamBattleStatBoost.defenseMultiplier) {
+          consumableDefMult *= eff.item.teamBattleStatBoost.defenseMultiplier;
+        }
+      }
+    });
+
+    const getFighterSpeed = (n: RunNinja) => {
+      let spd = n.baseStats.speed;
+      if (n.equippedItem?.equipStats?.speed) {
+        spd += n.equippedItem.equipStats.speed;
+      }
+      return spd;
+    };
+
     let round = 1;
     // Auto-battle loop
     while (pTeam.some((p) => p.currentHp > 0) && oppTeam.some((o) => o.currentHp > 0) && round <= 50) {
       logs.push(t.battleLogRound.replace("{round}", round.toString()));
 
-      const { atkMult, defMult, critAdd, healMult } = getSynergyStatMultipliers(pTeam);
+      const { atkMult: synAtkMult, defMult: synDefMult, critAdd, healMult } = getSynergyStatMultipliers(pTeam);
+      const atkMult = synAtkMult * consumableAtkMult;
+      const defMult = synDefMult * consumableDefMult;
 
-      // Combine and sort alive fighters by speed
+      // Combine and sort alive fighters by speed (considering equipped item speed bonuses)
       const fighters = [
         ...pTeam.map((p) => ({ ref: p, isPlayer: true })),
         ...oppTeam.map((o) => ({ ref: o, isPlayer: false })),
       ]
         .filter((f) => f.ref.currentHp > 0)
-        .sort((a, b) => b.ref.baseStats.speed - a.ref.baseStats.speed);
+        .sort((a, b) => getFighterSpeed(b.ref) - getFighterSpeed(a.ref));
 
       for (const fighter of fighters) {
         if (fighter.ref.currentHp <= 0) continue;
