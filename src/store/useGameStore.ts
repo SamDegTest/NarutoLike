@@ -9,6 +9,7 @@ import { TRANSLATIONS } from "@/data/translations";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuthStore } from "./useAuthStore";
 import { getUnlockedAchievements, getAchievementRewardCoins, Achievement } from "@/data/achievements";
+import { getNinjaEffectiveStats } from "@/utils/statUtils";
 
 interface GameState {
   playerRoster: Ninja[];
@@ -802,14 +803,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   applyHealingAtCampfire: () => {
-    const { runTeam, currentNodeId } = get();
+    const { runTeam, currentNodeId, activeConsumableEffects } = get();
     if (!currentNodeId) return;
 
     const updatedTeam = runTeam.map((ninja) => {
+      const effStats = getNinjaEffectiveStats(ninja, activeConsumableEffects, runTeam, "it");
       return {
         ...ninja,
-        currentHp: ninja.baseStats.hp,
-        currentChakra: ninja.baseStats.chakra,
+        currentHp: effStats.hpMax.total,
+        currentChakra: effStats.chakraMax.total,
       };
     });
 
@@ -882,34 +884,36 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   reviveAndContinueRun: (cost: number) => {
-    const { totalCoins, sessionCoins, runTeam } = get();
+    const { totalCoins, sessionCoins, runTeam, activeConsumableEffects } = get();
     const { user } = useAuthStore.getState();
     const currentCoins = user ? totalCoins : sessionCoins;
 
     if (currentCoins < cost) return false;
 
-    const newCoins = currentCoins - cost;
+    const newTotalCoins = Math.max(0, totalCoins - cost);
+    const newSessionCoins = Math.max(0, sessionCoins - cost);
 
-    // Heal all team members back to full HP & Chakra
-    const revivedTeam = runTeam.map((ninja) => ({
-      ...ninja,
-      currentHp: ninja.baseStats.hp,
-      currentChakra: ninja.baseStats.chakra,
-    }));
+    // Heal all team members back to 100% effective HP & Chakra
+    const revivedTeam = runTeam.map((ninja) => {
+      const effStats = getNinjaEffectiveStats(ninja, activeConsumableEffects, runTeam, "it");
+      return {
+        ...ninja,
+        currentHp: effStats.hpMax.total,
+        currentChakra: effStats.chakraMax.total,
+      };
+    });
 
-    if (user) {
-      set({ totalCoins: newCoins, runTeam: revivedTeam });
-      if (typeof window !== "undefined") {
-        localStorage.setItem("totalCoins", String(newCoins));
-      }
-    } else {
-      set({ sessionCoins: newCoins, runTeam: revivedTeam });
-      if (typeof window !== "undefined") {
-        localStorage.setItem("sessionCoins", String(newCoins));
-      }
+    set({
+      totalCoins: newTotalCoins,
+      sessionCoins: newSessionCoins,
+      runTeam: revivedTeam,
+    });
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("totalCoins", String(newTotalCoins));
+      localStorage.setItem("sessionCoins", String(newSessionCoins));
     }
 
-    get().resolveCurrentNode();
     get().saveToCloud();
     return true;
   },
@@ -921,18 +925,17 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     if (currentCoins < cost) return false;
 
-    const newCoins = currentCoins - cost;
+    const newTotalCoins = Math.max(0, totalCoins - cost);
+    const newSessionCoins = Math.max(0, sessionCoins - cost);
 
-    if (user) {
-      set({ totalCoins: newCoins });
-      if (typeof window !== "undefined") {
-        localStorage.setItem("totalCoins", String(newCoins));
-      }
-    } else {
-      set({ sessionCoins: newCoins });
-      if (typeof window !== "undefined") {
-        localStorage.setItem("sessionCoins", String(newCoins));
-      }
+    set({
+      totalCoins: newTotalCoins,
+      sessionCoins: newSessionCoins,
+    });
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("totalCoins", String(newTotalCoins));
+      localStorage.setItem("sessionCoins", String(newSessionCoins));
     }
 
     get().chooseRecruit(ninjaId, replaceNinjaId);
@@ -947,7 +950,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     if (currentCoins < recruitRerollCost) return false;
 
-    const newCoins = currentCoins - recruitRerollCost;
+    const newTotalCoins = Math.max(0, totalCoins - recruitRerollCost);
+    const newSessionCoins = Math.max(0, sessionCoins - recruitRerollCost);
     const teamCharIds = runTeam.map((n) => n.characterId);
     const isShippuden = activeSagaId === "shippuden_naruto";
 
@@ -968,16 +972,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newChoices = sampleNinjasByRarity(pool, 3);
     const nextCost = recruitRerollCost + 25;
 
-    if (user) {
-      set({ totalCoins: newCoins, availableRecruitChoices: newChoices, recruitRerollCost: nextCost });
-      if (typeof window !== "undefined") {
-        localStorage.setItem("totalCoins", String(newCoins));
-      }
-    } else {
-      set({ sessionCoins: newCoins, availableRecruitChoices: newChoices, recruitRerollCost: nextCost });
-      if (typeof window !== "undefined") {
-        localStorage.setItem("sessionCoins", String(newCoins));
-      }
+    set({
+      totalCoins: newTotalCoins,
+      sessionCoins: newSessionCoins,
+      availableRecruitChoices: newChoices,
+      recruitRerollCost: nextCost,
+    });
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("totalCoins", String(newTotalCoins));
+      localStorage.setItem("sessionCoins", String(newSessionCoins));
     }
 
     get().saveToCloud();
@@ -1013,18 +1017,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   useConsumableItem: (itemId: string, targetNinjaId?: string) => {
-    const { inventory, runTeam } = get();
+    const { inventory, runTeam, activeConsumableEffects } = get();
     const invIndex = inventory.findIndex((inv) => inv.item.id === itemId && inv.item.type === "consumable");
     if (invIndex < 0) return;
 
     const gameItem = inventory[invIndex].item;
     let updatedTeam = [...runTeam];
 
-    // Effect: Heal percent HP & Chakra
+    // Effect: Heal percent HP & Chakra based on total effective stats
     if (gameItem.healPercent !== undefined || gameItem.healChakraPercent !== undefined) {
       updatedTeam = updatedTeam.map((ninja) => {
-        const maxHp = ninja.baseStats.hp + (ninja.equippedItem?.equipStats?.hpMax || 0);
-        const maxChakra = ninja.baseStats.chakra + (ninja.equippedItem?.equipStats?.chakraMax || 0);
+        const effStats = getNinjaEffectiveStats(ninja, activeConsumableEffects, runTeam, "it");
+        const maxHp = effStats.hpMax.total;
+        const maxChakra = effStats.chakraMax.total;
 
         let newHp = ninja.currentHp;
         let newChakra = ninja.currentChakra;
@@ -1062,7 +1067,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
 
     // Register active battle boost effect if consumable grants temporary fight boosts
-    const { activeConsumableEffects } = get();
     let updatedActiveEffects = [...activeConsumableEffects];
 
     let durationFights = 0;
@@ -1118,7 +1122,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   equipItemToNinja: (itemId: string, targetNinjaId: string) => {
-    const { inventory, runTeam } = get();
+    const { inventory, runTeam, activeConsumableEffects } = get();
     const invIndex = inventory.findIndex((inv) => inv.item.id === itemId && inv.item.type === "assignable");
     if (invIndex < 0) return;
 
@@ -1126,22 +1130,42 @@ export const useGameStore = create<GameState>((set, get) => ({
     const ninjaIndex = runTeam.findIndex((n) => n.id === targetNinjaId);
     if (ninjaIndex < 0) return;
 
-    const updatedTeam = [...runTeam];
-    const targetNinja = updatedTeam[ninjaIndex];
+    const targetNinja = runTeam[ninjaIndex];
+    const oldEffStats = getNinjaEffectiveStats(targetNinja, activeConsumableEffects, runTeam, "it");
+    const oldMaxHp = oldEffStats.hpMax.total;
+    const wasFullHp = targetNinja.currentHp >= oldMaxHp;
 
-    // If ninja already had an item equipped, return old item back to inventory
+    const oldMaxChakra = oldEffStats.chakraMax.total;
+    const wasFullChakra = targetNinja.currentChakra >= oldMaxChakra;
+
     const updatedInventory = [...inventory];
     if (targetNinja.equippedItem) {
       updatedInventory.push({ item: targetNinja.equippedItem, quantity: 1 });
     }
 
-    // Remove newly equipped item from inventory
     updatedInventory.splice(invIndex, 1);
 
-    // Equip item on target ninja
-    updatedTeam[ninjaIndex] = {
+    const updatedTeam = [...runTeam];
+    const ninjaWithItem = {
       ...targetNinja,
       equippedItem: gameItem,
+    };
+    updatedTeam[ninjaIndex] = ninjaWithItem;
+
+    const newEffStats = getNinjaEffectiveStats(ninjaWithItem, activeConsumableEffects, updatedTeam, "it");
+    const newMaxHp = newEffStats.hpMax.total;
+    const hpBonus = Math.max(0, newMaxHp - oldMaxHp);
+
+    const newMaxChakra = newEffStats.chakraMax.total;
+    const chakraBonus = Math.max(0, newMaxChakra - oldMaxChakra);
+
+    const newHp = wasFullHp ? newMaxHp : Math.min(newMaxHp, targetNinja.currentHp + hpBonus);
+    const newChakra = wasFullChakra ? newMaxChakra : Math.min(newMaxChakra, targetNinja.currentChakra + chakraBonus);
+
+    updatedTeam[ninjaIndex] = {
+      ...ninjaWithItem,
+      currentHp: newHp,
+      currentChakra: newChakra,
     };
 
     set({
@@ -1153,7 +1177,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   unequipItemFromNinja: (targetNinjaId: string) => {
-    const { inventory, runTeam } = get();
+    const { inventory, runTeam, activeConsumableEffects } = get();
     const ninjaIndex = runTeam.findIndex((n) => n.id === targetNinjaId);
     if (ninjaIndex < 0) return;
 
@@ -1162,9 +1186,23 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const equipped = targetNinja.equippedItem;
     const updatedTeam = [...runTeam];
-    updatedTeam[ninjaIndex] = {
+    const ninjaWithoutItem = {
       ...targetNinja,
       equippedItem: null,
+    };
+    updatedTeam[ninjaIndex] = ninjaWithoutItem;
+
+    const newEffStats = getNinjaEffectiveStats(ninjaWithoutItem, activeConsumableEffects, updatedTeam, "it");
+    const newMaxHp = newEffStats.hpMax.total;
+    const newHp = Math.min(newMaxHp, targetNinja.currentHp);
+
+    const newMaxChakra = newEffStats.chakraMax.total;
+    const newChakra = Math.min(newMaxChakra, targetNinja.currentChakra);
+
+    updatedTeam[ninjaIndex] = {
+      ...ninjaWithoutItem,
+      currentHp: newHp,
+      currentChakra: newChakra,
     };
 
     const updatedInventory = [...inventory, { item: equipped, quantity: 1 }];

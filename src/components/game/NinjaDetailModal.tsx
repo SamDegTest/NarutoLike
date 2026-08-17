@@ -397,13 +397,14 @@ export function NinjaDetailModal({ ninja, onClose, onUnequipItem }: Props) {
                 {lang === "it" ? "Sinergie Attive di Squadra" : "Active Squad Synergies"}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {activeSynergies.map((syn) => (
+                {activeSynergies.map((res) => (
                   <div
-                    key={syn.id}
-                    className={`text-[10px] px-2.5 py-1 rounded-xl border font-bold flex items-center gap-1.5 ${syn.colorClass} ${syn.borderClass}`}
-                    title={syn.description[lang]}
+                    key={res.synergy.id}
+                    className={`text-[10px] px-2.5 py-1 rounded-xl border font-bold flex items-center gap-1.5 ${res.synergy.colorClass} ${res.synergy.borderClass}`}
+                    title={res.tier.description[lang]}
                   >
-                    <span>{syn.name[lang]}</span>
+                    <span>{res.synergy.icon}</span>
+                    <span>{res.synergy.name[lang]} ({res.tier.levelName[lang]})</span>
                   </div>
                 ))}
               </div>
