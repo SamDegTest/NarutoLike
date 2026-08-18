@@ -150,7 +150,12 @@ function generateLevelMap(sagaId: string, level: number): MapNode[] {
       "hinata_shippuden", "sasuke_hebi", "tenten_shippuden", "choji_shippuden",
       "ino_shippuden", "kiba_shippuden", "shino_shippuden", "temari_shippuden",
       "kankuro_shippuden", "guy_shippuden", "minato_shippuden", "kurenai_shippuden",
-      "asuma_shippuden", "hiruzen_shippuden", "konohamaru_kid", "konan_shippuden"
+      "asuma_shippuden", "hiruzen_shippuden", "konohamaru_kid", "konan_shippuden",
+      "tobirama_shippuden", "hashirama_shippuden", "suigetsu_shippuden", "jugo_shippuden",
+      "karin_shippuden", "danzo_shippuden", "onoki_shippuden", "raikage4_shippuden",
+      "gengetsu_shippuden", "raikage3_shippuden", "chiyo_shippuden", "zetsu_shippuden",
+      "killer_bee_shippuden", "darui_shippuden", "mu_shippuden", "nagato_shippuden",
+      "yamato_shippuden"
     ];
 
     if (level === 1) {

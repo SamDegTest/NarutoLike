@@ -329,7 +329,439 @@ const IRUKA_JUTSUS = [
   "sealing_barrier_spear"
 ];
 
+const TOBIRAMA_JUTSUS = [
+  "water_bullet_tobirama",
+  "water_dragon_tobirama",
+  "flying_raijin_slash",
+  "water_severing_wave",
+  "edo_tensei_mutually_multiplying"
+];
+
+const HASHIRAMA_JUTSUS = [
+  "wood_expulsion",
+  "wood_dragon_hashirama",
+  "deep_forest_emergence",
+  "wood_human_technique",
+  "sage_art_shinsusenju"
+];
+
+const SUIGETSU_JUTSUS = [
+  "hydrification_technique",
+  "water_gun_suigetsu",
+  "executioner_blade_strike",
+  "torrent_water_demon",
+  "great_water_wave_monster"
+];
+
+const JUGO_JUTSUS = [
+  "sage_transformation_blast",
+  "piston_fist_jugo",
+  "cellular_cannons",
+  "rampage_piston_blast",
+  "full_transformation_annihilation"
+];
+
+const KARIN_JUTSUS = [
+  "minds_eye_kagura",
+  "heal_bite_karin",
+  "chakra_sensory_pulse",
+  "adamantine_chains_karin",
+  "sacred_healing_surge"
+];
+
+const DANZO_JUTSUS = [
+  "vacuum_slash_danzo",
+  "vacuum_wave_danzo",
+  "baku_summon_swallow",
+  "izanagi_danzo",
+  "reverse_four_symbols"
+];
+
+const ONOKI_JUTSUS = [
+  "rock_heavy_technique",
+  "weighted_rock_golem",
+  "particle_style_cube",
+  "particle_style_atomic_dismantling",
+  "particle_style_world_dismantling"
+];
+
+const RAIKAGE4_JUTSUS = [
+  "lightning_armor_dash",
+  "lariat_raikage4",
+  "guillotine_drop",
+  "liger_bomb_raikage",
+  "lightning_straight_blitz"
+];
+
+const GENGETSU_JUTSUS = [
+  "water_balloon_bullet",
+  "giant_clam_mirage",
+  "steaming_danger_tyranny",
+  "jokey_boy_blast",
+  "infinite_clashing_explosions"
+];
+
+const RAIKAGE3_JUTSUS = [
+  "black_lightning_panther",
+  "hell_stab_four_fingers",
+  "hell_stab_three_fingers",
+  "hell_stab_one_finger",
+  "indestructible_shield_strike"
+];
+
+const CHIYO_JUTSUS = [
+  "chakra_threads_chiyo",
+  "mother_and_father_puppets",
+  "three_jewels_suction_crush",
+  "ten_puppets_chikamatsu",
+  "secret_reanimation_transfer"
+];
+
+const ZETSU_JUTSUS = [
+  "mayfly_technique",
+  "spore_technique_zetsu",
+  "parasitic_clone_attack",
+  "wood_release_underground_roots",
+  "black_zetsu_subjugation"
+];
+
+const KILLER_BEE_JUTSUS = [
+  "super_vibrating_lightning_blade",
+  "seven_swords_dance",
+  "lariat_killer_bee",
+  "tailed_beast_twister_bee",
+  "eight_tails_tailed_beast_bomb"
+];
+
+const DARUI_JUTSUS = [
+  "water_wall_darui",
+  "black_panther_lightning",
+  "double_black_panther",
+  "storm_release_laser_circus",
+  "cleaver_sword_black_lightning"
+];
+
+const MU_JUTSUS = [
+  "dustless_bewildering_cover",
+  "fission_technique_mu",
+  "dust_release_beam_mu",
+  "dust_release_conical_disintegration",
+  "dust_release_absolute_annihilation"
+];
+
+const NAGATO_JUTSUS = [
+  "animal_path_summoning",
+  "asura_path_cannon",
+  "almighty_push_nagato",
+  "human_path_soul_absorption",
+  "chibaku_tensei_nagato"
+];
+
+const YAMATO_JUTSUS = [
+  "wood_pillar_strike",
+  "wood_locking_wall_yamato",
+  "great_forest_technique",
+  "wood_binding_strangle",
+  "hokage_six_year_old_style"
+];
+
 export const NINJA_MAP = new Map<string, Ninja>([
+  // ==========================================
+  // SENJU HOKAGES & KAGE (HASHIRAMA, TOBIRAMA, ONOKI, RAIKAGES, GENGETSU, MU)
+  // ==========================================
+  [
+    "tobirama_shippuden",
+    {
+      id: "tobirama_shippuden",
+      characterId: "tobirama",
+      name: "Tobirama Senju (Secondo Hokage)",
+      rank: "S",
+      chakraNature: "Water",
+      version: "shippuden",
+      clan: "Senju",
+      teamGroup: "Other",
+      baseStats: { hp: 210, chakra: 270, attack: 45, defense: 27, speed: 35 },
+      sprite: "/sprites/tobirama.png",
+      activeJutsuId: "water_dragon_tobirama",
+      jutsuList: TOBIRAMA_JUTSUS,
+    },
+  ],
+  [
+    "hashirama_shippuden",
+    {
+      id: "hashirama_shippuden",
+      characterId: "hashirama",
+      name: "Hashirama Senju (Primo Hokage)",
+      rank: "S",
+      chakraNature: "Earth",
+      version: "shippuden",
+      clan: "Senju",
+      teamGroup: "Other",
+      baseStats: { hp: 250, chakra: 290, attack: 48, defense: 33, speed: 30 },
+      sprite: "/sprites/hashirama.png",
+      activeJutsuId: "wood_dragon_hashirama",
+      jutsuList: HASHIRAMA_JUTSUS,
+    },
+  ],
+  [
+    "onoki_shippuden",
+    {
+      id: "onoki_shippuden",
+      characterId: "onoki",
+      name: "Onoki (Terzo Tsuchikage)",
+      rank: "S",
+      chakraNature: "Earth",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 170, chakra: 260, attack: 46, defense: 24, speed: 22 },
+      sprite: "/sprites/onoki.png",
+      activeJutsuId: "particle_style_cube",
+      jutsuList: ONOKI_JUTSUS,
+    },
+  ],
+  [
+    "raikage4_shippuden",
+    {
+      id: "raikage4_shippuden",
+      characterId: "raikage4",
+      name: "Ay (Quarto Raikage)",
+      rank: "S",
+      chakraNature: "Lightning",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 220, chakra: 240, attack: 47, defense: 30, speed: 38 },
+      sprite: "/sprites/4_raikage.png",
+      activeJutsuId: "lariat_raikage4",
+      jutsuList: RAIKAGE4_JUTSUS,
+    },
+  ],
+  [
+    "gengetsu_shippuden",
+    {
+      id: "gengetsu_shippuden",
+      characterId: "gengetsu",
+      name: "Gengetsu Hozuki (Secondo Mizukage)",
+      rank: "A",
+      chakraNature: "Water",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 180, chakra: 230, attack: 38, defense: 22, speed: 28 },
+      sprite: "/sprites/gengetsu.png",
+      activeJutsuId: "steaming_danger_tyranny",
+      jutsuList: GENGETSU_JUTSUS,
+    },
+  ],
+  [
+    "raikage3_shippuden",
+    {
+      id: "raikage3_shippuden",
+      characterId: "raikage3",
+      name: "A (Terzo Raikage)",
+      rank: "S",
+      chakraNature: "Lightning",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 245, chakra: 250, attack: 49, defense: 35, speed: 33 },
+      sprite: "/sprites/3_raikage.png",
+      activeJutsuId: "hell_stab_four_fingers",
+      jutsuList: RAIKAGE3_JUTSUS,
+    },
+  ],
+  [
+    "mu_shippuden",
+    {
+      id: "mu_shippuden",
+      characterId: "mu",
+      name: "Mu (Secondo Tsuchikage)",
+      rank: "A",
+      chakraNature: "Earth",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 175, chakra: 240, attack: 40, defense: 22, speed: 30 },
+      sprite: "/sprites/mu.png",
+      activeJutsuId: "dust_release_beam_mu",
+      jutsuList: MU_JUTSUS,
+    },
+  ],
+  [
+    "killer_bee_shippuden",
+    {
+      id: "killer_bee_shippuden",
+      characterId: "killer_bee",
+      name: "Killer Bee (Ottacoda)",
+      rank: "S",
+      chakraNature: "Lightning",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 230, chakra: 270, attack: 46, defense: 28, speed: 32 },
+      sprite: "/sprites/killer_bee.png",
+      activeJutsuId: "seven_swords_dance",
+      jutsuList: KILLER_BEE_JUTSUS,
+    },
+  ],
+  [
+    "nagato_shippuden",
+    {
+      id: "nagato_shippuden",
+      characterId: "nagato",
+      name: "Nagato Uzumaki (Edo Tensei)",
+      rank: "S",
+      chakraNature: "YinYang",
+      version: "shippuden",
+      clan: "Uzumaki",
+      teamGroup: "Akatsuki",
+      baseStats: { hp: 230, chakra: 295, attack: 49, defense: 29, speed: 28 },
+      sprite: "/sprites/nagato.png",
+      activeJutsuId: "asura_path_cannon",
+      jutsuList: NAGATO_JUTSUS,
+    },
+  ],
+  [
+    "danzo_shippuden",
+    {
+      id: "danzo_shippuden",
+      characterId: "danzo",
+      name: "Danzo Shimura",
+      rank: "A",
+      chakraNature: "Wind",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 175, chakra: 220, attack: 37, defense: 23, speed: 25 },
+      sprite: "/sprites/danzo.png",
+      activeJutsuId: "vacuum_wave_danzo",
+      jutsuList: DANZO_JUTSUS,
+    },
+  ],
+
+  // ==========================================
+  // TAKA / HEBI & OTHER SHIPPUDEN NINJAS (SUIGETSU, JUGO, KARIN, CHIYO, ZETSU, DARUI, YAMATO)
+  // ==========================================
+  [
+    "suigetsu_shippuden",
+    {
+      id: "suigetsu_shippuden",
+      characterId: "suigetsu",
+      name: "Suigetsu Hozuki",
+      rank: "B",
+      chakraNature: "Water",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 155, chakra: 160, attack: 28, defense: 22, speed: 21 },
+      sprite: "/sprites/suigetsu.png",
+      activeJutsuId: "water_gun_suigetsu",
+      jutsuList: SUIGETSU_JUTSUS,
+    },
+  ],
+  [
+    "jugo_shippuden",
+    {
+      id: "jugo_shippuden",
+      characterId: "jugo",
+      name: "Jugo (Cavaliere Berserk)",
+      rank: "B",
+      chakraNature: "Taijutsu",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 170, chakra: 150, attack: 32, defense: 20, speed: 19 },
+      sprite: "/sprites/jugo.png",
+      activeJutsuId: "piston_fist_jugo",
+      jutsuList: JUGO_JUTSUS,
+    },
+  ],
+  [
+    "karin_shippuden",
+    {
+      id: "karin_shippuden",
+      characterId: "karin",
+      name: "Karin Uzumaki",
+      rank: "C",
+      chakraNature: "YinYang",
+      version: "shippuden",
+      clan: "Uzumaki",
+      teamGroup: "Other",
+      baseStats: { hp: 125, chakra: 155, attack: 18, defense: 14, speed: 18 },
+      sprite: "/sprites/karin.png",
+      activeJutsuId: "heal_bite_karin",
+      jutsuList: KARIN_JUTSUS,
+    },
+  ],
+  [
+    "chiyo_shippuden",
+    {
+      id: "chiyo_shippuden",
+      characterId: "chiyo",
+      name: "Chiyo (Nonna Chiyo)",
+      rank: "B",
+      chakraNature: "YinYang",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 135, chakra: 165, attack: 24, defense: 16, speed: 19 },
+      sprite: "/sprites/chiyo.png",
+      activeJutsuId: "mother_and_father_puppets",
+      jutsuList: CHIYO_JUTSUS,
+    },
+  ],
+  [
+    "zetsu_shippuden",
+    {
+      id: "zetsu_shippuden",
+      characterId: "zetsu",
+      name: "Zetsu (Bianco & Nero)",
+      rank: "C",
+      chakraNature: "Earth",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Akatsuki",
+      baseStats: { hp: 130, chakra: 130, attack: 17, defense: 13, speed: 15 },
+      sprite: "/sprites/zetsu.png",
+      activeJutsuId: "spore_technique_zetsu",
+      jutsuList: ZETSU_JUTSUS,
+    },
+  ],
+  [
+    "darui_shippuden",
+    {
+      id: "darui_shippuden",
+      characterId: "darui",
+      name: "Darui",
+      rank: "C",
+      chakraNature: "Lightning",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 140, chakra: 150, attack: 22, defense: 16, speed: 21 },
+      sprite: "/sprites/darui.png",
+      activeJutsuId: "black_panther_lightning",
+      jutsuList: DARUI_JUTSUS,
+    },
+  ],
+  [
+    "yamato_shippuden",
+    {
+      id: "yamato_shippuden",
+      characterId: "yamato",
+      name: "Yamato (Tenzo)",
+      rank: "C",
+      chakraNature: "Earth",
+      version: "shippuden",
+      clan: "Other",
+      teamGroup: "Other",
+      baseStats: { hp: 145, chakra: 160, attack: 25, defense: 18, speed: 20 },
+      sprite: "/sprites/yamato.png",
+      activeJutsuId: "wood_locking_wall_yamato",
+      jutsuList: YAMATO_JUTSUS,
+    },
+  ],
   // ==========================================
   // NARUTO UZUMAKI
   // ==========================================

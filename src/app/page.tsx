@@ -142,6 +142,7 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] = useState<"map" | "team" | "items">("map");
   const [recruitTab, setRecruitTab] = useState<"random" | "shop">("random");
+  const [isSynergiesCollapsed, setIsSynergiesCollapsed] = useState(false);
 
   const { newlyUnlockedTrophy, dismissTrophyNotification } = useGameStore();
 
@@ -1019,106 +1020,123 @@ export default function Home() {
                 const activeSyns = getActiveSynergies(runTeam);
                 return (
                   <div className="bg-[#070b19]/90 border border-amber-500/40 p-2.5 rounded-2xl shrink-0 space-y-1.5 shadow-lg">
-                    <div className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-widest flex items-center justify-between border-b border-white/10 pb-1">
-                      <div className="flex items-center gap-1.5">
+                    <div className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-widest flex items-center justify-between border-b border-white/10 pb-1 select-none">
+                      <button
+                        onClick={() => setIsSynergiesCollapsed(!isSynergiesCollapsed)}
+                        className="flex items-center gap-1.5 hover:text-amber-200 transition-colors cursor-pointer text-left"
+                      >
+                        <span className="text-[10px] text-amber-400 font-bold">
+                          {isSynergiesCollapsed ? "▶" : "▼"}
+                        </span>
                         <span>✨</span>
                         <span>{lang === "it" ? "Sinergie Squadra" : "Team Synergies"}</span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setChakraModalTab("synergies");
-                          setShowChakraChartModal(true);
-                        }}
-                        className="text-[9px] text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
-                        title={lang === "it" ? "Apri Wiki Sinergie" : "Open Synergies Wiki"}
-                      >
-                        <span className="text-emerald-400 font-extrabold">+{activeSyns.length} {lang === "it" ? "Attive" : "Active"}</span>
-                        <span>📜</span>
                       </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setChakraModalTab("synergies");
+                            setShowChakraChartModal(true);
+                          }}
+                          className="text-[9px] text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                          title={lang === "it" ? "Apri Wiki Sinergie" : "Open Synergies Wiki"}
+                        >
+                          <span className="text-emerald-400 font-extrabold">+{activeSyns.length} {lang === "it" ? "Attive" : "Active"}</span>
+                          <span>📜</span>
+                        </button>
+                        <button
+                          onClick={() => setIsSynergiesCollapsed(!isSynergiesCollapsed)}
+                          className="text-[10px] text-amber-400/80 hover:text-amber-200 cursor-pointer p-0.5 rounded transition-colors"
+                          title={isSynergiesCollapsed ? (lang === "it" ? "Espandi Sinergie" : "Expand Synergies") : (lang === "it" ? "Comprimi Sinergie" : "Collapse Synergies")}
+                        >
+                          {isSynergiesCollapsed ? "▼" : "▲"}
+                        </button>
+                      </div>
                     </div>
 
-                    {activeSyns.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {activeSyns.map((res) => {
-                          const syn = res.synergy;
-                          return (
-                            <div
-                              key={syn.id}
-                              onClick={() => {
-                                setChakraModalTab("synergies");
-                                setShowChakraChartModal(true);
-                              }}
-                              className={`p-1.5 rounded-xl border text-[10px] flex flex-col gap-1 cursor-pointer transition-all hover:scale-[1.02] ${syn.colorClass} ${syn.borderClass}`}
-                              title={res.tier.description[lang]}
-                            >
-                              <div className="flex items-center justify-between font-bold">
-                                <span className="flex items-center gap-1">
-                                  <span className="w-4 h-4 flex items-center justify-center shrink-0">
-                                    {syn.image ? (
-                                      <img
-                                        src={syn.image}
-                                        alt={syn.name[lang]}
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLElement).style.display = "none";
-                                          const parent = e.currentTarget.parentElement;
-                                          if (parent && !parent.querySelector(".emoji-fallback")) {
-                                            const fallbackSpan = document.createElement("span");
-                                            fallbackSpan.className = "text-xs emoji-fallback";
-                                            fallbackSpan.innerText = syn.icon;
-                                            parent.appendChild(fallbackSpan);
-                                          }
-                                        }}
-                                        className="w-3.5 h-3.5 object-contain"
-                                      />
-                                    ) : (
-                                      <span className="text-xs">{syn.icon}</span>
-                                    )}
-                                  </span>
-                                  <span>{syn.name[lang]}</span>
-                                </span>
-                                <span className="text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded-full font-mono">
-                                  {res.tier.levelName[lang]} 🟢
-                                </span>
-                              </div>
-
-                              <div className="text-[8px] font-mono text-gray-300">
-                                {res.tier.description[lang]}
-                              </div>
-
-                              {/* WHO FORMS IT: MEMBERS PRESENT */}
-                              <div className="flex flex-wrap gap-1 text-[8px] font-mono text-gray-300 mt-0.5">
-                                {getSynergyDisplayMembers(syn, activeSagaId).map((mem) => {
-                                  const isPresent = runTeam.some(
-                                    (n) => n.characterId === mem.characterId || (syn.matchType === "faction" && n.teamGroup === syn.clanOrFactionKey) || (syn.matchType === "clan" && n.clan === syn.clanOrFactionKey)
-                                  );
-                                  return (
-                                    <span
-                                      key={mem.characterId}
-                                      className={`px-1 py-0.2 rounded border ${
-                                        isPresent
-                                          ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/50 font-bold"
-                                          : "bg-black/50 text-gray-500 border-gray-800"
-                                      }`}
-                                    >
-                                      {mem.name[lang].split(" ")[0]} {isPresent ? "✓" : "🔒"}
+                    {!isSynergiesCollapsed && (
+                      activeSyns.length > 0 ? (
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {activeSyns.map((res) => {
+                            const syn = res.synergy;
+                            return (
+                              <div
+                                key={syn.id}
+                                onClick={() => {
+                                  setChakraModalTab("synergies");
+                                  setShowChakraChartModal(true);
+                                }}
+                                className={`p-1.5 rounded-xl border text-[10px] flex flex-col gap-1 cursor-pointer transition-all hover:scale-[1.02] ${syn.colorClass} ${syn.borderClass}`}
+                                title={res.tier.description[lang]}
+                              >
+                                <div className="flex items-center justify-between font-bold">
+                                  <span className="flex items-center gap-1">
+                                    <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                                      {syn.image ? (
+                                        <img
+                                          src={syn.image}
+                                          alt={syn.name[lang]}
+                                          onError={(e) => {
+                                            (e.currentTarget as HTMLElement).style.display = "none";
+                                            const parent = e.currentTarget.parentElement;
+                                            if (parent && !parent.querySelector(".emoji-fallback")) {
+                                              const fallbackSpan = document.createElement("span");
+                                              fallbackSpan.className = "text-xs emoji-fallback";
+                                              fallbackSpan.innerText = syn.icon;
+                                              parent.appendChild(fallbackSpan);
+                                            }
+                                          }}
+                                          className="w-3.5 h-3.5 object-contain"
+                                        />
+                                      ) : (
+                                        <span className="text-xs">{syn.icon}</span>
+                                      )}
                                     </span>
-                                  );
-                                })}
+                                    <span>{syn.name[lang]}</span>
+                                  </span>
+                                  <span className="text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded-full font-mono">
+                                    {res.tier.levelName[lang]} 🟢
+                                  </span>
+                                </div>
+
+                                <div className="text-[8px] font-mono text-gray-300">
+                                  {res.tier.description[lang]}
+                                </div>
+
+                                {/* WHO FORMS IT: MEMBERS PRESENT */}
+                                <div className="flex flex-wrap gap-1 text-[8px] font-mono text-gray-300 mt-0.5">
+                                  {getSynergyDisplayMembers(syn, activeSagaId).map((mem) => {
+                                    const isPresent = runTeam.some(
+                                      (n) => n.characterId === mem.characterId || (syn.matchType === "faction" && n.teamGroup === syn.clanOrFactionKey) || (syn.matchType === "clan" && n.clan === syn.clanOrFactionKey)
+                                    );
+                                    return (
+                                      <span
+                                        key={mem.characterId}
+                                        className={`px-1 py-0.2 rounded border ${
+                                          isPresent
+                                            ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/50 font-bold"
+                                            : "bg-black/50 text-gray-500 border-gray-800"
+                                        }`}
+                                      >
+                                        {mem.name[lang].split(" ")[0]} {isPresent ? "✓" : "🔒"}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div
-                        onClick={() => {
-                          setChakraModalTab("synergies");
-                          setShowChakraChartModal(true);
-                        }}
-                        className="text-[9px] font-mono text-gray-400 italic text-center p-1.5 bg-black/40 rounded-xl border border-gray-800 cursor-pointer hover:border-amber-500/40 transition-colors"
-                      >
-                        {lang === "it" ? "Nessuna sinergia attiva. Clicca qui per la Guida Sinergie! 📜" : "No active synergies. Click here for the Synergies Guide! 📜"}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => {
+                            setChakraModalTab("synergies");
+                            setShowChakraChartModal(true);
+                          }}
+                          className="text-[9px] font-mono text-gray-400 italic text-center p-1.5 bg-black/40 rounded-xl border border-gray-800 cursor-pointer hover:border-amber-500/40 transition-colors"
+                        >
+                          {lang === "it" ? "Nessuna sinergia attiva. Clicca qui per la Guida Sinergie! 📜" : "No active synergies. Click here for the Synergies Guide! 📜"}
+                        </div>
+                      )
                     )}
                   </div>
                 );
