@@ -619,6 +619,84 @@ export const SYNERGIES: SynergyConfig[] = [
         statBonus: { atkMultiplier: 1.40, defMultiplier: 1.30, critChanceAdd: 0.20 }
       }
     ]
+  },
+
+  // ==========================================
+  // 16. TEAM TAKA / HEBI (SHIPPUDEN)
+  // ==========================================
+  {
+    id: "team_taka",
+    name: { it: "Team Taka / Hebi", en: "Team Taka / Hebi" },
+    icon: "🦅",
+    image: "/synergies/team7.png",
+    colorClass: "bg-purple-950/50 text-purple-300",
+    borderClass: "border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.3)]",
+    matchType: "characterIds",
+    members: [
+      { characterId: "sasuke", name: { it: "Sasuke Uchiha", en: "Sasuke Uchiha" }, sprite: "/sprites/sasuke_shippuden.png" },
+      { characterId: "suigetsu", name: { it: "Suigetsu Hozuki", en: "Suigetsu Hozuki" }, sprite: "/sprites/suigetsu.png" },
+      { characterId: "jugo", name: { it: "Jugo", en: "Jugo" }, sprite: "/sprites/jugo.png" },
+      { characterId: "karin", name: { it: "Karin Uzumaki", en: "Karin Uzumaki" }, sprite: "/sprites/karin.png" },
+    ],
+    tiers: [
+      {
+        requiredCount: 2,
+        levelName: { it: "Livello ARGENTO (2 Ninja)", en: "SILVER Level (2 Ninjas)" },
+        description: {
+          it: "2 Membri del Team Taka: +12% Attacco e +12% Velocità!",
+          en: "2 Team Taka Members: +12% Attack & +12% Speed!"
+        },
+        statBonus: { atkMultiplier: 1.12 }
+      },
+      {
+        requiredCount: 4,
+        levelName: { it: "Livello ORO (4 Ninja)", en: "GOLD Level (4 Ninjas)" },
+        description: {
+          it: "Team Taka Completo (Sasuke+Suigetsu+Jugo+Karin): +30% Attacco, +20% Velocità e +15% Critico!",
+          en: "Full Team Taka: +30% Attack, +20% Speed & +15% Crit!"
+        },
+        statBonus: { atkMultiplier: 1.30, critChanceAdd: 0.15 }
+      }
+    ]
+  },
+
+  // ==========================================
+  // 17. CLAN SENJU (VOLONTÀ DEL FUOCO)
+  // ==========================================
+  {
+    id: "clan_senju",
+    name: { it: "Clan Senju (Volontà del Fuoco)", en: "Senju Clan (Will of Fire)" },
+    icon: "🍃",
+    image: "/synergies/sannin.png",
+    colorClass: "bg-emerald-950/40 text-emerald-300",
+    borderClass: "border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]",
+    matchType: "clan",
+    clanOrFactionKey: "Senju",
+    members: [
+      { characterId: "hashirama", name: { it: "Hashirama Senju", en: "Hashirama Senju" }, sprite: "/sprites/hashirama.png" },
+      { characterId: "tobirama", name: { it: "Tobirama Senju", en: "Tobirama Senju" }, sprite: "/sprites/tobirama.png" },
+      { characterId: "tsunade", name: { it: "Tsunade Senju", en: "Tsunade Senju" }, sprite: "/sprites/tsunade_shippuden.png" },
+    ],
+    tiers: [
+      {
+        requiredCount: 2,
+        levelName: { it: "Livello ARGENTO (2 Ninja)", en: "SILVER Level (2 Ninjas)" },
+        description: {
+          it: "2 Ninja Senju: +15% HP Max e +15% Difesa!",
+          en: "2 Senju Ninjas: +15% Max HP & +15% Defense!"
+        },
+        statBonus: { hpMultiplier: 1.15, defMultiplier: 1.15 }
+      },
+      {
+        requiredCount: 3,
+        levelName: { it: "Livello ORO (3 Ninja)", en: "GOLD Level (3 Ninjas)" },
+        description: {
+          it: "3 Ninja Senju (Eredità degli Hokage): +30% HP Max, +25% Difesa e +20% Attacco!",
+          en: "3 Senju Ninjas (Hokage Legacy): +30% Max HP, +25% Defense & +20% Attack!"
+        },
+        statBonus: { hpMultiplier: 1.30, defMultiplier: 1.25, atkMultiplier: 1.20 }
+      }
+    ]
   }
 ];
 
@@ -653,6 +731,7 @@ export function getActiveSynergies(team: RunNinja[]): ActiveSynergyResult[] {
           n.clan === syn.clanOrFactionKey ||
           (syn.clanOrFactionKey === "Uchiha" && (n.characterId.includes("sasuke") || n.characterId.includes("itachi") || n.characterId.includes("madara") || n.characterId.includes("obito"))) ||
           (syn.clanOrFactionKey === "Uzumaki" && (n.characterId.includes("naruto") || n.characterId.includes("kushina") || n.characterId.includes("nagato") || n.characterId.includes("karin"))) ||
+          (syn.clanOrFactionKey === "Senju" && (n.characterId.includes("hashirama") || n.characterId.includes("tobirama") || n.characterId.includes("tsunade"))) ||
           (syn.clanOrFactionKey === "Hyuga" && (n.characterId.includes("neji") || n.characterId.includes("hinata")))
       ).length;
     } else if (syn.matchType === "faction" && syn.clanOrFactionKey) {
@@ -667,7 +746,9 @@ export function getActiveSynergies(team: RunNinja[]): ActiveSynergyResult[] {
               n.characterId.includes("deidara") ||
               n.characterId.includes("sasori") ||
               n.characterId.includes("hidan") ||
-              n.characterId.includes("kakuzu")))
+              n.characterId.includes("kakuzu") ||
+              n.characterId.includes("zetsu") ||
+              n.characterId.includes("nagato")))
       ).length;
     }
 

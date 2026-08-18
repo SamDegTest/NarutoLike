@@ -359,4 +359,157 @@ export const JUTSU_MAP = new Map<string, Jutsu>([
   ["shuriken_barrage", { id: "shuriken_barrage", name: "Lancio Precisione Shuriken", power: 65, chakraCost: 35, nature: "Taijutsu", sprite: "/sprites/jutsus/basic_healing.png", description: "Lancio multiplo preciso da accademia." }],
   ["will_of_fire_defense", { id: "will_of_fire_defense", name: "Protezione della Volontà del Fuoco", power: 85, chakraCost: 50, nature: "Taijutsu", sprite: "/sprites/jutsus/sand_shield.png", description: "Contrattacco e protezione della Volontà del Fuoco." }],
   ["sealing_barrier_spear", { id: "sealing_barrier_spear", name: "Barriera del Sigillo di Legno", power: 110, chakraCost: 70, nature: "Genjutsu", sprite: "/sprites/jutsus/sand_coffin.png", description: "Immobilizza e sigilla l'avversario con formule." }],
+
+  // ==========================================
+  // TOBIRAMA JUTSUS
+  // ==========================================
+  ["water_bullet_tobirama", { id: "water_bullet_tobirama", name: "Suiton: Proiettile d'Acqua", power: 40, chakraCost: 20, nature: "Suiton", sprite: "/sprites/jutsus/sand_burial.png", description: "Proiettile d'acqua ad alta pressione." }],
+  ["water_dragon_tobirama", { id: "water_dragon_tobirama", name: "Suiton: Drago Acquatico Supremo", power: 75, chakraCost: 45, nature: "Suiton", sprite: "/sprites/jutsus/sand_burial.png", description: "Potente drago d'acqua scagliato contro il nemico." }],
+  ["flying_raijin_slash", { id: "flying_raijin_slash", name: "Fendente del Raijin Volante", power: 110, chakraCost: 70, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Teletrasporto fulmineo seguito da un fendente letale." }],
+  ["water_severing_wave", { id: "water_severing_wave", name: "Suiton: Onda della Tranciatura", power: 145, chakraCost: 95, nature: "Suiton", sprite: "/sprites/jutsus/sand_burial.png", description: "Gettata d'acqua a pressione capace di tagliare tutto." }],
+  ["edo_tensei_mutually_multiplying", { id: "edo_tensei_mutually_multiplying", name: "Edo Tensei: Carte Esplosive", power: 180, chakraCost: 120, nature: "Katon", sprite: "/sprites/jutsus/fireball.png", description: "Esplosione continua inarrestabile a catena." }],
+
+  // ==========================================
+  // HASHIRAMA JUTSUS
+  // ==========================================
+  ["wood_expulsion", { id: "wood_expulsion", name: "Arte del Legno: Palizzata", power: 45, chakraCost: 25, nature: "Doton", sprite: "/sprites/jutsus/sand_coffin.png", description: "Spunta tronchi di legno appuntiti dal terreno." }],
+  ["wood_dragon_hashirama", { id: "wood_dragon_hashirama", name: "Arte del Legno: Drago di Legno", power: 80, chakraCost: 50, nature: "Doton", sprite: "/sprites/jutsus/sand_burial.png", description: "Drago di legno gigante che assorbe il chakra." }],
+  ["deep_forest_emergence", { id: "deep_forest_emergence", name: "Arte del Legno: Foresta Rigogliosa", power: 115, chakraCost: 75, nature: "Doton", sprite: "/sprites/jutsus/sand_desert.png", description: "Crea istantaneamente una vasta foresta d'attacco." }],
+  ["wood_human_technique", { id: "wood_human_technique", name: "Arte del Legno: Golem di Legno", power: 150, chakraCost: 100, nature: "Doton", sprite: "/sprites/jutsus/shukaku_shield.png", description: "Gigantesco colosso di legno combattente." }],
+  ["sage_art_shinsusenju", { id: "sage_art_shinsusenju", name: "Arte Eremitica: Statua 1000 Braccia", power: 190, chakraCost: 130, nature: "Doton", sprite: "/sprites/jutsus/sand_desert.png", description: "Mille pugni di legno devastanti della divinità." }],
+
+  // ==========================================
+  // SUIGETSU JUTSUS
+  // ==========================================
+  ["hydrification_technique", { id: "hydrification_technique", name: "Tecnica dell'Idratazione", power: 30, chakraCost: 15, nature: "Suiton", sprite: "/sprites/jutsus/sand_burial.png", description: "Trasforma il corpo in acqua per attacchi fluidi." }],
+  ["water_gun_suigetsu", { id: "water_gun_suigetsu", name: "Pistola d'Acqua", power: 55, chakraCost: 30, nature: "Suiton", sprite: "/sprites/jutsus/sand_burial.png", description: "Spara un proiettile d'acqua dalla punta del dito." }],
+  ["executioner_blade_strike", { id: "executioner_blade_strike", name: "Fendente della Tagliatesta", power: 85, chakraCost: 50, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Colpo pesante sferrato con la grande spada." }],
+  ["torrent_water_demon", { id: "torrent_water_demon", name: "Demone d'Acqua del Torrente", power: 115, chakraCost: 75, nature: "Suiton", sprite: "/sprites/jutsus/sand_burial.png", description: "Massa muscolare d'acqua gigante potenziata." }],
+  ["great_water_wave_monster", { id: "great_water_wave_monster", name: "Onda del Demone d'Acqua", power: 145, chakraCost: 95, nature: "Suiton", sprite: "/sprites/jutsus/sand_burial.png", description: "Gigantesca onda sferzante a forma di demone." }],
+
+  // ==========================================
+  // JUGO JUTSUS
+  // ==========================================
+  ["sage_transformation_blast", { id: "sage_transformation_blast", name: "Impulso di Trasformazione", power: 35, chakraCost: 15, nature: "Taijutsu", sprite: "/sprites/jutsus/basic_healing.png", description: "Prima mutazione del corpo da energia naturale." }],
+  ["piston_fist_jugo", { id: "piston_fist_jugo", name: "Pugno del Pistone", power: 60, chakraCost: 35, nature: "Taijutsu", sprite: "/sprites/jutsus/basic_healing.png", description: "Pugno propulso da jet di chakra dalle braccia." }],
+  ["cellular_cannons", { id: "cellular_cannons", name: "Cannoni Cellulari Maledetti", power: 90, chakraCost: 55, nature: "Taijutsu", sprite: "/sprites/jutsus/fireball.png", description: "Cannoni sulla schiena che sparano energia." }],
+  ["rampage_piston_blast", { id: "rampage_piston_blast", name: "Carica Berserk Devastante", power: 120, chakraCost: 80, nature: "Taijutsu", sprite: "/sprites/jutsus/basic_healing.png", description: "Furia cieca con colpi di pistone a ripetizione." }],
+  ["full_transformation_annihilation", { id: "full_transformation_annihilation", name: "Annientamento Totale Berserk", power: 150, chakraCost: 100, nature: "Taijutsu", sprite: "/sprites/jutsus/basic_healing.png", description: "Trasformazione completa del demone distruttore." }],
+
+  // ==========================================
+  // KARIN JUTSUS
+  // ==========================================
+  ["minds_eye_kagura", { id: "minds_eye_kagura", name: "Occhio della Mente di Kagura", power: 20, chakraCost: 10, nature: "Genjutsu", sprite: "/sprites/jutsus/basic_healing.png", description: "Percepisce ed analizza il chakra nemico." }],
+  ["heal_bite_karin", { id: "heal_bite_karin", name: "Morso Rigenerante", power: 40, chakraCost: 20, nature: "Iryo", sprite: "/sprites/jutsus/basic_healing.png", description: "Rilascia chakra curativo di classe medica." }],
+  ["chakra_sensory_pulse", { id: "chakra_sensory_pulse", name: "Impulso Sensoriale Uzumaki", power: 65, chakraCost: 35, nature: "Iryo", sprite: "/sprites/jutsus/basic_healing.png", description: "Onda di chakra che cura gli alleati e destabilizza i nemici." }],
+  ["adamantine_chains_karin", { id: "adamantine_chains_karin", name: "Catene di Chakra Uzumaki", power: 90, chakraCost: 55, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Evoca catene indissolubili dal corpo." }],
+  ["sacred_healing_surge", { id: "sacred_healing_surge", name: "Esplosione Vitalistica Uzumaki", power: 120, chakraCost: 75, nature: "Iryo", sprite: "/sprites/jutsus/basic_healing.png", description: "Rilascio supremo di vitalità e chakra curativo." }],
+
+  // ==========================================
+  // DANZO JUTSUS
+  // ==========================================
+  ["vacuum_slash_danzo", { id: "vacuum_slash_danzo", name: "Fuuton: Lama del Vuoto", power: 40, chakraCost: 20, nature: "Fuuton", sprite: "/sprites/jutsus/rasengan.png", description: "Lama di vento affilata come un rasoio." }],
+  ["vacuum_wave_danzo", { id: "vacuum_wave_danzo", name: "Fuuton: Onda del Vuoto", power: 75, chakraCost: 45, nature: "Fuuton", sprite: "/sprites/jutsus/rasenshuriken.png", description: "Raffica di lame d'aria falcianti." }],
+  ["baku_summon_swallow", { id: "baku_summon_swallow", name: "Evocazione: Baku Risucchiatore", power: 105, chakraCost: 65, nature: "Fuuton", sprite: "/sprites/jutsus/sand_burial.png", description: "La Bestia Baku crea un vuoto che risucchia il nemico." }],
+  ["izanagi_danzo", { id: "izanagi_danzo", name: "Izanagi: Alterazione della Realtà", power: 135, chakraCost: 90, nature: "Genjutsu", sprite: "/sprites/jutsus/kirin.png", description: "Annulla i danni subiti risegando il destino." }],
+  ["reverse_four_symbols", { id: "reverse_four_symbols", name: "Sigillo dei Quattro Simboli Inversi", power: 170, chakraCost: 115, nature: "Genjutsu", sprite: "/sprites/jutsus/kirin.png", description: "Sigillo finale di sacrificio che risucchia tutto." }],
+
+  // ==========================================
+  // ONOKI JUTSUS
+  // ==========================================
+  ["rock_heavy_technique", { id: "rock_heavy_technique", name: "Doton: Roccia Pesante", power: 45, chakraCost: 25, nature: "Doton", sprite: "/sprites/jutsus/sand_coffin.png", description: "Aumenta enormemente la gravità sul nemico." }],
+  ["weighted_rock_golem", { id: "weighted_rock_golem", name: "Golem di Roccia del Tsuchikage", power: 80, chakraCost: 50, nature: "Doton", sprite: "/sprites/jutsus/sand_shield.png", description: "Evoca un imponente golem di pietra." }],
+  ["particle_style_cube", { id: "particle_style_cube", name: "Arte della Polvere: Cubo", power: 120, chakraCost: 75, nature: "Doton", sprite: "/sprites/jutsus/kirin.png", description: "Rinchiude il nemico in un cubo di disintegrazione." }],
+  ["particle_style_atomic_dismantling", { id: "particle_style_atomic_dismantling", name: "Arte della Polvere: Distruzione Atomica", power: 155, chakraCost: 100, nature: "Doton", sprite: "/sprites/jutsus/kirin.png", description: "Riduce il bersaglio in molecole a livello atomico." }],
+  ["particle_style_world_dismantling", { id: "particle_style_world_dismantling", name: "Arte della Polvere: Distruzione Totale", power: 185, chakraCost: 125, nature: "Doton", sprite: "/sprites/jutsus/kirin.png", description: "Raggio di disintegrazione supremo del Tsuchikage." }],
+
+  // ==========================================
+  // 4° RAIKAGE JUTSUS
+  // ==========================================
+  ["lightning_armor_dash", { id: "lightning_armor_dash", name: "Armatura di Fulmine: Scatto", power: 45, chakraCost: 25, nature: "Raiton", sprite: "/sprites/jutsus/chidori.png", description: "Scatto alla velocità del fulmine infuso di Raiton." }],
+  ["lariat_raikage4", { id: "lariat_raikage4", name: "Lariat del Raikage", power: 80, chakraCost: 50, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Colpo al collo devastante ad altissima velocità." }],
+  ["guillotine_drop", { id: "guillotine_drop", name: "Calcio della Ghigliottina", power: 115, chakraCost: 75, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Calcio dall'alto a martello fulmineo." }],
+  ["liger_bomb_raikage", { id: "liger_bomb_raikage", name: "Liger Bomb Supremum", power: 150, chakraCost: 100, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Solleva e schianta il nemico al suolo sgretolando la terra." }],
+  ["lightning_straight_blitz", { id: "lightning_straight_blitz", name: "Fulmine Diretto Assoluto", power: 185, chakraCost: 125, nature: "Raiton", sprite: "/sprites/jutsus/kirin.png", description: "Carica a massima velocità che supera la barriera del suono." }],
+
+  // ==========================================
+  // GENGETSU JUTSUS
+  // ==========================================
+  ["water_balloon_bullet", { id: "water_balloon_bullet", name: "Proiettile di Bolla d'Acqua", power: 35, chakraCost: 18, nature: "Suiton", sprite: "/sprites/jutsus/sand_burial.png", description: "Colpo di bolla d'acqua pressurizzata." }],
+  ["giant_clam_mirage", { id: "giant_clam_mirage", name: "Illusione della Vongola Gigante", power: 70, chakraCost: 40, nature: "Genjutsu", sprite: "/sprites/jutsus/sand_shield.png", description: "Miraggio di vapore che rende inafferrabile l'utilizzatore." }],
+  ["steaming_danger_tyranny", { id: "steaming_danger_tyranny", name: "Tirannia del Vapore Esplosivo", power: 105, chakraCost: 65, nature: "Suiton", sprite: "/sprites/jutsus/fireball.png", description: "Clone d'olio ed acqua che crea esplosioni a catena." }],
+  ["jokey_boy_blast", { id: "jokey_boy_blast", name: "Jokey Boy: Esplosione di Vapore", power: 140, chakraCost: 90, nature: "Suiton", sprite: "/sprites/jutsus/fireball.png", description: "Esplosione continua causata dal surriscaldamento del clone." }],
+  ["infinite_clashing_explosions", { id: "infinite_clashing_explosions", name: "Catastrofe del Secondo Mizukage", power: 175, chakraCost: 115, nature: "Suiton", sprite: "/sprites/jutsus/fireball.png", description: "Tempesta continua di vapore ed esplosioni inarrestabili." }],
+
+  // ==========================================
+  // 3° RAIKAGE JUTSUS
+  // ==========================================
+  ["black_lightning_panther", { id: "black_lightning_panther", name: "Raiton: Pantera di Fulmine Nero", power: 45, chakraCost: 25, nature: "Raiton", sprite: "/sprites/jutsus/chidori.png", description: "Evoca una pantera di fulmine nero elettrificante." }],
+  ["hell_stab_four_fingers", { id: "hell_stab_four_fingers", name: "Hell Stab: 4 Dita", power: 85, chakraCost: 50, nature: "Raiton", sprite: "/sprites/jutsus/chidori.png", description: "Stoccata perforante con quattro dita cariche di Raiton." }],
+  ["hell_stab_three_fingers", { id: "hell_stab_three_fingers", name: "Hell Stab: 3 Dita", power: 120, chakraCost: 75, nature: "Raiton", sprite: "/sprites/jutsus/chidori.png", description: "Stoccata concentrata con tre dita ad alta pressione." }],
+  ["hell_stab_one_finger", { id: "hell_stab_one_finger", name: "Hell Stab: 1 Dito (Lancia Assoluta)", power: 160, chakraCost: 105, nature: "Raiton", sprite: "/sprites/jutsus/kirin.png", description: "Lancia di perforazione suprema capace di trafiggere qualsiasi scudo." }],
+  ["indestructible_shield_strike", { id: "indestructible_shield_strike", name: "Impatto dello Scudo Indistruttibile", power: 190, chakraCost: 130, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Carica del corpo d'acciaio impenetrabile del Terzo Raikage." }],
+
+  // ==========================================
+  // CHIYO JUTSUS
+  // ==========================================
+  ["chakra_threads_chiyo", { id: "chakra_threads_chiyo", name: "Fili di Chakra", power: 30, chakraCost: 15, nature: "Taijutsu", sprite: "/sprites/jutsus/basic_healing.png", description: "Fili trasparenti di chakra per manipolare alleati ed attacchi." }],
+  ["mother_and_father_puppets", { id: "mother_and_father_puppets", name: "Burattini Padre e Madre", power: 55, chakraCost: 30, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Assalto combinato dei due burattini storici." }],
+  ["three_jewels_suction_crush", { id: "three_jewels_suction_crush", name: "Aspirazione delle Tre Gemme", power: 85, chakraCost: 50, nature: "Taijutsu", sprite: "/sprites/jutsus/sand_burial.png", description: "Crea un vortice di risucchio d'aria distruttivo." }],
+  ["ten_puppets_chikamatsu", { id: "ten_puppets_chikamatsu", name: "Collezione di Chikamatsu (10 Burattini)", power: 120, chakraCost: 75, nature: "Taijutsu", sprite: "/sprites/jutsus/sand_desert.png", description: "Armata di dieci burattini bianchi coordinati." }],
+  ["secret_reanimation_transfer", { id: "secret_reanimation_transfer", name: "Trasferimento di Reincarnazione", power: 150, chakraCost: 95, nature: "Iryo", sprite: "/sprites/jutsus/basic_healing.png", description: "Rilascia l'intera forza vitale per curare e potenziare totalmente." }],
+
+  // ==========================================
+  // ZETSU JUTSUS
+  // ==========================================
+  ["mayfly_technique", { id: "mayfly_technique", name: "Tecnica della Mosca di Maggio", power: 20, chakraCost: 10, nature: "Doton", sprite: "/sprites/jutsus/sand_coffin.png", description: "Si fonde col terreno muovendosi inosservato." }],
+  ["spore_technique_zetsu", { id: "spore_technique_zetsu", name: "Tecnica delle Spore Assorbenti", power: 40, chakraCost: 20, nature: "Doton", sprite: "/sprites/jutsus/basic_healing.png", description: "Spore che crescono sul nemico assorbendo chakra." }],
+  ["parasitic_clone_attack", { id: "parasitic_clone_attack", name: "Assalto dei Cloni Parassiti", power: 65, chakraCost: 35, nature: "Taijutsu", sprite: "/sprites/jutsus/shadow_clone.png", description: "Molteplici cloni di Zetsu Bianco che travolgono il bersaglio." }],
+  ["wood_release_underground_roots", { id: "wood_release_underground_roots", name: "Radici di Legno Parassite", power: 90, chakraCost: 55, nature: "Doton", sprite: "/sprites/jutsus/sand_coffin.png", description: "Radici di legno che spuntano per bloccare e colpire." }],
+  ["black_zetsu_subjugation", { id: "black_zetsu_subjugation", name: "Sottomissione dell'Ombra Nera", power: 120, chakraCost: 75, nature: "Genjutsu", sprite: "/sprites/jutsus/kirin.png", description: "Zetsu Nero avvolge il corpo nemico prendendone il controllo." }],
+
+  // ==========================================
+  // KILLER BEE JUTSUS
+  // ==========================================
+  ["super_vibrating_lightning_blade", { id: "super_vibrating_lightning_blade", name: "Lama Elettrica ad Alta Frequenza", power: 45, chakraCost: 25, nature: "Raiton", sprite: "/sprites/jutsus/chidori.png", description: "Spada vibrante di Raiton capace di perforare ogni cosa." }],
+  ["seven_swords_dance", { id: "seven_swords_dance", name: "Danza delle Sette Spade", power: 80, chakraCost: 50, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Stile acrobatico a sette spade imprevedibile." }],
+  ["lariat_killer_bee", { id: "lariat_killer_bee", name: "Lariat dell'Ottacoda", power: 115, chakraCost: 75, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Lariat infuso del manto del cercoterio Gyuki." }],
+  ["tailed_beast_twister_bee", { id: "tailed_beast_twister_bee", name: "Tornado del Cercoterio Gyuki", power: 150, chakraCost: 100, nature: "Taijutsu", sprite: "/sprites/jutsus/sand_desert.png", description: "Vortice gigantesco generato dai tentacoli del Polpo." }],
+  ["eight_tails_tailed_beast_bomb", { id: "eight_tails_tailed_beast_bomb", name: "Teriosfera dell'Ottacoda", power: 185, chakraCost: 125, nature: "Raiton", sprite: "/sprites/jutsus/kurama_beam.png", description: "Bomba di chakra supremo scagliata dal Polpo a Otto Code." }],
+
+  // ==========================================
+  // DARUI JUTSUS
+  // ==========================================
+  ["water_wall_darui", { id: "water_wall_darui", name: "Suiton: Muro d'Acqua", power: 25, chakraCost: 12, nature: "Suiton", sprite: "/sprites/jutsus/sand_shield.png", description: "Muro d'acqua protettivo ed impattante." }],
+  ["black_panther_lightning", { id: "black_panther_lightning", name: "Raiton: Pantera Nera", power: 45, chakraCost: 25, nature: "Raiton", sprite: "/sprites/jutsus/chidori.png", description: "Scarica di fulmine nero guidata." }],
+  ["double_black_panther", { id: "double_black_panther", name: "Doppia Pantera Nera", power: 70, chakraCost: 40, nature: "Raiton", sprite: "/sprites/jutsus/chidori.png", description: "Due pantere di fulmine nero che azzannano da due lati." }],
+  ["storm_release_laser_circus", { id: "storm_release_laser_circus", name: "Arte della Tempesta: Circo Laser", power: 95, chakraCost: 60, nature: "Raiton", sprite: "/sprites/jutsus/kirin.png", description: "Fasci di luce laser guidati che colpiscono a raffica." }],
+  ["cleaver_sword_black_lightning", { id: "cleaver_sword_black_lightning", name: "Fendente con Fulmine Nero", power: 125, chakraCost: 80, nature: "Taijutsu", sprite: "/sprites/jutsus/chidori.png", description: "Sciabolata letale caricata di fulmine nero." }],
+
+  // ==========================================
+  // MU JUTSUS
+  // ==========================================
+  ["dustless_bewildering_cover", { id: "dustless_bewildering_cover", name: "Mimetizzazione Perfetta", power: 35, chakraCost: 18, nature: "Doton", sprite: "/sprites/jutsus/sand_shield.png", description: "Diventa invisibile cancellando chakra e presenza." }],
+  ["fission_technique_mu", { id: "fission_technique_mu", name: "Tecnica della Fissione Corporea", power: 70, chakraCost: 40, nature: "Doton", sprite: "/sprites/jutsus/shadow_clone.png", description: "Si divide in due corpi indipendenti." }],
+  ["dust_release_beam_mu", { id: "dust_release_beam_mu", name: "Arte della Polvere: Raggio", power: 105, chakraCost: 65, nature: "Doton", sprite: "/sprites/jutsus/kirin.png", description: "Fascio conico di smaterializzazione atomica." }],
+  ["dust_release_conical_disintegration", { id: "dust_release_conical_disintegration", name: "Arte della Polvere: Cono Spaziale", power: 140, chakraCost: 90, nature: "Doton", sprite: "/sprites/jutsus/kirin.png", description: "Esplosione a cono che disintegrato la materia." }],
+  ["dust_release_absolute_annihilation", { id: "dust_release_absolute_annihilation", name: "Arte della Polvere: Annullamento Totale", power: 175, chakraCost: 115, nature: "Doton", sprite: "/sprites/jutsus/kirin.png", description: "Disintegrazione suprema del Secondo Tsuchikage." }],
+
+  // ==========================================
+  // NAGATO JUTSUS
+  // ==========================================
+  ["animal_path_summoning", { id: "animal_path_summoning", name: "Via degli Animali: Evocazioni", power: 45, chakraCost: 25, nature: "Genjutsu", sprite: "/sprites/jutsus/sand_burial.png", description: "Evoca rinoceronti e cani giganti immensamente forti." }],
+  ["asura_path_cannon", { id: "asura_path_cannon", name: "Via degli Asura: Cannone", power: 85, chakraCost: 50, nature: "Taijutsu", sprite: "/sprites/jutsus/fireball.png", description: "Raffica di proiettili e missili meccanici." }],
+  ["almighty_push_nagato", { id: "almighty_push_nagato", name: "Shinra Tensei di Nagato", power: 120, chakraCost: 75, nature: "Genjutsu", sprite: "/sprites/jutsus/kirin.png", description: "Onda di gravità repulsiva devastante." }],
+  ["human_path_soul_absorption", { id: "human_path_soul_absorption", name: "Via dell'Umano: Estrazione Anima", power: 155, chakraCost: 100, nature: "Genjutsu", sprite: "/sprites/jutsus/kirin.png", description: "Afferra il nemico ed estrae la sua energia vitale." }],
+  ["chibaku_tensei_nagato", { id: "chibaku_tensei_nagato", name: "Chibaku Tensei Assoluto", power: 190, chakraCost: 130, nature: "Genjutsu", sprite: "/sprites/jutsus/kirin.png", description: "Sfera di gravità che crea un vero e proprio satellite roccioso." }],
+
+  // ==========================================
+  // YAMATO JUTSUS
+  // ==========================================
+  ["wood_pillar_strike", { id: "wood_pillar_strike", name: "Arte del Legno: Pilastro", power: 25, chakraCost: 12, nature: "Doton", sprite: "/sprites/jutsus/sand_coffin.png", description: "Pilastro di legno che spunta dal terreno." }],
+  ["wood_locking_wall_yamato", { id: "wood_locking_wall_yamato", name: "Arte del Legno: Cupola Protettiva", power: 45, chakraCost: 25, nature: "Doton", sprite: "/sprites/jutsus/sand_shield.png", description: "Cupola di legno intrecciato che blocca ed impatta." }],
+  ["great_forest_technique", { id: "great_forest_technique", name: "Tecnica della Grande Foresta", power: 70, chakraCost: 40, nature: "Doton", sprite: "/sprites/jutsus/sand_desert.png", description: "Trasforma il braccio in rami intrecciati." }],
+  ["wood_binding_strangle", { id: "wood_binding_strangle", name: "Prigione di Legno Avvolgente", power: 95, chakraCost: 60, nature: "Doton", sprite: "/sprites/jutsus/sand_coffin.png", description: "Prigione di tronchi che avvolge e schiaccia." }],
+  ["hokage_six_year_old_style", { id: "hokage_six_year_old_style", name: "Stile Hokage: Soppressione Chakra", power: 125, chakraCost: 80, nature: "Doton", sprite: "/sprites/jutsus/sand_desert.png", description: "Raffica di palizzate con sigillo di soppressione." }],
 ]);

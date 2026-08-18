@@ -13,6 +13,21 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ onClose }) => 
 
   const patchLogs = [
     {
+      version: "v1.5.0",
+      date: "18-08-2026",
+      notes: lang === "it" ? [
+        "Espansione Roster Shippuden: Aggiunti 17 nuovi personaggi giocabili con sprite dedicati (Tobirama 2° Hokage, Hashirama 1° Hokage, Suigetsu, Jugo, Karin, Danzo, Onoki, 4° Raikage, Gengetsu, 3° Raikage, Chiyo, Zetsu, Killer Bee, Darui, Mu, Nagato, Yamato).",
+        "Introduzione Rank C in Shippuden: Aggiunti personaggi di Rank C per la saga Shippuden (Karin, Zetsu, Darui, Yamato) per un miglior bilanciamento di reclutamento e starter.",
+        "Nuove Sinergie di Squadra: Introdotte le sinergie 'Team Taka / Hebi' e 'Clan Senju (Volontà del Fuoco)', ed estesi i gruppi 'Clan Uzumaki' e 'Organizzazione Akatsuki'.",
+        "Mosse e Jutsu Personalizzati: Ogni nuovo personaggio include statistiche bilanciate, sprite unico e un set progressivo di 5 Mosse Ninja."
+      ] : [
+        "Shippuden Roster Expansion: Added 17 new playable ninjas with dedicated sprite graphics (Tobirama 2nd Hokage, Hashirama 1st Hokage, Suigetsu, Jugo, Karin, Danzo, Onoki, 4th Raikage, Gengetsu, 3rd Raikage, Chiyo, Zetsu, Killer Bee, Darui, Mu, Nagato, Yamato).",
+        "Rank C Shippuden Addition: Introduced Rank C ninjas for Shippuden saga (Karin, Zetsu, Darui, Yamato) for early run balancing and starter options.",
+        "New Team Synergies: Added 'Team Taka / Hebi' and 'Senju Clan (Will of Fire)' synergies, expanded 'Uzumaki Clan' and 'Akatsuki Organization'.",
+        "Custom Moves & 5 Jutsu Progression: Every new shinobi features custom stats, unique sprites, and a 5-tier jutsu progression list."
+      ]
+    },
+    {
       version: "v1.4.0",
       date: "17-08-2026",
       notes: lang === "it" ? [
