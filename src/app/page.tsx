@@ -455,8 +455,10 @@ export default function Home() {
 
       {/* TOAST MESSAGE OVERLAY */}
       {toastMessage && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-amber-900/90 border-2 border-amber-400 text-amber-100 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md font-medium text-xs sm:text-sm animate-bounce text-center max-w-md">
-          {toastMessage}
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none flex justify-center items-center max-w-md w-full px-4">
+          <div className="bg-amber-900/90 border-2 border-amber-400 text-amber-100 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md font-medium text-xs sm:text-sm animate-bounce text-center pointer-events-auto w-full">
+            {toastMessage}
+          </div>
         </div>
       )}
 
@@ -1844,7 +1846,7 @@ export default function Home() {
                                   <span>{(user ? totalCoins : sessionCoins).toLocaleString()} ryo</span>
                                 </div>
                               </div>
-                              <div className="max-h-[270px] overflow-y-auto mb-3 pr-1 space-y-3">
+                              <div className="max-h-[270px] overflow-y-auto mb-3 px-2 pt-4 pb-1 space-y-4">
                                 {(() => {
                                   const isShippuden = activeSagaId === "shippuden_naruto";
                                   const teamCharIds = runTeam.map((n) => n.characterId);
@@ -1871,7 +1873,7 @@ export default function Home() {
                                     const rarity = RARITY_CONFIGS[rankKey];
 
                                     return (
-                                      <div key={rankKey} className="space-y-1.5">
+                                      <div key={rankKey} className="space-y-2">
                                         {/* RANK CATEGORY HEADER / SEPARATOR */}
                                         <div className="flex items-center gap-2 border-b border-gray-800 pb-1 pt-1">
                                           <span className={`text-xs px-2 py-0.5 rounded-md font-extrabold ${rarity.badgeBg} ${rarity.badgeTextColor}`}>
@@ -1884,7 +1886,7 @@ export default function Home() {
                                         </div>
 
                                         {/* NINJA CARDS GRID FOR THIS RANK */}
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-3 gap-2 pt-2">
                                           {rankNinjas.map((ninja) => {
                                             const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
                                             const canAfford = currentCoins >= price;
@@ -1909,10 +1911,15 @@ export default function Home() {
                                                     hasSynergy ? "ring-2 ring-amber-400 border-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.8)]" : ""
                                                   }`}
                                               >
-                                                {/* SYNERGY HIGHLIGHT BOUNCING BADGE */}
+                                                {/* SYNERGY HIGHLIGHT INTEGRATED TOP RIBBON BANNER */}
                                                 {hasSynergy && (
-                                                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#070b19] text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.9)] border border-yellow-200 z-30 whitespace-nowrap animate-bounce flex items-center gap-0.5">
-                                                    <span>{matches[0].label[lang]}</span>
+                                                  <div className="w-[calc(100%+16px)] -mt-2 -mx-2 mb-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#070b19] py-1 px-1 rounded-t-[10px] border-b border-yellow-200/80 shadow-md flex flex-col items-center justify-center leading-tight">
+                                                    <div className="text-[7.5px] font-black tracking-wider uppercase flex items-center gap-0.5 text-amber-950">
+                                                      <span>{matches[0].status === "activates" ? (lang === "it" ? "✨ ATTIVA SINERGIA" : "✨ ACTIVATES SYNERGY") : (lang === "it" ? "⬆️ POTENZIA SINERGIA" : "⬆️ UPGRADES SYNERGY")}</span>
+                                                    </div>
+                                                    <div className="text-[8.5px] sm:text-[9px] font-black leading-tight text-center px-0.5 break-words">
+                                                      {matches[0].synergy.name[lang]}
+                                                    </div>
                                                   </div>
                                                 )}
 
