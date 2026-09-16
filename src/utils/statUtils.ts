@@ -28,7 +28,8 @@ export function getNinjaEffectiveStats(
   ninja: RunNinja,
   activeConsumableEffects: { item: GameItem; remainingBattles: number }[] = [],
   team: RunNinja[] = [ninja],
-  lang: "it" | "en" = "it"
+  lang: "it" | "en" = "it",
+  sagaId?: string | null
 ): NinjaEffectiveStats {
   const item = ninja.equippedItem;
 
@@ -80,7 +81,7 @@ export function getNinjaEffectiveStats(
   });
 
   // 3. Team Synergies multipliers
-  const { atkMult: synAtkMult, defMult: synDefMult, hpMult: synHpMult } = getSynergyStatMultipliers(team);
+  const { atkMult: synAtkMult, defMult: synDefMult, hpMult: synHpMult } = getSynergyStatMultipliers(team, sagaId);
 
   // HP
   const hpBase = ninja.baseStats.hp;

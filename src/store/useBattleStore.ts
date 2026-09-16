@@ -7,6 +7,7 @@ import { TRANSLATIONS, JUTSU_TRANSLATIONS, translateNinjaName } from "@/data/tra
 import { CHAKRA_NATURE_CONFIGS, isSuperEffective } from "@/lib/chakraNatures";
 import { getSynergyStatMultipliers } from "@/lib/synergies";
 import { getNinjaEffectiveStats } from "@/utils/statUtils";
+import { getSurvivalWaveInfo, getSurvivalSupplyChoices } from "@/data/survivalWaves";
 
 const getNinjaElementSymbol = (nature?: string): string => {
   if (!nature) return "👊";
@@ -26,20 +27,44 @@ function executeElementalAttack(
   const nature = attacker.chakraNature || "Taijutsu";
   const targetNature = target.chakraNature || "Taijutsu";
 
+  const towerModifier = useGameStore.getState().activeTowerModifier;
+
+  // Genjutsu Fog: 15% dodge chance
+  if (towerModifier?.id === "genjutsu_fog" && Math.random() < 0.15) {
+    const lang = useLanguageStore.getState().language;
+    return {
+      damage: 0,
+      statusMsg: lang === "it" ? " 🌫️[SCHIVATO / GENJUTSU!]" : " 🌫️[DODGED / GENJUTSU!]",
+    };
+  }
+
   // Incorporate equipped item stats into attack and defense calculations
   const attackerEquipAtk = attacker.equippedItem?.equipStats?.attack || 0;
   const targetEquipDef = target.equippedItem?.equipStats?.defense || 0;
 
   let attackerAttack = (attacker.baseStats.attack + attackerEquipAtk) * atkMult;
   let targetDefense = (target.baseStats.defense + targetEquipDef) * defMult;
+
+  // Will of Fire: buff when HP < 35%
+  if (towerModifier?.id === "will_of_fire") {
+    if (attacker.currentHp / Math.max(1, attacker.baseStats.hp) < 0.35) {
+      attackerAttack = Math.floor(attackerAttack * 1.20);
+    }
+    if (target.currentHp / Math.max(1, target.baseStats.hp) < 0.35) {
+      targetDefense = Math.floor(targetDefense * 1.30);
+    }
+  }
+
   let attackPower = basePower;
   let statusMsg = "";
 
-  // 0. Super Effective Check (x1.5 damage multiplier)
+  // 0. Super Effective Check
   const isAdvantageous = isSuperEffective(nature, targetNature);
   if (isAdvantageous) {
     const lang = useLanguageStore.getState().language;
-    statusMsg += lang === "it" ? " 💥[SUPER EFFICACE! x1.5]" : " 💥[SUPER EFFECTIVE! x1.5]";
+    statusMsg += towerModifier?.id === "elemental_resonance"
+      ? (lang === "it" ? " 💥[RISONANZA ELEMENTALE! x2.2]" : " 💥[ELEMENTAL RESONANCE! x2.2]")
+      : (lang === "it" ? " 💥[SUPER EFFICACE! x1.65]" : " 💥[SUPER EFFECTIVE! x1.65]");
   }
 
   // 1. Wind (Fuuton 🌪️): Armor Pierce (ignores 30% target defense)
@@ -54,9 +79,10 @@ function executeElementalAttack(
   }
 
   // 3. Taijutsu (👊) or Sharingan Crit (25% + critAddChance)
+  const critMultiplier = towerModifier?.id === "blood_moon" ? 1.85 : 1.50;
   if ((nature === "Taijutsu" || critAddChance > 0) && Math.random() < (0.25 + critAddChance)) {
-    attackPower = Math.floor(attackPower * 1.50);
-    statusMsg += " 👊[CRITICO!]";
+    attackPower = Math.floor(attackPower * critMultiplier);
+    statusMsg += towerModifier?.id === "blood_moon" ? " 🌕[CRITICO CREMISI!]" : " 👊[CRITICO!]";
   }
 
   // Calculate damage
@@ -64,7 +90,8 @@ function executeElementalAttack(
 
   // Apply Super Effective multiplier
   if (isAdvantageous) {
-    damage = Math.max(8, Math.floor(damage * 1.50));
+    const superMult = towerModifier?.id === "elemental_resonance" ? 2.20 : 1.65;
+    damage = Math.max(8, Math.floor(damage * superMult));
   }
 
   // 4. Suiton (Acqua 💧): Chakra Drain (steals 15 Chakra)
@@ -168,10 +195,15 @@ function executeBattleSimulation(pTeam: RunNinja[], oppTeam: RunNinja[]) {
     }
   });
 
-  const getFighterSpeed = (n: RunNinja) => {
+  const towerModifier = useGameStore.getState().activeTowerModifier;
+
+  const getFighterSpeed = (n: RunNinja, isPlayer: boolean) => {
     let spd = n.baseStats.speed;
     if (n.equippedItem?.equipStats?.speed) {
       spd += n.equippedItem.equipStats.speed;
+    }
+    if (isPlayer && towerModifier?.id === "swift_wind") {
+      spd = Math.floor(spd * 1.20);
     }
     return spd;
   };
@@ -180,7 +212,8 @@ function executeBattleSimulation(pTeam: RunNinja[], oppTeam: RunNinja[]) {
   while (pTeam.some((p) => p.currentHp > 0) && oppTeam.some((o) => o.currentHp > 0) && round <= 50) {
     logs.push(t.battleLogRound.replace("{round}", round.toString()));
 
-    const { atkMult: synAtkMult, defMult: synDefMult, critAdd, healMult } = getSynergyStatMultipliers(pTeam);
+    const { atkMult: synAtkMult, defMult: synDefMult, critAdd, healMult: rawHealMult } = getSynergyStatMultipliers(pTeam);
+    const healMult = towerModifier?.id === "blood_moon" ? rawHealMult * 0.75 : rawHealMult;
     const atkMult = synAtkMult * consumableAtkMult;
     const defMult = synDefMult * consumableDefMult;
 
@@ -189,7 +222,7 @@ function executeBattleSimulation(pTeam: RunNinja[], oppTeam: RunNinja[]) {
       ...oppTeam.map((o) => ({ ref: o, isPlayer: false })),
     ]
       .filter((f) => f.ref.currentHp > 0)
-      .sort((a, b) => getFighterSpeed(b.ref) - getFighterSpeed(a.ref));
+      .sort((a, b) => getFighterSpeed(b.ref, b.isPlayer) - getFighterSpeed(a.ref, a.isPlayer));
 
     for (const fighter of fighters) {
       if (fighter.ref.currentHp <= 0) continue;
@@ -197,6 +230,12 @@ function executeBattleSimulation(pTeam: RunNinja[], oppTeam: RunNinja[]) {
       const allOpponentsDead = oppTeam.every((o) => o.currentHp <= 0);
       const allPlayersDead = pTeam.every((p) => p.currentHp <= 0);
       if (allOpponentsDead || allPlayersDead) break;
+
+      // Divine Tree Sap: passive recovery upon action
+      if (towerModifier?.id === "divine_tree_vitality" && fighter.isPlayer && fighter.ref.currentHp > 0) {
+        const regenHp = Math.max(2, Math.floor(fighter.ref.baseStats.hp * 0.05));
+        fighter.ref.currentHp = Math.min(fighter.ref.baseStats.hp, fighter.ref.currentHp + regenHp);
+      }
 
       const fighterName = translateNinjaName(fighter.ref.id, fighter.ref.name, lang);
 
@@ -545,10 +584,25 @@ export const useBattleStore = create<BattleState>((set, get) => ({
 
     const avgPlayerLevel = players.reduce((sum, n) => sum + n.level, 0) / players.length;
     const gameLevel = useGameStore.getState().currentLevel;
+    const activeSaga = useGameStore.getState().activeSagaId;
+    const isTower = activeSaga === "endless_tower";
+    const isSurvival = activeSaga === "survival_war";
     
-    let oppLevel = Math.max(5, Math.floor(avgPlayerLevel * (0.70 + (gameLevel * 0.08) + (stage * 0.05))));
+    let oppLevel = Math.max(5, Math.floor(avgPlayerLevel * (0.85 + (gameLevel * 0.10) + (stage * 0.06))));
     if (isBoss) {
-      oppLevel = Math.max(8, Math.floor(avgPlayerLevel * (1.15 + (gameLevel * 0.08))));
+      oppLevel = Math.max(8, Math.floor(avgPlayerLevel * (1.25 + (gameLevel * 0.10))));
+    }
+
+    if (isTower) {
+      oppLevel = Math.max(5, Math.floor(avgPlayerLevel * (0.85 + (gameLevel * 0.05) + (stage * 0.05)) + gameLevel * 0.4));
+      if (isBoss) {
+        oppLevel = Math.max(10, Math.floor(avgPlayerLevel * (1.20 + (gameLevel * 0.06)) + gameLevel * 0.8));
+      }
+    } else if (isSurvival) {
+      oppLevel = Math.max(5, Math.floor(avgPlayerLevel * 0.9 + gameLevel * 0.6));
+      if (isBoss) {
+        oppLevel = Math.max(10, Math.floor(avgPlayerLevel * 1.25 + gameLevel * 1.0));
+      }
     }
 
     const oppTeam: RunNinja[] = opponents.map((opp) => {
@@ -561,10 +615,22 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       stats.speed += diff * 1;
 
       if (isBoss) {
-        stats.hp = Math.floor(stats.hp * 1.20);
-        stats.attack = Math.floor(stats.attack * 1.12);
-        stats.defense = Math.floor(stats.defense * 1.10);
-        stats.speed = Math.floor(stats.speed * 1.05);
+        stats.hp = Math.floor(stats.hp * 1.45);
+        stats.attack = Math.floor(stats.attack * 1.25);
+        stats.defense = Math.floor(stats.defense * 1.20);
+        stats.speed = Math.floor(stats.speed * 1.10);
+      }
+
+      if (isTower && gameLevel > 5) {
+        const scale = 1 + Math.min(1.2, (gameLevel - 5) * 0.025);
+        stats.hp = Math.floor(stats.hp * scale);
+        stats.attack = Math.floor(stats.attack * scale);
+        stats.defense = Math.floor(stats.defense * scale);
+      } else if (isSurvival && gameLevel > 5) {
+        const scale = 1 + Math.min(1.5, (gameLevel - 5) * 0.035);
+        stats.hp = Math.floor(stats.hp * scale);
+        stats.attack = Math.floor(stats.attack * scale);
+        stats.defense = Math.floor(stats.defense * scale);
       }
 
       return {
@@ -575,6 +641,12 @@ export const useBattleStore = create<BattleState>((set, get) => ({
         currentChakra: stats.chakra,
       };
     });
+
+    const towerMod = useGameStore.getState().activeTowerModifier;
+    if (towerMod?.id === "chakra_surge") {
+      pTeam.forEach((p) => { p.currentChakra = Math.min(p.baseStats.chakra, p.currentChakra + 25); });
+      oppTeam.forEach((o) => { o.currentChakra = Math.min(o.baseStats.chakra, o.currentChakra + 25); });
+    }
 
     const res = executeBattleSimulation(pTeam, oppTeam);
 
@@ -623,12 +695,22 @@ export const useBattleStore = create<BattleState>((set, get) => ({
     // Sync updated player team stats back to the main game store
     useGameStore.getState().syncTeamStats(playerTeam);
 
+    // Track daily quests progress for battle victory
+    const currentTeamSnapshot = useGameStore.getState().runTeam;
+    useGameStore.getState().incrementDailyQuestProgress("win_battles", 1);
+    if (currentTeamSnapshot.some((n) => n.chakraNature === "Fire")) useGameStore.getState().incrementDailyQuestProgress("element_battle_fire", 1);
+    if (currentTeamSnapshot.some((n) => n.chakraNature === "Water")) useGameStore.getState().incrementDailyQuestProgress("element_battle_water", 1);
+    if (currentTeamSnapshot.some((n) => n.chakraNature === "Wind")) useGameStore.getState().incrementDailyQuestProgress("element_battle_wind", 1);
+    if (currentTeamSnapshot.some((n) => n.chakraNature === "Lightning")) useGameStore.getState().incrementDailyQuestProgress("element_battle_lightning", 1);
+    if (currentTeamSnapshot.some((n) => n.chakraNature === "Earth")) useGameStore.getState().incrementDailyQuestProgress("element_battle_earth", 1);
+
     // Apply level ups based on node type
     const activeNodeId = useGameStore.getState().currentNodeId;
     const activeMap = useGameStore.getState().activeMap;
     const currentNode = activeMap.find((n) => n.id === activeNodeId);
 
     if (currentNode?.type === "boss") {
+      useGameStore.getState().incrementDailyQuestProgress("defeat_boss", 1);
       useGameStore.getState().gainTeamLevels(5);
       // Award 300 points for defeating a boss
       useGameStore.setState((state) => ({ currentRunScore: state.currentRunScore + 300 }));
@@ -651,13 +733,64 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       }
       useGameStore.getState().decrementConsumableEffectsOnBattle();
       useGameStore.getState().resolveCurrentNode();
-      useGameStore.getState().advanceToNextLevel();
+
+      const isSurvival = useGameStore.getState().activeSagaId === "survival_war";
+      if (isSurvival) {
+        const wave = useGameStore.getState().currentLevel;
+        const waveInfo = getSurvivalWaveInfo(wave);
+        const newScore = useGameStore.getState().currentRunScore + waveInfo.rewardScore;
+        const newCoins = useGameStore.getState().totalCoins + waveInfo.rewardCoins;
+        const newSession = useGameStore.getState().sessionCoins + waveInfo.rewardCoins;
+        const newMaxWave = Math.max(useGameStore.getState().survivalMaxWave, wave);
+
+        useGameStore.setState({
+          currentRunScore: newScore,
+          totalCoins: newCoins,
+          sessionCoins: newSession,
+          survivalMaxWave: newMaxWave,
+          isSurvivalCampActive: true,
+          availableSurvivalSupplies: getSurvivalSupplyChoices(wave),
+        });
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("survivalMaxWave", String(newMaxWave));
+          localStorage.setItem("totalCoins", String(newCoins));
+        }
+        useGameStore.getState().saveToCloud();
+      } else {
+        useGameStore.getState().advanceToNextLevel();
+      }
     } else if (currentNode?.type === "battle") {
       useGameStore.getState().gainTeamLevels(2);
       // Award 100 points for winning a battle
       useGameStore.setState((state) => ({ currentRunScore: state.currentRunScore + 100 }));
       useGameStore.getState().decrementConsumableEffectsOnBattle();
       useGameStore.getState().resolveCurrentNode();
+
+      const isSurvival = useGameStore.getState().activeSagaId === "survival_war";
+      if (isSurvival) {
+        const wave = useGameStore.getState().currentLevel;
+        const waveInfo = getSurvivalWaveInfo(wave);
+        const newScore = useGameStore.getState().currentRunScore + waveInfo.rewardScore;
+        const newCoins = useGameStore.getState().totalCoins + waveInfo.rewardCoins;
+        const newSession = useGameStore.getState().sessionCoins + waveInfo.rewardCoins;
+        const newMaxWave = Math.max(useGameStore.getState().survivalMaxWave, wave);
+
+        useGameStore.setState({
+          currentRunScore: newScore,
+          totalCoins: newCoins,
+          sessionCoins: newSession,
+          survivalMaxWave: newMaxWave,
+          isSurvivalCampActive: true,
+          availableSurvivalSupplies: getSurvivalSupplyChoices(wave),
+        });
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("survivalMaxWave", String(newMaxWave));
+          localStorage.setItem("totalCoins", String(newCoins));
+        }
+        useGameStore.getState().saveToCloud();
+      }
     }
 
     useGameStore.setState({
@@ -682,3 +815,101 @@ export const useBattleStore = create<BattleState>((set, get) => ({
     });
   },
 }));
+
+export function simulateAndResolveBattle(
+  players: RunNinja[],
+  opponents: Ninja[],
+  isBoss: boolean,
+  currentLevel: number
+): { finalStatus: "victory" | "defeat"; pTeam: RunNinja[]; oppTeam: RunNinja[] } {
+  const lang = useLanguageStore.getState().language;
+  const activeConsumableEffects = useGameStore.getState().activeConsumableEffects;
+
+  const pTeam: RunNinja[] = players.map((p) => {
+    const effStats = getNinjaEffectiveStats(p, activeConsumableEffects, players, lang);
+    return {
+      ...p,
+      currentHp: p.currentHp > 0 ? p.currentHp : effStats.hpMax.total,
+      currentChakra: p.currentChakra > 0 ? p.currentChakra : effStats.chakraMax.total,
+    };
+  });
+
+  let avgPlayerLevel = 1;
+  if (pTeam.length > 0) {
+    avgPlayerLevel = Math.max(1, Math.floor(pTeam.reduce((acc, curr) => acc + curr.level, 0) / pTeam.length));
+  }
+
+  const activeSaga = useGameStore.getState().activeSagaId;
+  const isTower = activeSaga === "endless_tower";
+  const isSurvival = activeSaga === "survival_war";
+
+  let oppLevel = Math.max(1, Math.floor(avgPlayerLevel * 0.95 + (currentLevel * 0.15)));
+  if (isBoss) {
+    oppLevel = Math.max(8, Math.floor(avgPlayerLevel * (1.25 + (currentLevel * 0.10))));
+  }
+
+  if (isTower) {
+    oppLevel = Math.max(5, Math.floor(avgPlayerLevel * (0.85 + (currentLevel * 0.05)) + currentLevel * 0.4));
+    if (isBoss) {
+      oppLevel = Math.max(10, Math.floor(avgPlayerLevel * (1.20 + (currentLevel * 0.06)) + currentLevel * 0.8));
+    }
+  } else if (isSurvival) {
+    oppLevel = Math.max(5, Math.floor(avgPlayerLevel * 0.9 + currentLevel * 0.6));
+    if (isBoss) {
+      oppLevel = Math.max(10, Math.floor(avgPlayerLevel * 1.25 + currentLevel * 1.0));
+    }
+  }
+
+  const oppTeam: RunNinja[] = opponents.map((opp) => {
+    const diff = oppLevel - 5;
+    const stats = { ...opp.baseStats };
+    stats.hp += diff * 10;
+    stats.chakra += diff * 5;
+    stats.attack += diff * 2;
+    stats.defense += diff * 1;
+    stats.speed += diff * 1;
+
+    if (isBoss) {
+      stats.hp = Math.floor(stats.hp * 1.45);
+      stats.attack = Math.floor(stats.attack * 1.25);
+      stats.defense = Math.floor(stats.defense * 1.20);
+      stats.speed = Math.floor(stats.speed * 1.10);
+    }
+
+    if (isTower && currentLevel > 5) {
+      const scale = 1 + Math.min(1.2, (currentLevel - 5) * 0.025);
+      stats.hp = Math.floor(stats.hp * scale);
+      stats.attack = Math.floor(stats.attack * scale);
+      stats.defense = Math.floor(stats.defense * scale);
+    } else if (isSurvival && currentLevel > 5) {
+      const scale = 1 + Math.min(1.5, (currentLevel - 5) * 0.035);
+      stats.hp = Math.floor(stats.hp * scale);
+      stats.attack = Math.floor(stats.attack * scale);
+      stats.defense = Math.floor(stats.defense * scale);
+    }
+
+    return {
+      ...opp,
+      level: oppLevel,
+      baseStats: stats,
+      currentHp: stats.hp,
+      currentChakra: stats.chakra,
+    };
+  });
+
+  const towerMod = useGameStore.getState().activeTowerModifier;
+  if (towerMod?.id === "chakra_surge") {
+    pTeam.forEach((p) => { p.currentChakra = Math.min(p.baseStats.chakra, p.currentChakra + 25); });
+    oppTeam.forEach((o) => { o.currentChakra = Math.min(o.baseStats.chakra, o.currentChakra + 25); });
+  }
+
+  const res = executeBattleSimulation(pTeam, oppTeam);
+  const status: "victory" | "defeat" =
+    res.finalStatus || (res.pTeam.some((p) => p.currentHp > 0) ? "victory" : "defeat");
+
+  return {
+    finalStatus: status,
+    pTeam: res.pTeam,
+    oppTeam: res.oppTeam,
+  };
+}

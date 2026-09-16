@@ -12,16 +12,24 @@ interface LeaderboardEntry {
   total_runs: number;
   classic_runs: number;
   shippuden_runs: number;
+  tower_runs?: number;
   total_score?: number;
   classic_high_score?: number;
   shippuden_high_score?: number;
+  tower_high_score?: number;
+  tower_max_floor?: number;
+  survival_max_wave?: number;
+  survival_high_score?: number;
+  survival_runs?: number;
+  chaos_draft_high_score?: number;
+  chaos_draft_runs?: number;
 }
 
 interface LeaderboardModalProps {
   onClose: () => void;
 }
 
-type TabType = "total" | "classic" | "shippuden";
+type TabType = "total" | "classic" | "shippuden" | "survival" | "chaos" | "tower";
 
 export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) => {
   const { language: storeLang } = useLanguageStore();
@@ -48,7 +56,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
         // Fallback: Query profiles table directly if view has missing columns or needs schema refresh
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("id, username, avatar_url, selected_title, max_level_reached, total_runs, classic_runs, shippuden_runs, total_score, classic_high_score, shippuden_high_score")
+          .select("id, username, avatar_url, selected_title, max_level_reached, total_runs, classic_runs, shippuden_runs, tower_runs, survival_runs, chaos_draft_runs, total_score, classic_high_score, shippuden_high_score, tower_high_score, tower_max_floor, survival_max_wave, survival_high_score, chaos_draft_high_score")
           .order("total_score", { ascending: false })
           .limit(100);
 
@@ -76,11 +84,32 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
       const scoreB = b.classic_high_score || 0;
       if (scoreB !== scoreA) return scoreB - scoreA;
       return (b.classic_runs || 0) - (a.classic_runs || 0);
-    } else {
+    } else if (activeTab === "shippuden") {
       const scoreA = a.shippuden_high_score || 0;
       const scoreB = b.shippuden_high_score || 0;
       if (scoreB !== scoreA) return scoreB - scoreA;
       return (b.shippuden_runs || 0) - (a.shippuden_runs || 0);
+    } else if (activeTab === "survival") {
+      const waveA = a.survival_max_wave || 0;
+      const waveB = b.survival_max_wave || 0;
+      if (waveB !== waveA) return waveB - waveA;
+      const scoreA = a.survival_high_score || 0;
+      const scoreB = b.survival_high_score || 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return (b.survival_runs || 0) - (a.survival_runs || 0);
+    } else if (activeTab === "chaos") {
+      const scoreA = a.chaos_draft_high_score || 0;
+      const scoreB = b.chaos_draft_high_score || 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return (b.chaos_draft_runs || 0) - (a.chaos_draft_runs || 0);
+    } else {
+      const floorA = a.tower_max_floor || 0;
+      const floorB = b.tower_max_floor || 0;
+      if (floorB !== floorA) return floorB - floorA;
+      const scoreA = a.tower_high_score || 0;
+      const scoreB = b.tower_high_score || 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return (b.tower_runs || 0) - (a.tower_runs || 0);
     }
   });
 
@@ -102,70 +131,112 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
           ✕
         </button>
 
-        <header className="text-center border-b-2 border-gray-800 pb-3 mb-3 shrink-0">
-          <h2 className="text-xl sm:text-2xl font-extrabold text-amber-300 uppercase tracking-wider flex items-center justify-center gap-2">
-            <img
-              src="/leaderboard_header.png"
-              alt="Classifica"
-              className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 filter drop-shadow-[0_0_10px_rgba(255,159,28,0.8)]"
-            />
+        {/* Modal Header */}
+        <div className="flex items-center gap-3 border-b-2 border-gray-800 pb-3 mb-3 shrink-0">
+          <img
+            src="/leaderboard_header.png"
+            alt="Leaderboard"
+            className="w-10 h-10 object-contain filter drop-shadow-[0_0_8px_rgba(255,159,28,0.6)]"
+          />
+          <h2 className="text-xl sm:text-2xl font-black text-amber-400 font-mono tracking-wider">
             <span>{lang === "it" ? "CLASSIFICA GLOBALE SHINOBI" : "GLOBAL SHINOBI LEADERBOARD"}</span>
           </h2>
-          <p className="text-sm text-slate-300 font-medium mt-1">
-            {lang === "it"
-              ? "Guadagna punti vincendo scontri, sconfiggendo boss ed evaporando le saghe!"
-              : "Earn points by winning battles, beating bosses, and clearing sagas!"}
-          </p>
-        </header>
+        </div>
 
         {/* TABS NAVIGATION */}
-        <div className="flex gap-1.5 p-1 bg-[#070b19] rounded-xl border border-gray-800 mb-3 shrink-0">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-1 bg-[#070b19] rounded-xl border border-gray-800 mb-3 shrink-0">
           <button
+            type="button"
             onClick={() => setActiveTab("total")}
-            className={`flex-1 py-2 px-2 rounded-lg text-xs sm:text-sm font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            className={`py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-1 ${
               activeTab === "total"
-                ? "bg-amber-500 text-[#070b19] shadow-md"
+                ? "bg-amber-500 text-[#070b19] shadow-md font-black"
                 : "text-gray-400 hover:text-amber-300"
             }`}
           >
             <img
               src="/tab_total.png"
               alt="Totali"
-              className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.6)]"
+              className="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0 filter drop-shadow"
             />
-            <span>{lang === "it" ? "Punti Totali" : "Total Score"}</span>
+            <span className="truncate">{lang === "it" ? "Totali" : "Total"}</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab("classic")}
-            className={`flex-1 py-2 px-2 rounded-lg text-xs sm:text-sm font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            className={`py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-1 ${
               activeTab === "classic"
-                ? "bg-amber-500 text-[#070b19] shadow-md"
+                ? "bg-amber-500 text-[#070b19] shadow-md font-black"
                 : "text-gray-400 hover:text-amber-300"
             }`}
           >
             <img
               src="/tab_classic.png"
               alt="Classic"
-              className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.6)]"
+              className="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0 filter drop-shadow"
             />
-            <span>Classic High Score</span>
+            <span className="truncate">Classic</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab("shippuden")}
-            className={`flex-1 py-2 px-2 rounded-lg text-xs sm:text-sm font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            className={`py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-1 ${
               activeTab === "shippuden"
-                ? "bg-amber-500 text-[#070b19] shadow-md"
+                ? "bg-amber-500 text-[#070b19] shadow-md font-black"
                 : "text-gray-400 hover:text-amber-300"
             }`}
           >
             <img
               src="/tab_shippuden.png"
               alt="Shippuden"
-              className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.6)]"
+              className="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0 filter drop-shadow"
             />
-            <span>Shippuden High Score</span>
+            <span className="truncate">Shippuden</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("survival")}
+            className={`py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-1 ${
+              activeTab === "survival"
+                ? "bg-amber-500 text-[#070b19] shadow-md font-black"
+                : "text-amber-400 hover:text-amber-300"
+            }`}
+          >
+            <span>⚔️</span>
+            <span className="truncate">{lang === "it" ? "Guerra" : "War"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("chaos")}
+            className={`py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-1 ${
+              activeTab === "chaos"
+                ? "bg-purple-600 text-white shadow-md font-black shadow-purple-600/40"
+                : "text-purple-400 hover:text-purple-300"
+            }`}
+          >
+            <span>🌌</span>
+            <span className="truncate">{lang === "it" ? "Draft" : "Draft"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("tower")}
+            className={`py-1.5 px-1 rounded-lg text-[11px] sm:text-xs font-bold font-mono transition-all cursor-pointer flex items-center justify-center gap-1 ${
+              activeTab === "tower"
+                ? "bg-red-600 text-white shadow-md font-black shadow-red-600/40"
+                : "text-red-400 hover:text-red-300"
+            }`}
+          >
+            <img
+              src="/tab_tower.png"
+              alt="Torre"
+              className="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0 filter drop-shadow"
+            />
+            <span className="truncate">{lang === "it" ? "Torre" : "Tower"}</span>
           </button>
         </div>
 
@@ -212,9 +283,18 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
               } else if (activeTab === "classic") {
                 scoreToDisplay = entry.classic_high_score || 0;
                 scoreLabel = lang === "it" ? "Record Classic" : "Classic Best";
-              } else {
+              } else if (activeTab === "shippuden") {
                 scoreToDisplay = entry.shippuden_high_score || 0;
                 scoreLabel = lang === "it" ? "Record Shippuden" : "Shippuden Best";
+              } else if (activeTab === "survival") {
+                scoreToDisplay = entry.survival_high_score || 0;
+                scoreLabel = `${lang === "it" ? "Record Ondata" : "Top Wave"} ${entry.survival_max_wave || 0}`;
+              } else if (activeTab === "chaos") {
+                scoreToDisplay = entry.chaos_draft_high_score || 0;
+                scoreLabel = lang === "it" ? "Record Draft" : "Draft Best";
+              } else {
+                scoreToDisplay = entry.tower_high_score || 0;
+                scoreLabel = `${lang === "it" ? "Record Piano" : "Top Floor"} ${entry.tower_max_floor || 0}`;
               }
 
               return (
@@ -280,6 +360,36 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose }) =
                           <span className="flex items-center gap-1">
                             <span>Run Shippuden: <strong className="text-purple-300">{entry.shippuden_runs || 0}</strong></span>
                           </span>
+                        )}
+
+                        {activeTab === "survival" && (
+                          <>
+                            <span className="flex items-center gap-1">
+                              <span>{lang === "it" ? "Ondata Massima:" : "Top Wave:"} <strong className="text-amber-400 font-bold">{entry.survival_max_wave || 0}</strong></span>
+                            </span>
+                            <span className="text-gray-600">•</span>
+                            <span className="text-amber-300">
+                              {lang === "it" ? "Battaglie Guerra:" : "War Runs:"} <strong>{entry.survival_runs || 0}</strong>
+                            </span>
+                          </>
+                        )}
+
+                        {activeTab === "chaos" && (
+                          <span className="flex items-center gap-1">
+                            <span>{lang === "it" ? "Partite Draft:" : "Draft Runs:"} <strong className="text-purple-300">{entry.chaos_draft_runs || 0}</strong></span>
+                          </span>
+                        )}
+
+                        {activeTab === "tower" && (
+                          <>
+                            <span className="flex items-center gap-1">
+                              <span>{lang === "it" ? "Piano Massimo:" : "Top Floor:"} <strong className="text-red-400 font-bold">{entry.tower_max_floor || 0}</strong></span>
+                            </span>
+                            <span className="text-gray-600">•</span>
+                            <span className="text-red-300">
+                              {lang === "it" ? "Scalate:" : "Climbs:"} <strong>{entry.tower_runs || 0}</strong>
+                            </span>
+                          </>
                         )}
                       </div>
                     </div>

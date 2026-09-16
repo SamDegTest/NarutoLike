@@ -25,6 +25,10 @@ import { UserProfileModal } from "@/components/game/UserProfileModal";
 import { InviteFriendModal } from "@/components/game/InviteFriendModal";
 import { LeaderboardModal } from "@/components/game/LeaderboardModal";
 import { AchievementsModal } from "@/components/game/AchievementsModal";
+import { DailyQuestsModal } from "@/components/game/DailyQuestsModal";
+import { DailyQuestsHomepageWidget } from "@/components/game/DailyQuestsHomepageWidget";
+import { SurvivalCampModal } from "@/components/game/SurvivalCampModal";
+import { ChaosDraftModal } from "@/components/game/ChaosDraftModal";
 import { TrophyUnlockNotification } from "@/components/game/TrophyUnlockNotification";
 import { SealedSagaOverlay } from "@/components/game/SealedSagaOverlay";
 import { TutorialOverlay } from "@/components/game/TutorialOverlay";
@@ -35,6 +39,7 @@ import { getUnlockedAchievements, Achievement } from "@/data/achievements";
 import { preloadImagesBatch } from "@/lib/imagePreloader";
 import { GAME_ITEMS_CATALOG } from "@/data/items";
 import { getNinjaEffectiveStats } from "@/utils/statUtils";
+import { isKeyMatchingAction } from "@/lib/keybindings";
 
 export default function Home() {
   const {
@@ -74,11 +79,21 @@ export default function Home() {
     totalRunsCount,
     classicRunsCount,
     shippudenRunsCount,
+    towerRunsCount,
+    survivalRunsCount,
+    chaosDraftRunsCount,
+    towerMaxFloor,
+    towerHighScore,
+    survivalMaxWave,
+    survivalHighScore,
+    chaosDraftHighScore,
+    activeTowerModifier,
     totalScore,
     totalCoins,
     sessionCoins,
     abandonRun,
     buyAndRecruitNinja,
+    buyAndAddItemToInventory,
     recruitRerollCost,
     rerollRecruitChoices,
     inventory,
@@ -86,6 +101,7 @@ export default function Home() {
     activeConsumableEffects,
     chooseItemFromNode,
     useConsumableItem,
+    customKeybindings,
     equipItemToNinja,
     unequipItemFromNinja,
     completedSagaVictory,
@@ -93,14 +109,30 @@ export default function Home() {
     hasCompletedTutorial,
     startTutorial,
     resetTutorial,
+    autoResolvePendingBattleNode,
+    dailyQuestsData,
   } = useGameStore();
 
+  const [modeTab, setModeTab] = useState<"story" | "special">("story");
   const [showBackpackModal, setShowBackpackModal] = useState(false);
+  const [showDailyQuestsModal, setShowDailyQuestsModal] = useState(false);
   const [equipTargetItemId, setEquipTargetItemId] = useState<string | null>(null);
   const [selectedNinjaDetail, setSelectedNinjaDetail] = useState<RunNinja | Ninja | null>(null);
   const [draggedNinjaIndex, setDraggedNinjaIndex] = useState<number | null>(null);
   const [dragOverNinjaIndex, setDragOverNinjaIndex] = useState<number | null>(null);
   const [useTargetNinjaConsumableItem, setUseTargetNinjaConsumableItem] = useState<GameItem | null>(null);
+  const [itemNodeTab, setItemNodeTab] = useState<"choices" | "shop">("choices");
+
+  // Shop Search & Filters State
+  const [ninjaSearchQuery, setNinjaSearchQuery] = useState("");
+  const [ninjaRankFilter, setNinjaRankFilter] = useState<"ALL" | "S" | "A" | "B" | "C">("ALL");
+  const [ninjaNatureFilter, setNinjaNatureFilter] = useState<string>("ALL");
+  const [isNatureDropdownOpen, setIsNatureDropdownOpen] = useState(false);
+  const [ninjaOnlySynergy, setNinjaOnlySynergy] = useState(false);
+
+  const [itemSearchQuery, setItemSearchQuery] = useState("");
+  const [itemTypeFilter, setItemTypeFilter] = useState<"ALL" | "consumable" | "assignable">("ALL");
+  const [itemRankFilter, setItemRankFilter] = useState<"ALL" | "S" | "A" | "B" | "C">("ALL");
 
   const selectSaga = (sagaId: string | null) => {
     rawSelectSaga(sagaId);
@@ -141,10 +173,14 @@ export default function Home() {
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] = useState<"map" | "team" | "items">("map");
-  const [recruitTab, setRecruitTab] = useState<"random" | "shop">("random");
+  const [recruitTab, setRecruitTab] = useState<"random" | "shop" | "items">("random");
   const [isSynergiesCollapsed, setIsSynergiesCollapsed] = useState(false);
 
   const { newlyUnlockedTrophy, dismissTrophyNotification } = useGameStore();
+
+  const dailyQuestsList = dailyQuestsData?.quests || [];
+  const completedQuestsCount = dailyQuestsList.filter((q) => q.completed).length;
+  const unclaimedQuestsCount = dailyQuestsList.filter((q) => q.completed && !q.claimed).length;
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -172,6 +208,39 @@ export default function Home() {
       }
     }
   }, [initAuth]);
+
+  // Confirmation warning on page close/reload during an active run or saga selection
+  // Logged-in user: immediate cloud sync + notification that run will be resumed from cloud
+  // Guest user: notification that unsaved guest progress & coins will be lost
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const state = useGameStore.getState();
+      const hasActiveGame = state.isRunActive || state.activeSagaId !== null || (state.startingChoices && state.startingChoices.length > 0);
+      if (!hasActiveGame) return;
+
+      const currentUser = useAuthStore.getState().user;
+      const currentLang = useLanguageStore.getState().language || "it";
+      const trans = TRANSLATIONS[currentLang] || TRANSLATIONS.it;
+
+      // Force immediate synchronous state save
+      if (currentUser) {
+        state.saveToCloud();
+      } else {
+        state.saveGuestRunToLocalStorage();
+      }
+
+      const warningText = currentUser ? trans.beforeUnloadLoggedIn : trans.beforeUnloadGuest;
+
+      e.preventDefault();
+      e.returnValue = warningText;
+      return warningText;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   // Preload team & enemy sprites dynamically when run is active
   useEffect(() => {
@@ -209,6 +278,15 @@ export default function Home() {
   const [pendingRecruitId, setPendingRecruitId] = useState<string | null>(null);
   const [pendingRecruitPrice, setPendingRecruitPrice] = useState<number>(0);
 
+  // Auto-resolve any battle/boss node that was in progress when the game was closed/reloaded
+  useEffect(() => {
+    if (!mounted || !isRunActive || isBattleActive) return;
+    const current = activeMap.find((n) => n.id === currentNodeId);
+    if (current && (current.type === "battle" || current.type === "boss") && !current.resolved) {
+      autoResolvePendingBattleNode();
+    }
+  }, [mounted, isRunActive, isBattleActive, currentNodeId, activeMap, autoResolvePendingBattleNode]);
+
   const isTeamFull = playerTeam.length >= 2;
   const isShippudenUnlocked = mounted ? shippudenUnlocked : false;
 
@@ -218,13 +296,30 @@ export default function Home() {
   // Determine if a node can be selected by the player
   const isNodeSelectable = (node: MapNode) => {
     if (node.resolved) return false;
-    if (currentNodeId === null) {
+
+    // Check if player has any resolved nodes
+    const resolvedNodes = activeMap.filter((n) => n.resolved);
+    if (resolvedNodes.length === 0 && currentNodeId === null) {
       return node.stage === 0;
     }
-    const current = activeMap.find((n) => n.id === currentNodeId);
-    if (!current) return false;
-    if (!current.resolved) return false; // Must resolve current node first
-    return current.connections.includes(node.id);
+
+    if (currentNodeId) {
+      const current = activeMap.find((n) => n.id === currentNodeId);
+      if (current) {
+        if (!current.resolved) return false; // Must resolve current node first
+        return current.connections.includes(node.id);
+      }
+    }
+
+    // Fallback if currentNodeId is null or not found: find the node with highest stage among resolved nodes
+    if (resolvedNodes.length > 0) {
+      const lastResolved = [...resolvedNodes].sort((a, b) => b.stage - a.stage)[0];
+      if (lastResolved) {
+        return lastResolved.connections.includes(node.id);
+      }
+    }
+
+    return node.stage === 0;
   };
 
   interface ToastData {
@@ -241,13 +336,13 @@ export default function Home() {
     setTimeout(() => setToastData(null), 3000);
   };
 
-  // Keyboard shortcuts listener (Spacebar/Enter for endless map progression)
+  // Keyboard shortcuts listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) return;
 
-      if (e.code === "Space" || e.code === "Enter") {
+      if (isKeyMatchingAction(e.key, "fast_advance", customKeybindings)) {
         if (!isRunActive || isBattleActive) return;
 
         // 1. Handle Power-up Jutsu Scroll Overlay
@@ -301,12 +396,17 @@ export default function Home() {
         }
       }
 
-      if (e.key === "c" || e.key === "C") {
+      if (isKeyMatchingAction(e.key, "chakra_chart", customKeybindings)) {
         setShowChakraChartModal((prev) => !prev);
       }
 
-      if (e.key === "m" || e.key === "M") {
+      if (isKeyMatchingAction(e.key, "game_menu", customKeybindings)) {
         setIsMenuOpen((prev) => !prev);
+      }
+
+      if (isKeyMatchingAction(e.key, "close_windows", customKeybindings)) {
+        setShowChakraChartModal(false);
+        setIsMenuOpen(false);
       }
     };
 
@@ -326,6 +426,7 @@ export default function Home() {
     skipRecruit,
     applyHealingAtCampfire,
     selectNode,
+    customKeybindings,
   ]);
 
   // BFS to compute which nodes are reachable from the current state
@@ -339,8 +440,17 @@ export default function Home() {
     });
 
     let queue: string[] = [];
+    const resolvedNodes = activeMap.filter((n) => n.resolved);
+
     if (currentNodeId === null) {
-      activeMap.filter((n) => n.stage === 0).forEach((n) => queue.push(n.id));
+      if (resolvedNodes.length === 0) {
+        activeMap.filter((n) => n.stage === 0).forEach((n) => queue.push(n.id));
+      } else {
+        const lastResolved = [...resolvedNodes].sort((a, b) => b.stage - a.stage)[0];
+        if (lastResolved) {
+          queue.push(...lastResolved.connections);
+        }
+      }
     } else {
       const current = activeMap.find((n) => n.id === currentNodeId);
       if (current) {
@@ -348,6 +458,11 @@ export default function Home() {
           queue.push(...current.connections);
         } else {
           queue.push(current.id);
+        }
+      } else if (resolvedNodes.length > 0) {
+        const lastResolved = [...resolvedNodes].sort((a, b) => b.stage - a.stage)[0];
+        if (lastResolved) {
+          queue.push(...lastResolved.connections);
         }
       }
     }
@@ -455,8 +570,10 @@ export default function Home() {
 
       {/* TOAST MESSAGE OVERLAY */}
       {toastMessage && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-amber-900/90 border-2 border-amber-400 text-amber-100 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md font-medium text-xs sm:text-sm animate-bounce text-center max-w-md">
-          {toastMessage}
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none flex justify-center items-center max-w-md w-full px-4">
+          <div className="bg-amber-900/90 border-2 border-amber-400 text-amber-100 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md font-medium text-xs sm:text-sm animate-bounce text-center pointer-events-auto w-full">
+            {toastMessage}
+          </div>
         </div>
       )}
 
@@ -532,6 +649,42 @@ export default function Home() {
                     className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-6 lg:h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
                   />
                   <span className="hidden sm:inline">{lang === "it" ? "Classifica" : "Leaderboard"}</span>
+                </button>
+
+                {/* DAILY QUESTS BUTTON */}
+                <button
+                  onClick={() => setShowDailyQuestsModal(true)}
+                  className="h-9 sm:h-11 lg:h-14 px-2 sm:px-3 lg:px-4 flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs lg:text-sm font-mono font-extrabold uppercase tracking-wider text-amber-300 bg-[#0f152d]/90 backdrop-blur-md border border-amber-500/50 hover:border-amber-400 rounded-xl lg:rounded-2xl shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0 relative"
+                  title={lang === "it" ? "Sfide Giornaliere" : "Daily Missions"}
+                >
+                  <img
+                    src={user ? "/achievements/node_conqueror_1.png" : "/chains.png"}
+                    alt="Sfide"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "/trophy.png";
+                    }}
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 lg:w-5 lg:h-5 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                  />
+                  <span className="hidden sm:inline">
+                    {lang === "it" ? "Sfide Giornaliere" : "Daily Missions"}
+                  </span>
+                  <span
+                    className={`text-[9px] sm:text-xs font-mono font-black px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded-md border ${!user
+                        ? "bg-amber-950/60 text-amber-400 border-amber-500/40"
+                        : unclaimedQuestsCount > 0
+                          ? "bg-amber-500 text-black border-yellow-200 animate-pulse"
+                          : completedQuestsCount === dailyQuestsList.length && dailyQuestsList.length > 0
+                            ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/40"
+                            : "bg-black/60 text-amber-300 border-amber-500/40"
+                      }`}
+                  >
+                    {!user ? "🔒" : `${completedQuestsCount}/${dailyQuestsList.length || 3}`}
+                  </span>
+                  {user && unclaimedQuestsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-black font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md border border-black">
+                      !
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -645,187 +798,481 @@ export default function Home() {
       </header>
 
       {/* GAME VIEW STATE MACHINE */}
+      {/* GAME VIEW STATE MACHINE */}
       {!isRunActive ? (
         !activeSagaId ? (
           /* ==================== SAGA MODE SELECTION VIEW ==================== */
-          <div className="max-w-5xl w-full flex-1 min-h-0 flex flex-col justify-center animate-fade-in py-2 sm:py-4 px-2">
-            <h2 className="text-lg sm:text-2xl font-extrabold text-[#ff9f1c] border-b-2 border-gray-800 pb-2 mb-4 text-center uppercase tracking-wider shrink-0 font-mono">
-              {t.selectSaga}
-            </h2>
-            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-8 flex-1 min-h-0 overflow-y-auto max-h-[560px] py-2 px-1">
-              {/* CLASSIC NARUTO SAGA CARD */}
-              <div
-                onClick={() => selectSaga("classic_naruto")}
-                className="relative bg-[#0f152d] border-4 border-[#ff9f1c] hover:border-yellow-400 rounded-3xl cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-end shadow-2xl w-full sm:w-[380px] md:w-[420px] min-h-[340px] max-h-[430px] overflow-hidden group shrink-0"
-                style={{
-                  backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.96)), url('/backgrounds/classic_naruto.png')`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  backgroundRepeat: "no-repeat",
-                }}
-              >
-                {/* Top Status & Run Badges */}
-                <div className="absolute top-3.5 right-3.5 flex items-center gap-2 z-10">
-                  <span className="bg-[#070b19]/90 text-[#ff9f1c] text-xs px-2.5 py-1 rounded-xl font-bold font-mono border border-[#ff9f1c]/40 shadow-md flex items-center gap-1.5 backdrop-blur-md">
-                    <img
-                      src="/run.png"
-                      alt="Run"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (target.src.endsWith("/run.png")) {
-                          target.src = "/icon.png";
-                        } else {
-                          target.style.display = "none";
-                        }
-                      }}
-                      className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
-                    />
-                    <span>{t.totalRuns}: {mounted ? classicRunsCount : 0}</span>
-                  </span>
-                  <span className="bg-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-green-500/40 backdrop-blur-md">{t.active}</span>
-                </div>
+          <div className="relative max-w-6xl w-full flex-1 min-h-0 flex flex-col justify-start items-center animate-fade-in py-2 sm:py-4 px-2 sm:px-4 overflow-y-auto">
+            {/* CENTERED SAGA MODE SELECTION */}
+            <div className="w-full max-w-6xl flex flex-col items-center justify-center">
 
-                {/* Card Content & Key Essential Info */}
-                <div className="p-5 sm:p-6 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-12">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
-                      Saga 1
-                    </span>
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded-md">
-                      {lang === "it" ? "5 Boss Principali" : "5 Main Bosses"}
-                    </span>
-                  </div>
-
-                  <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ff9f1c] mb-2 drop-shadow-md group-hover:text-yellow-300 transition-colors">{t.sagaClassicTitle}</h3>
-
-                  {/* Key Stats Chips */}
-                  <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
-                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2.5">
-                      <img
-                        src="/sprites/gaara_kid.png"
-                        alt="Gaara"
-                        className="w-8 h-8 object-contain bg-gray-900/90 rounded-lg p-0.5 border border-amber-500/40 shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.5)]"
-                      />
-                      <div>
-                        <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Boss Finale" : "Final Boss"}</div>
-                        <div className="font-bold text-amber-300">Gaara</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
-                      <span className="text-lg">🗺️</span>
-                      <div>
-                        <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Fasi Mappa" : "Map Stages"}</div>
-                        <div className="font-bold text-amber-300">5 {lang === "it" ? "Capitoli" : "Chapters"}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button className="w-full py-3 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-amber-700 active:translate-y-0.5 shadow-lg">
-                    {t.startClassicButton}
-                  </button>
-                </div>
+              {/* CATEGORY TABS SWITCHER (STORIA VS SPECIALI/SFIDA) */}
+              <div className="w-full max-w-lg sm:max-w-xl mx-auto mb-5 p-1.5 bg-[#0a0f24] border-2 border-amber-500/50 rounded-2xl shadow-xl flex items-stretch justify-center gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModeTab("story")}
+                  className={`flex-1 min-h-[44px] sm:min-h-[48px] py-2 sm:py-2.5 px-3 rounded-xl font-mono text-xs sm:text-sm font-extrabold transition-all uppercase tracking-tight sm:tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer border text-center ${modeTab === "story"
+                      ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 shadow-md font-black border-amber-300"
+                      : "border-transparent text-gray-400 hover:text-amber-300 hover:bg-white/5"
+                    }`}
+                >
+                  <span className="shrink-0 text-sm sm:text-base leading-none">📜</span>
+                  <span className="leading-snug sm:whitespace-nowrap">{t.categoryStoryModes}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModeTab("special")}
+                  className={`flex-1 min-h-[44px] sm:min-h-[48px] py-2 sm:py-2.5 px-3 rounded-xl font-mono text-xs sm:text-sm font-extrabold transition-all uppercase tracking-tight sm:tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer border text-center ${modeTab === "special"
+                      ? "bg-gradient-to-r from-red-600 via-purple-600 to-amber-500 text-white shadow-md font-black border-amber-300 animate-pulse"
+                      : "border-transparent text-gray-400 hover:text-purple-300 hover:bg-white/5"
+                    }`}
+                >
+                  <span className="shrink-0 text-sm sm:text-base leading-none">🔥</span>
+                  <span className="leading-snug sm:whitespace-nowrap">{t.categorySpecialModes}</span>
+                </button>
               </div>
 
-              {/* SHIPPUDEN SAGA CARD */}
-              <div
-                onClick={isShippudenUnlocked ? () => selectSaga("shippuden_naruto") : undefined}
-                className={`relative bg-[#0f152d] border-4 rounded-3xl flex flex-col justify-end w-full sm:w-[380px] md:w-[420px] min-h-[340px] max-h-[430px] overflow-hidden shadow-2xl transition-all group shrink-0 ${isShippudenUnlocked
-                  ? "border-[#ff9f1c] hover:border-yellow-400 cursor-pointer hover:scale-[1.02]"
-                  : "border-amber-900/60 cursor-not-allowed"
-                  }`}
-                style={{
-                  backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.96)), url('/backgrounds/shippuden_naruto.png')`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  backgroundRepeat: "no-repeat",
-                }}
-              >
-                {/* Top Status & Run Badges */}
-                <div className="absolute top-3.5 right-3.5 flex items-center gap-2 z-10">
-                  <span className="bg-[#070b19]/90 text-[#ff9f1c] text-xs px-2.5 py-1 rounded-xl font-bold font-mono border border-[#ff9f1c]/40 shadow-md flex items-center gap-1.5 backdrop-blur-md">
-                    <img
-                      src="/run.png"
-                      alt="Run"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (target.src.endsWith("/run.png")) {
-                          target.src = "/icon.png";
-                        } else {
-                          target.style.display = "none";
-                        }
-                      }}
-                      className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
-                    />
-                    <span>{t.totalRuns}: {mounted ? shippudenRunsCount : 0}</span>
-                  </span>
-                  {isShippudenUnlocked ? (
-                    <span className="bg-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-green-500/40 backdrop-blur-md">{t.unlocked}</span>
-                  ) : (
-                    <span className="bg-red-500/20 text-red-400 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-red-500/40 backdrop-blur-md">{t.locked}</span>
-                  )}
-                </div>
-
-                {/* Card Content & Key Essential Info */}
-                <div className="p-5 sm:p-6 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-12">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
-                      Saga 2
-                    </span>
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/40 px-2 py-0.5 rounded-md">
-                      {lang === "it" ? "10 Boss Leggendari" : "10 Legendary Bosses"}
-                    </span>
-                  </div>
-
-                  <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ff9f1c] mb-2 drop-shadow-md group-hover:text-yellow-300 transition-colors">{t.sagaShippudenTitle}</h3>
-
-                  {/* Key Stats Chips */}
-                  <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
-                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2.5">
-                      <img
-                        src="/sprites/madara_tt.png"
-                        alt="Madara 10T"
-                        className="w-8 h-8 object-contain bg-gray-900/90 rounded-lg p-0.5 border border-red-500/40 shrink-0 filter drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]"
-                      />
-                      <div>
-                        <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Boss Finale" : "Final Boss"}</div>
-                        <div className="font-bold text-red-400">Madara 10T</div>
-                      </div>
-                    </div>
-                    <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
-                      <span className="text-lg">🗺️</span>
-                      <div>
-                        <div className="text-[9px] text-gray-400 uppercase tracking-wider">{lang === "it" ? "Fasi Mappa" : "Map Stages"}</div>
-                        <div className="font-bold text-amber-300">10 {lang === "it" ? "Capitoli" : "Chapters"}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    disabled={!isShippudenUnlocked}
-                    className={`w-full py-3 font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all shadow-lg ${isShippudenUnlocked
-                      ? "bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] border-b-4 border-amber-700 cursor-pointer active:translate-y-0.5"
-                      : "bg-gray-800/80 text-gray-400 border border-gray-700 cursor-not-allowed"
-                      }`}
-                  >
-                    {isShippudenUnlocked ? t.startShippudenButton : t.lockMessageClassicButton}
-                  </button>
-                </div>
-
-                {/* OVERLAY CATENE 3D E SIGILLO UZUMAKI SE BLOCCATO */}
-                {!isShippudenUnlocked && (
-                  <SealedSagaOverlay
-                    sagaName={t.sagaShippudenTitle}
-                    requirementText={t.sagaShippudenDesc}
-                    onClickLocked={() => {
-                      setToastMessage(t.lockMessageClassicButton || (lang === "it" ? "Sconfiggi Gaara nella Saga Classica per sbloccare Shippuden!" : "Defeat Gaara in the Classic Saga to unlock Shippuden!"));
-                      setTimeout(() => setToastMessage(null), 3500);
+              {/* TAB 1: MODALITÀ STORIA */}
+              {modeTab === "story" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 w-full py-1 items-stretch animate-fade-in max-w-4xl mx-auto">
+                  {/* CLASSIC NARUTO SAGA CARD */}
+                  <div
+                    onClick={() => selectSaga("classic_naruto")}
+                    className="relative bg-[#0f152d] border-4 border-[#ff9f1c] hover:border-yellow-400 rounded-3xl cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-between shadow-2xl w-full min-h-[350px] overflow-hidden group"
+                    style={{
+                      backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.96)), url('/backgrounds/classic_naruto.png')`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat",
                     }}
-                  />
-                )}
+                  >
+                    {/* Top Status & Run Badges */}
+                    <div className="absolute top-3.5 right-3.5 flex items-center gap-2 z-10">
+                      <span className="bg-[#070b19]/90 text-[#ff9f1c] text-xs px-2.5 py-1 rounded-xl font-bold font-mono border border-[#ff9f1c]/40 shadow-md flex items-center gap-1.5 backdrop-blur-md">
+                        <img
+                          src="/run.png"
+                          alt="Run"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            if (target.src.endsWith("/run.png")) {
+                              target.src = "/icon.png";
+                            } else {
+                              target.style.display = "none";
+                            }
+                          }}
+                          className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                        />
+                        <span>{t.totalRuns}: {mounted ? classicRunsCount : 0}</span>
+                      </span>
+                      <span className="bg-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-green-500/40 backdrop-blur-md">{t.active}</span>
+                    </div>
+
+                    <div className="p-3" />
+
+                    {/* Card Content & Key Essential Info */}
+                    <div className="p-5 sm:p-6 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-10">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
+                          Saga 1
+                        </span>
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded-md">
+                          {lang === "it" ? "5 Capitoli • 5 Boss" : "5 Chapters • 5 Bosses"}
+                        </span>
+                      </div>
+
+                      <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ff9f1c] mb-2 drop-shadow-md group-hover:text-yellow-300 transition-colors">
+                        {t.sagaClassicTitle}
+                      </h3>
+
+                      {/* Story Flow Tag */}
+                      <div className="text-[10.5px] font-mono text-gray-300 bg-black/50 border border-amber-500/20 px-2.5 py-1 rounded-lg mb-3 leading-tight line-clamp-2">
+                        📖 {lang === "it" ? "Paese delle Onde → Esami Chunin → Gaara" : "Land of Waves → Chunin Exams → Gaara"}
+                      </div>
+
+                      {/* Key Stats Chips */}
+                      <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
+                        <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2.5">
+                          <img
+                            src="/sprites/gaara_kid.png"
+                            alt="Gaara"
+                            className="w-8 h-8 object-contain bg-gray-900/90 rounded-lg p-0.5 border border-amber-500/40 shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.5)]"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{lang === "it" ? "Boss Finale" : "Final Boss"}</div>
+                            <div className="font-bold text-amber-300 truncate">Gaara</div>
+                          </div>
+                        </div>
+                        <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
+                          <span className="text-lg">🗺️</span>
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{lang === "it" ? "Fasi Mappa" : "Map Stages"}</div>
+                            <div className="font-bold text-amber-300 truncate">5 {lang === "it" ? "Capitoli" : "Chapters"}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button className="w-full py-3 bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-amber-700 active:translate-y-0.5 shadow-lg cursor-pointer">
+                        {t.startClassicButton}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* SHIPPUDEN SAGA CARD */}
+                  <div
+                    onClick={isShippudenUnlocked ? () => selectSaga("shippuden_naruto") : undefined}
+                    className={`relative bg-[#0f152d] border-4 rounded-3xl flex flex-col justify-between w-full min-h-[350px] overflow-hidden shadow-2xl transition-all group ${isShippudenUnlocked
+                      ? "border-[#ff9f1c] hover:border-yellow-400 cursor-pointer hover:scale-[1.02]"
+                      : "border-amber-900/60 cursor-not-allowed"
+                      }`}
+                    style={{
+                      backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.1), rgba(15, 21, 45, 0.96)), url('/backgrounds/shippuden_naruto.png')`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  >
+                    {/* Top Status & Run Badges */}
+                    <div className="absolute top-3.5 right-3.5 flex items-center gap-2 z-10">
+                      <span className="bg-[#070b19]/90 text-[#ff9f1c] text-xs px-2.5 py-1 rounded-xl font-bold font-mono border border-[#ff9f1c]/40 shadow-md flex items-center gap-1.5 backdrop-blur-md">
+                        <img
+                          src="/run.png"
+                          alt="Run"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            if (target.src.endsWith("/run.png")) {
+                              target.src = "/icon.png";
+                            } else {
+                              target.style.display = "none";
+                            }
+                          }}
+                          className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,159,28,0.7)]"
+                        />
+                        <span>{t.totalRuns}: {mounted ? shippudenRunsCount : 0}</span>
+                      </span>
+                      {isShippudenUnlocked ? (
+                        <span className="bg-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-green-500/40 backdrop-blur-md">{t.unlocked}</span>
+                      ) : (
+                        <span className="bg-red-500/20 text-red-400 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-red-500/40 backdrop-blur-md">{t.locked}</span>
+                      )}
+                    </div>
+
+                    <div className="p-3" />
+
+                    {/* Card Content & Key Essential Info */}
+                    <div className="p-5 sm:p-6 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-10">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
+                          Saga 2
+                        </span>
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/40 px-2 py-0.5 rounded-md">
+                          {lang === "it" ? "10 Capitoli • 10 Boss" : "10 Chapters • 10 Bosses"}
+                        </span>
+                      </div>
+
+                      <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ff9f1c] mb-2 drop-shadow-md group-hover:text-yellow-300 transition-colors">
+                        {t.sagaShippudenTitle}
+                      </h3>
+
+                      {/* Story Flow Tag */}
+                      <div className="text-[10.5px] font-mono text-gray-300 bg-black/50 border border-amber-500/20 px-2.5 py-1 rounded-lg mb-3 leading-tight line-clamp-2">
+                        📖 {lang === "it" ? "Akatsuki → Pain → 4ª Guerra Mondiale Ninja" : "Akatsuki → Pain Invasion → 4th Great Ninja War"}
+                      </div>
+
+                      {/* Key Stats Chips */}
+                      <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
+                        <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2.5">
+                          <img
+                            src="/sprites/madara_tt.png"
+                            alt="Madara 10T"
+                            className="w-8 h-8 object-contain bg-gray-900/90 rounded-lg p-0.5 border border-red-500/40 shrink-0 filter drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{lang === "it" ? "Boss Finale" : "Final Boss"}</div>
+                            <div className="font-bold text-red-400 truncate">Madara 10T</div>
+                          </div>
+                        </div>
+                        <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
+                          <span className="text-lg">🗺️</span>
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{lang === "it" ? "Fasi Mappa" : "Map Stages"}</div>
+                            <div className="font-bold text-amber-300 truncate">10 {lang === "it" ? "Capitoli" : "Chapters"}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        disabled={!isShippudenUnlocked}
+                        className={`w-full py-3 font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all shadow-lg ${isShippudenUnlocked
+                          ? "bg-[#ff9f1c] hover:bg-yellow-500 text-[#070b19] border-b-4 border-amber-700 cursor-pointer active:translate-y-0.5"
+                          : "bg-gray-800/80 text-gray-400 border border-gray-700 cursor-not-allowed"
+                          }`}
+                      >
+                        {isShippudenUnlocked ? t.startShippudenButton : t.lockMessageClassicButton}
+                      </button>
+                    </div>
+
+                    {/* OVERLAY CATENE 3D E SIGILLO UZUMAKI SE BLOCCATO */}
+                    {!isShippudenUnlocked && (
+                      <SealedSagaOverlay
+                        sagaName={t.sagaShippudenTitle}
+                        requirementText={t.sagaShippudenDesc}
+                        onClickLocked={() => {
+                          setToastMessage(t.lockMessageClassicButton || (lang === "it" ? "Sconfiggi Gaara nella Saga Classica per sbloccare Shippuden!" : "Defeat Gaara in the Classic Saga to unlock Shippuden!"));
+                          setTimeout(() => setToastMessage(null), 3500);
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: MODALITÀ SPECIALI & SFIDA */}
+              {modeTab === "special" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6 w-full py-1 items-stretch animate-fade-in">
+                  {/* 1. SURVIVAL WAR MODE CARD */}
+                  <div
+                    onClick={() => selectSaga("survival_war")}
+                    className="relative bg-[#0f152d] border-4 border-amber-500 hover:border-yellow-400 rounded-3xl cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-between shadow-[0_0_30px_rgba(245,158,11,0.25)] hover:shadow-[0_0_35px_rgba(245,158,11,0.5)] w-full min-h-[350px] overflow-hidden group"
+                    style={{
+                      backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.15), rgba(15, 21, 45, 0.96)), url('/backgrounds/shippuden_naruto.png')`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  >
+                    {/* Top Status & Run Badges */}
+                    <div className="absolute top-3.5 right-3.5 flex items-center gap-2 z-10">
+                      <span className="bg-[#070b19]/90 text-amber-300 text-xs px-2.5 py-1 rounded-xl font-bold font-mono border border-amber-500/40 shadow-md flex items-center gap-1.5 backdrop-blur-md">
+                        <span>⚔️</span>
+                        <span>{t.survivalRuns}: {mounted ? survivalRunsCount : 0}</span>
+                      </span>
+                      <span className="bg-amber-500/20 text-amber-300 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-amber-500/40 backdrop-blur-md">
+                        {lang === "it" ? "Sopravvivenza" : "Survival"}
+                      </span>
+                    </div>
+
+                    <div className="p-3" />
+
+                    {/* Card Content & Key Essential Info */}
+                    <div className="p-5 sm:p-6 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-10">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-amber-950/80 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded-md shadow-sm">
+                          {lang === "it" ? "Ondate Infinite" : "Endless Waves"}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-red-950/80 text-red-300 border border-red-500/50 px-2 py-0.5 rounded-md shadow-sm">
+                          {lang === "it" ? "Campo Rifornimenti" : "Supply Camp"}
+                        </span>
+                      </div>
+
+                      <h3 className="text-2xl sm:text-3xl font-extrabold text-amber-400 mb-2 drop-shadow-md group-hover:text-yellow-300 transition-colors">
+                        {t.sagaSurvivalTitle}
+                      </h3>
+
+                      {/* Story Flow Tag */}
+                      <div className="text-[10.5px] font-mono text-gray-300 bg-black/50 border border-amber-500/20 px-2.5 py-1 rounded-lg mb-3 leading-tight line-clamp-2">
+                        🛡️ {lang === "it" ? "Ondate crescenti • Boss ogni 5 round • Razioni Alleanza" : "Scaling waves • Boss every 5 rounds • Alliance rations"}
+                      </div>
+
+                      {/* Key Stats Chips */}
+                      <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
+                        <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2.5">
+                          <img
+                            src="/coin.png"
+                            alt="Ryo"
+                            className="w-7 h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,215,0,0.5)]"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{t.survivalHighScore}</div>
+                            <div className="font-bold text-amber-300 truncate">
+                              {mounted && survivalHighScore > 0 ? `${survivalHighScore.toLocaleString()} pts` : (lang === "it" ? "Nessuno" : "None")}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-[#070b19]/90 border border-amber-500/30 p-2 rounded-xl flex items-center gap-2">
+                          <span className="text-lg">🌊</span>
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{t.survivalMaxWave}</div>
+                            <div className="font-bold text-amber-300 truncate">
+                              {mounted && survivalMaxWave > 0 ? `${t.survivalWaveLabel} ${survivalMaxWave}` : (lang === "it" ? "Nessuna" : "None")}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button className="w-full py-3 bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-gray-950 font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-amber-800 active:translate-y-0.5 shadow-lg cursor-pointer">
+                        {t.startSurvivalButton}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. CHAOS DRAFT MODE CARD */}
+                  <div
+                    onClick={() => selectSaga("chaos_draft")}
+                    className="relative bg-[#0f152d] border-4 border-purple-500 hover:border-purple-400 rounded-3xl cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-between shadow-[0_0_30px_rgba(168,85,247,0.25)] hover:shadow-[0_0_35px_rgba(168,85,247,0.5)] w-full min-h-[350px] overflow-hidden group"
+                    style={{
+                      backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.15), rgba(15, 21, 45, 0.96)), url('/backgrounds/endless_tower.png')`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  >
+                    {/* Top Status & Run Badges */}
+                    <div className="absolute top-3.5 right-3.5 flex items-center gap-2 z-10">
+                      <span className="bg-[#070b19]/90 text-purple-300 text-xs px-2.5 py-1 rounded-xl font-bold font-mono border border-purple-500/40 shadow-md flex items-center gap-1.5 backdrop-blur-md">
+                        <span>🌌</span>
+                        <span>{t.chaosDraftRuns}: {mounted ? chaosDraftRunsCount : 0}</span>
+                      </span>
+                      <span className="bg-purple-500/20 text-purple-300 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-purple-500/40 backdrop-blur-md">
+                        {lang === "it" ? "Draft" : "Draft"}
+                      </span>
+                    </div>
+
+                    <div className="p-3" />
+
+                    {/* Card Content & Key Essential Info */}
+                    <div className="p-5 sm:p-6 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-10">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-purple-950/80 text-purple-300 border border-purple-500/50 px-2 py-0.5 rounded-md shadow-sm">
+                          {lang === "it" ? "Draft 3 Ninja" : "3-Ninja Draft"}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-indigo-950/80 text-indigo-300 border border-indigo-500/50 px-2 py-0.5 rounded-md shadow-sm">
+                          {lang === "it" ? "7 Distorsioni" : "7 Distortions"}
+                        </span>
+                      </div>
+
+                      <h3 className="text-2xl sm:text-3xl font-extrabold text-purple-400 mb-2 drop-shadow-md group-hover:text-purple-300 transition-colors">
+                        {t.sagaChaosTitle}
+                      </h3>
+
+                      {/* Story Flow Tag */}
+                      <div className="text-[10.5px] font-mono text-gray-300 bg-black/50 border border-purple-500/20 px-2.5 py-1 rounded-lg mb-3 leading-tight line-clamp-2">
+                        🌀 {lang === "it" ? "Pacchetti Draft casuali • Distorsioni dimensionali • Scontri imprevedibili" : "Random draft packages • Space-time distortions • Unpredictable battles"}
+                      </div>
+
+                      {/* Key Stats Chips */}
+                      <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
+                        <div className="bg-[#070b19]/90 border border-purple-500/30 p-2 rounded-xl flex items-center gap-2.5">
+                          <img
+                            src="/score_icon.png"
+                            alt="Punti"
+                            className="w-6 h-6 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(168,85,247,0.6)]"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{t.chaosDraftHighScore}</div>
+                            <div className="font-bold text-purple-300 truncate">
+                              {mounted && chaosDraftHighScore > 0 ? `${chaosDraftHighScore.toLocaleString()} pts` : (lang === "it" ? "Nessuno" : "None")}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-[#070b19]/90 border border-purple-500/30 p-2 rounded-xl flex items-center gap-2">
+                          <span className="text-lg">🎴</span>
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{lang === "it" ? "Capitoli" : "Chapters"}</div>
+                            <div className="font-bold text-purple-300 truncate">7 {lang === "it" ? "Fasi" : "Phases"}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-purple-950 active:translate-y-0.5 shadow-lg cursor-pointer">
+                        {t.startChaosButton}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. ENDLESS TOWER CARD */}
+                  <div
+                    onClick={() => selectSaga("endless_tower")}
+                    className="relative bg-[#0f152d] border-4 border-red-500 hover:border-red-400 rounded-3xl cursor-pointer hover:scale-[1.02] transition-all flex flex-col justify-between shadow-[0_0_30px_rgba(239,68,68,0.25)] hover:shadow-[0_0_35px_rgba(239,68,68,0.45)] w-full min-h-[350px] overflow-hidden group"
+                    style={{
+                      backgroundImage: `linear-gradient(rgba(15, 21, 45, 0.15), rgba(15, 21, 45, 0.96)), url('/backgrounds/endless_tower.png')`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  >
+                    {/* Top Status & Run Badges */}
+                    <div className="absolute top-3.5 right-3.5 flex items-center gap-2 z-10">
+                      <span className="bg-[#070b19]/90 text-red-300 text-xs px-2.5 py-1 rounded-xl font-bold font-mono border border-red-500/40 shadow-md flex items-center gap-1.5 backdrop-blur-md">
+                        <img
+                          src="/tab_tower.png"
+                          alt="Torre"
+                          className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(239,68,68,0.7)]"
+                        />
+                        <span>{t.towerRuns}: {mounted ? towerRunsCount : 0}</span>
+                      </span>
+                      <span className="bg-red-500/20 text-red-300 text-xs px-2.5 py-1 rounded-xl font-bold shadow-md border border-red-500/40 backdrop-blur-md">
+                        {lang === "it" ? "Torre" : "Tower"}
+                      </span>
+                    </div>
+
+                    <div className="p-3" />
+
+                    {/* Card Content & Key Essential Info */}
+                    <div className="p-5 sm:p-6 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-10">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-red-950/80 text-red-300 border border-red-500/50 px-2 py-0.5 rounded-md shadow-sm">
+                          {t.towerEndlessLabel}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest bg-purple-950/80 text-purple-300 border border-purple-500/50 px-2 py-0.5 rounded-md shadow-sm">
+                          {lang === "it" ? "Piani Infiniti" : "Infinite Floors"}
+                        </span>
+                      </div>
+
+                      <h3 className="text-2xl sm:text-3xl font-extrabold text-red-400 mb-2 drop-shadow-md group-hover:text-red-300 transition-colors">
+                        {t.sagaTowerTitle}
+                      </h3>
+
+                      {/* Story Flow Tag */}
+                      <div className="text-[10.5px] font-mono text-gray-300 bg-black/50 border border-red-500/20 px-2.5 py-1 rounded-lg mb-3 leading-tight line-clamp-2">
+                        🏯 {lang === "it" ? "Modificatori Tsukuyomi • Boss ogni 5 Piani (+100 Ryo)" : "Tsukuyomi Modifiers • Boss every 5 Floors (+100 Ryo)"}
+                      </div>
+
+                      {/* Key Stats Chips */}
+                      <div className="grid grid-cols-2 gap-2 mb-4 font-mono text-xs">
+                        <div className="bg-[#070b19]/90 border border-red-500/30 p-2 rounded-xl flex items-center gap-2.5">
+                          <img
+                            src="/coin.png"
+                            alt="Ryo"
+                            className="w-7 h-7 object-contain shrink-0 filter drop-shadow-[0_0_6px_rgba(255,215,0,0.5)]"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{lang === "it" ? "Ricompense" : "Rewards"}</div>
+                            <div className="font-bold text-amber-300 truncate">+25/+100 Ryo</div>
+                          </div>
+                        </div>
+                        <div className="bg-[#070b19]/90 border border-red-500/30 p-2 rounded-xl flex items-center gap-2">
+                          <span className="text-lg">🏯</span>
+                          <div className="min-w-0">
+                            <div className="text-[9px] text-gray-400 uppercase tracking-wider truncate">{t.towerMaxFloor}</div>
+                            <div className="font-bold text-red-300 truncate">
+                              {mounted && towerMaxFloor > 0 ? `${lang === "it" ? "Piano" : "Floor"} ${towerMaxFloor}` : (lang === "it" ? "Nessuno" : "None")}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button className="w-full py-3 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black rounded-xl uppercase tracking-wider text-xs sm:text-sm transition-all border-b-4 border-red-900 active:translate-y-0.5 shadow-lg cursor-pointer">
+                        {t.startTowerButton}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* DAILY MISSIONS HOMEPAGE SECTION (PLACED NEATLY BELOW THE CARDS, ZERO OVERLAP!) */}
+              <div className="w-full max-w-6xl mt-6 sm:mt-8">
+                <DailyQuestsHomepageWidget
+                  onOpenAuthModal={() => {
+                    setShowAchievementsModal(false);
+                    setShowDailyQuestsModal(false);
+                    setAuthModalRegisterMode(true);
+                    setShowAuthModal(true);
+                  }}
+                />
               </div>
             </div>
           </div>
-        ) : (!startingChoices || startingChoices.length === 0) ? (
+        ) : (!startingChoices || startingChoices.length === 0) && activeSagaId !== "chaos_draft" ? (
           /* Fallback if starting choices not generated */
           <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center py-10">
             <p className="text-gray-300 text-sm">{lang === "it" ? "Seleziona una saga per iniziare la partita." : "Select a saga to start the game."}</p>
@@ -847,7 +1294,7 @@ export default function Home() {
                 {t.backToSagas}
               </button>
               <div className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-widest font-mono">
-                {t.activeSaga}: {activeSagaId === "classic_naruto" ? t.sagaClassicName : t.sagaShippudenName} • {t.runCountLabel} #{(activeSagaId === "classic_naruto" ? classicRunsCount : shippudenRunsCount) + 1}
+                {t.activeSaga}: {activeSagaId === "classic_naruto" ? t.sagaClassicName : activeSagaId === "shippuden_naruto" ? t.sagaShippudenName : t.sagaTowerName} • {t.runCountLabel} #{(activeSagaId === "classic_naruto" ? classicRunsCount : activeSagaId === "shippuden_naruto" ? shippudenRunsCount : towerRunsCount) + 1}
               </div>
             </div>
 
@@ -1017,7 +1464,7 @@ export default function Home() {
 
               {/* ACTIVE TEAM SYNERGIES PANEL */}
               {(() => {
-                const activeSyns = getActiveSynergies(runTeam);
+                const activeSyns = getActiveSynergies(runTeam, activeSagaId);
                 return (
                   <div className="bg-[#070b19]/90 border border-amber-500/40 p-2.5 rounded-2xl shrink-0 space-y-1.5 shadow-lg">
                     <div className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-widest flex items-center justify-between border-b border-white/10 pb-1 select-none">
@@ -1111,11 +1558,10 @@ export default function Home() {
                                     return (
                                       <span
                                         key={mem.characterId}
-                                        className={`px-1 py-0.2 rounded border ${
-                                          isPresent
-                                            ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/50 font-bold"
-                                            : "bg-black/50 text-gray-500 border-gray-800"
-                                        }`}
+                                        className={`px-1 py-0.2 rounded border ${isPresent
+                                          ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/50 font-bold"
+                                          : "bg-black/50 text-gray-500 border-gray-800"
+                                          }`}
                                       >
                                         {mem.name[lang].split(" ")[0]} {isPresent ? "✓" : "🔒"}
                                       </span>
@@ -1373,6 +1819,90 @@ export default function Home() {
 
             {/* MIDDLE COLUMN: POKEROGUE MAP */}
             <div data-tutorial="map-section" className={`lg:col-span-2 flex-col items-center h-full min-h-0 relative w-full ${mobileActiveTab === "map" ? "flex" : "hidden lg:flex"}`}>
+              {/* ENDLESS TOWER ACTIVE MODIFIER HUD BANNER */}
+              {activeSagaId === "endless_tower" && activeTowerModifier && (
+                <div className={`w-full max-w-[650px] mb-2 px-3 py-2 rounded-2xl border flex items-center justify-between gap-2 shadow-lg backdrop-blur-md ${activeTowerModifier.badgeColor} ${activeTowerModifier.borderGlow}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xl sm:text-2xl shrink-0 filter drop-shadow">{activeTowerModifier.icon}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-300">
+                          {t.towerFloorLabel} {currentLevel} • {activeTowerModifier.name[lang]}
+                        </span>
+                        {currentLevel % 5 === 0 && (
+                          <span className="text-[9px] font-mono font-black bg-red-600 text-white px-1.5 py-0.2 rounded uppercase animate-pulse">
+                            BOSS
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-white/90 font-medium truncate">
+                        {activeTowerModifier.shortEffect[lang]}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[10px] font-mono font-bold bg-black/40 border border-white/20 px-2 py-1 rounded-lg shrink-0 text-amber-300">
+                    +{currentLevel % 5 === 0 ? "100" : "25"} Ryo
+                  </div>
+                </div>
+              )}
+
+              {/* SURVIVAL WAR ACTIVE WAVE HUD BANNER */}
+              {activeSagaId === "survival_war" && (
+                <div className="w-full max-w-[650px] mb-2 px-3 py-2 rounded-2xl border border-amber-500/70 bg-gradient-to-r from-amber-950/90 via-red-950/80 to-[#0f152d]/90 flex items-center justify-between gap-2 shadow-[0_0_20px_rgba(245,158,11,0.3)] backdrop-blur-md">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xl sm:text-2xl shrink-0">⚔️</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono font-black uppercase tracking-widest text-amber-300">
+                          {t.survivalWaveLabel} {currentLevel} • {t.sagaSurvivalTitle}
+                        </span>
+                        {currentLevel % 5 === 0 && (
+                          <span className="text-[9px] font-mono font-black bg-red-600 text-white px-1.5 py-0.2 rounded uppercase animate-pulse">
+                            BOSS WAR
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-amber-200/90 font-medium truncate">
+                        {currentLevel % 5 === 0
+                          ? (lang === "it" ? "Ondata Boss Decisiva (+300 Punti, +100 Ryo)" : "Milestone Boss Wave (+300 Score, +100 Ryo)")
+                          : (lang === "it" ? "Ondata di Fanteria Shinobi (+100 Punti, +25 Ryo)" : "Shinobi Infantry Wave (+100 Score, +25 Ryo)")}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[10px] font-mono font-bold bg-black/50 border border-amber-500/30 px-2.5 py-1 rounded-lg shrink-0 text-amber-300 flex items-center gap-1">
+                    <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3.5 h-3.5 object-contain" />
+                    <span>+{currentLevel % 5 === 0 ? "100" : "25"}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* CHAOS DRAFT REALITY DISTORTION HUD BANNER */}
+              {activeSagaId === "chaos_draft" && (
+                <div className="w-full max-w-[650px] mb-2 px-3 py-2 rounded-2xl border border-purple-500/70 bg-gradient-to-r from-purple-950/90 via-indigo-950/80 to-[#0f152d]/90 flex items-center justify-between gap-2 shadow-[0_0_20px_rgba(168,85,247,0.3)] backdrop-blur-md">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xl sm:text-2xl shrink-0">🌌</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono font-black uppercase tracking-widest text-purple-300">
+                          {lang === "it" ? `Capitolo Distorto ${currentLevel}/7` : `Distorted Chapter ${currentLevel}/7`} • {t.sagaChaosTitle}
+                        </span>
+                        {currentLevel === 7 && (
+                          <span className="text-[9px] font-mono font-black bg-purple-600 text-white px-1.5 py-0.2 rounded uppercase animate-pulse">
+                            FINAL REALITY
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-purple-200/90 font-medium truncate">
+                        {lang === "it" ? "Distorsione Spazio-Temporale dello Tsukuyomi attiva" : "Tsukuyomi Space-Time Distortion active"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[10px] font-mono font-bold bg-black/50 border border-purple-500/30 px-2.5 py-1 rounded-lg shrink-0 text-purple-300 flex items-center gap-1">
+                    <span>🌀 {lang === "it" ? "Fase" : "Phase"} {currentLevel}</span>
+                  </div>
+                </div>
+              )}
+
               {/* TOP HEADER NAVIGATION CONTROL BAR (Placed outside map box so it NEVER covers nodes) */}
               {(() => {
                 const selectable = activeMap.filter((n) => isNodeSelectable(n));
@@ -1499,7 +2029,7 @@ export default function Home() {
                     <div
                       key={node.id}
                       data-tutorial={
-                        node.type === "powerup"
+                        node.type === "powerup" || node.type === "item"
                           ? "node-powerup"
                           : node.type === "heal"
                             ? "node-heal"
@@ -1581,78 +2111,310 @@ export default function Home() {
 
                 {/* ==================== OVERLAYS INSIDE MAP ==================== */}
 
-                {/* OVERLAY: ITEM SELECTION CHOICE PANEL (CHOOSE 1 OF 3 ITEMS) */}
+                {/* OVERLAY: ITEM SELECTION CHOICE PANEL (CHOOSE 1 OF 3 ITEMS OR BUY FROM ITEM SHOP) */}
                 {availableItemChoices && (
                   <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-3 sm:p-5 animate-fade-in overflow-y-auto">
-                    <div className="bg-[#0f152d] border-4 border-amber-400 rounded-2xl p-4 sm:p-6 shadow-2xl w-full max-w-lg my-auto text-center relative overflow-hidden">
-                      <div className="text-xs font-mono font-bold text-amber-300 uppercase tracking-widest mb-1">
-                        📦 {lang === "it" ? "NODO OGGETTI DISPONIBILI" : "ITEM NODE AVAILABLE"}
+                    <div data-tutorial="item-modal" className="bg-[#0f152d] border-4 border-amber-400 rounded-2xl p-4 sm:p-5 shadow-2xl w-full max-w-xl my-auto text-center relative overflow-hidden">
+                      <div className="text-xs font-mono font-bold text-amber-300 uppercase tracking-widest mb-1 flex items-center justify-center gap-1.5">
+                        <span>📦</span>
+                        <span>{lang === "it" ? "NODO OGGETTI & STRUMENTI" : "ITEM & EQUIPMENT NODE"}</span>
                       </div>
-                      <h3 className="text-lg sm:text-xl font-black text-yellow-400 mb-1 uppercase tracking-wider">
-                        {lang === "it" ? "SCEGLI 1 OGGETTO PER LO ZAINO" : "CHOOSE 1 ITEM FOR BACKPACK"}
-                      </h3>
-                      <p className="text-[10px] sm:text-xs text-gray-300 mb-4">
-                        {lang === "it"
-                          ? "Scegli un oggetto da aggiungere allo Zaino della tua squadra."
-                          : "Choose an item to add to your squad's Backpack."}
-                      </p>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                        {availableItemChoices.map((item) => {
-                          const isConsumable = item.type === "consumable";
-                          const rKey = (item.rarity || "C") as keyof typeof RARITY_CONFIGS;
-                          const itemRarity = RARITY_CONFIGS[rKey];
+                      {/* TAB SWITCHER: 3 CASUALI GRATIS VS NEGOZIO STRUMENTI */}
+                      <div className="flex bg-[#070b19] p-1 rounded-xl border border-gray-800 mb-3 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setItemNodeTab("choices")}
+                          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${itemNodeTab === "choices"
+                            ? "bg-amber-500 text-gray-950 shadow-md font-black"
+                            : "text-gray-400 hover:text-gray-200"
+                            }`}
+                        >
+                          <span>🎁</span>
+                          <span>{lang === "it" ? "3 Casuali (Gratis)" : "3 Random (Free)"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setItemNodeTab("shop")}
+                          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${itemNodeTab === "shop"
+                            ? "bg-purple-600 text-white shadow-md font-black"
+                            : "text-purple-300/70 hover:text-purple-200"
+                            }`}
+                        >
+                          <span>🛒</span>
+                          <span>{lang === "it" ? "Negozio Strumenti Ryo" : "Ryo Item Shop"}</span>
+                        </button>
+                      </div>
 
-                          return (
-                            <div
-                              key={item.id}
-                              onClick={() => chooseItemFromNode(item)}
-                              className={`p-3 rounded-2xl border-2 cursor-pointer transition-all hover:scale-105 flex flex-col justify-between items-center ${itemRarity.cardBorder} ${itemRarity.cardBg} ${itemRarity.cardGlow}`}
-                            >
-                              <div className="w-14 h-14 p-1.5 bg-black/60 rounded-2xl border border-white/10 flex items-center justify-center mb-2 shrink-0">
-                                <img
-                                  src={`/items/${item.id}.png`}
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLElement).style.display = "none";
-                                    const parent = (e.currentTarget as HTMLElement).parentElement;
-                                    if (parent && !parent.querySelector(".emoji-fallback")) {
-                                      const span = document.createElement("span");
-                                      span.className = "emoji-fallback text-2xl";
-                                      span.innerText = item.iconEmoji;
-                                      parent.appendChild(span);
-                                    }
-                                  }}
-                                  alt={item.name[lang]}
-                                  className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
-                                />
-                              </div>
-                              <div className="flex items-center gap-1 mb-1.5 flex-wrap justify-center">
-                                <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-black ${itemRarity.badgeBg} ${itemRarity.badgeTextColor}`}>
-                                  RANK {rKey}
-                                </span>
-                                <span
-                                  className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-bold uppercase ${isConsumable
-                                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                                    : "bg-purple-500/20 text-purple-300 border border-purple-500/40"
-                                    }`}
+                      {itemNodeTab === "choices" ? (
+                        <>
+                          <h3 className="text-base sm:text-lg font-black text-yellow-400 mb-1 uppercase tracking-wider">
+                            {lang === "it" ? "SCEGLI 1 OGGETTO GRATUITO" : "CHOOSE 1 FREE ITEM"}
+                          </h3>
+                          <p className="text-[10px] sm:text-xs text-gray-300 mb-3">
+                            {lang === "it"
+                              ? "Scegli un oggetto dalla cassa da aggiungere allo Zaino della tua squadra."
+                              : "Choose an item from the chest to add to your squad's Backpack."}
+                          </p>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
+                            {availableItemChoices.map((item) => {
+                              const isConsumable = item.type === "consumable";
+                              const rKey = (item.rarity || "C") as keyof typeof RARITY_CONFIGS;
+                              const itemRarity = RARITY_CONFIGS[rKey];
+
+                              return (
+                                <div
+                                  key={item.id}
+                                  onClick={() => chooseItemFromNode(item)}
+                                  className={`p-2.5 rounded-2xl border-2 cursor-pointer transition-all hover:scale-105 flex flex-col justify-between items-center ${itemRarity.cardBorder} ${itemRarity.cardBg} ${itemRarity.cardGlow}`}
                                 >
-                                  {isConsumable
-                                    ? (lang === "it" ? "Consumabile" : "Consumable")
-                                    : (lang === "it" ? "Assegnabile" : "Assignable")}
-                                </span>
-                              </div>
-                              <h4 className={`font-extrabold text-xs mb-1 leading-tight text-center ${itemRarity.textColor}`}>{item.name[lang]}</h4>
-                              <p className="text-[10px] text-gray-300 leading-snug whitespace-pre-line font-mono mb-2 font-semibold text-left w-full">{item.description[lang]}</p>
-                              <button
-                                type="button"
-                                className={`w-full py-1.5 rounded-xl font-bold font-mono text-[10px] uppercase tracking-wider transition-all border shadow ${itemRarity.badgeBg} ${itemRarity.badgeTextColor} ${itemRarity.cardBorder}`}
-                              >
-                                {lang === "it" ? "Raccogli" : "Collect"}
-                              </button>
+                                  <div className="w-12 h-12 p-1 bg-black/60 rounded-xl border border-white/10 flex items-center justify-center mb-1.5 shrink-0">
+                                    <img
+                                      src={`/items/${item.id}.png`}
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLElement).style.display = "none";
+                                        const parent = (e.currentTarget as HTMLElement).parentElement;
+                                        if (parent && !parent.querySelector(".emoji-fallback")) {
+                                          const span = document.createElement("span");
+                                          span.className = "emoji-fallback text-xl";
+                                          span.innerText = item.iconEmoji;
+                                          parent.appendChild(span);
+                                        }
+                                      }}
+                                      alt={item.name[lang]}
+                                      className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1 mb-1 flex-wrap justify-center">
+                                    <span className={`text-[8px] px-1.5 py-0.2 rounded font-mono font-black ${itemRarity.badgeBg} ${itemRarity.badgeTextColor}`}>
+                                      RANK {rKey}
+                                    </span>
+                                    <span
+                                      className={`text-[8px] px-1.5 py-0.2 rounded font-mono font-bold uppercase ${isConsumable
+                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                                        : "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                                        }`}
+                                    >
+                                      {isConsumable
+                                        ? (lang === "it" ? "Consumabile" : "Consumable")
+                                        : (lang === "it" ? "Assegnabile" : "Assignable")}
+                                    </span>
+                                  </div>
+                                  <h4 className={`font-extrabold text-[11px] mb-1 leading-tight text-center ${itemRarity.textColor}`}>{item.name[lang]}</h4>
+                                  <p className="text-[9.5px] text-gray-300 leading-snug whitespace-pre-line font-mono mb-2 font-semibold text-left w-full line-clamp-3">{item.description[lang]}</p>
+                                  <button
+                                    type="button"
+                                    className={`w-full py-1.5 rounded-xl font-bold font-mono text-[9.5px] uppercase tracking-wider transition-all border shadow ${itemRarity.badgeBg} ${itemRarity.badgeTextColor} ${itemRarity.cardBorder}`}
+                                  >
+                                    {lang === "it" ? "Raccogli" : "Collect"}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          {/* RYO EQUIPMENT SHOP INSIDE ITEM NODE */}
+                          <div className="flex justify-between items-center mb-2">
+                            <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1">
+                              <span>🎒</span>
+                              <span>{lang === "it" ? "NEGOZIO STRUMENTI RYO" : "RYO EQUIPMENT SHOP"}</span>
+                            </h3>
+                            <div className="text-[10px] font-mono text-yellow-300 bg-black/60 px-2 py-0.5 rounded border border-yellow-500/40 flex items-center gap-1">
+                              <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3.5 h-3.5 object-contain" />
+                              <span>{(user ? totalCoins : sessionCoins).toLocaleString()} ryo</span>
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+
+                          {/* CATEGORY SEARCH & FILTERS FOR ITEM NODE */}
+                          <div className="space-y-2 mb-2 text-left">
+                            <div className="relative flex items-center">
+                              <span className="absolute left-2.5 text-xs text-gray-400">🔍</span>
+                              <input
+                                type="text"
+                                value={itemSearchQuery}
+                                onChange={(e) => setItemSearchQuery(e.target.value)}
+                                placeholder={lang === "it" ? "Cerca oggetto per nome o effetto..." : "Search item by name or effect..."}
+                                className="w-full bg-[#070b19]/90 border border-purple-500/40 focus:border-purple-400 text-white rounded-xl py-1.5 pl-8 pr-7 text-[11px] font-mono outline-none transition-all placeholder:text-gray-500"
+                              />
+                              {itemSearchQuery && (
+                                <button
+                                  type="button"
+                                  onClick={() => setItemSearchQuery("")}
+                                  className="absolute right-2 text-xs text-gray-400 hover:text-white"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] font-mono">
+                              <div className="flex bg-black/50 p-0.5 rounded-lg border border-gray-800 gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setItemTypeFilter("ALL")}
+                                  className={`px-2 py-0.5 rounded-md font-bold transition-all ${itemTypeFilter === "ALL" ? "bg-amber-500 text-gray-950 font-black shadow" : "text-gray-400 hover:text-white"}`}
+                                >
+                                  {lang === "it" ? "Tutti i tipi" : "All Types"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setItemTypeFilter("consumable")}
+                                  className={`px-2 py-0.5 rounded-md font-bold transition-all ${itemTypeFilter === "consumable" ? "bg-emerald-500 text-gray-950 font-black shadow" : "text-emerald-400/70 hover:text-emerald-300"}`}
+                                >
+                                  🧪 {lang === "it" ? "Consumabili" : "Consumables"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setItemTypeFilter("assignable")}
+                                  className={`px-2 py-0.5 rounded-md font-bold transition-all ${itemTypeFilter === "assignable" ? "bg-purple-500 text-white font-black shadow" : "text-purple-300/70 hover:text-purple-200"}`}
+                                >
+                                  📿 {lang === "it" ? "Equipaggiabili" : "Equipable"}
+                                </button>
+                              </div>
+
+                              <div className="flex bg-black/50 p-0.5 rounded-lg border border-gray-800 gap-0.5">
+                                {(["ALL", "S", "A", "B", "C"] as const).map((r) => (
+                                  <button
+                                    key={r}
+                                    type="button"
+                                    onClick={() => setItemRankFilter(r)}
+                                    className={`px-1.5 py-0.5 rounded-md font-bold uppercase transition-all ${itemRankFilter === r ? "bg-purple-600 text-white font-black shadow" : "text-gray-400 hover:text-white"}`}
+                                  >
+                                    {r === "ALL" ? (lang === "it" ? "Tutti Rank" : "All Ranks") : r}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ITEMS LIST GROUPED BY RANK WITH FILTERING */}
+                          <div className="max-h-[260px] overflow-y-auto mb-3 px-1 pt-1 pb-1 space-y-3 text-left">
+                            {(() => {
+                              const filteredShopItems = GAME_ITEMS_CATALOG.filter((item) => {
+                                const name = item.name[lang].toLowerCase();
+                                const desc = item.description[lang].toLowerCase();
+                                const q = itemSearchQuery.toLowerCase().trim();
+                                const searchMatch = !q || name.includes(q) || desc.includes(q);
+                                const typeMatch = itemTypeFilter === "ALL" || item.type === itemTypeFilter;
+                                const rankMatch = itemRankFilter === "ALL" || (item.rarity || "C") === itemRankFilter;
+
+                                return searchMatch && typeMatch && rankMatch;
+                              });
+
+                              if (filteredShopItems.length === 0) {
+                                return (
+                                  <div className="py-6 text-center bg-black/40 border border-purple-500/20 rounded-xl p-4 my-2">
+                                    <span className="text-2xl mb-1 block">🔍</span>
+                                    <p className="text-xs font-bold text-purple-300 mb-2">
+                                      {lang === "it" ? "Nessun oggetto trovato con questi filtri" : "No items found with current filters"}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setItemSearchQuery("");
+                                        setItemTypeFilter("ALL");
+                                        setItemRankFilter("ALL");
+                                      }}
+                                      className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg text-[10px] uppercase font-mono tracking-wider cursor-pointer"
+                                    >
+                                      ↺ {lang === "it" ? "Resetta Filtri" : "Reset Filters"}
+                                    </button>
+                                  </div>
+                                );
+                              }
+
+                              return (["S", "A", "B", "C"] as Array<"S" | "A" | "B" | "C">).map((rankKey) => {
+                                const rankItems = filteredShopItems.filter((i) => (i.rarity || "C") === rankKey);
+                                if (rankItems.length === 0) return null;
+                                const rarity = RARITY_CONFIGS[rankKey];
+
+                                return (
+                                  <div key={rankKey} className="space-y-1.5">
+                                    <div className="flex items-center gap-2 border-b border-gray-800 pb-0.5">
+                                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold ${rarity.badgeBg} ${rarity.badgeTextColor}`}>
+                                        RANK {rankKey}
+                                      </span>
+                                      <div className="flex-1 h-[1px] bg-gradient-to-r from-gray-800 to-transparent" />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                      {rankItems.map((item) => {
+                                        const price = item.price || 100;
+                                        const currentCoins = user ? totalCoins : sessionCoins;
+                                        const canAfford = currentCoins >= price;
+                                        const isConsumable = item.type === "consumable";
+
+                                        return (
+                                          <div
+                                            key={item.id}
+                                            className={`p-2 rounded-xl border flex flex-col justify-between items-center text-center transition-all ${rarity.cardBorder} ${rarity.cardBg} ${canAfford ? "hover:scale-[1.02] shadow-sm" : "opacity-60"}`}
+                                          >
+                                            <div className="w-10 h-10 p-1 bg-black/60 rounded-lg border border-white/10 flex items-center justify-center mb-1 shrink-0">
+                                              <img
+                                                src={`/items/${item.id}.png`}
+                                                onError={(e) => {
+                                                  (e.currentTarget as HTMLElement).style.display = "none";
+                                                  const parent = (e.currentTarget as HTMLElement).parentElement;
+                                                  if (parent && !parent.querySelector(".emoji-fallback")) {
+                                                    const span = document.createElement("span");
+                                                    span.className = "emoji-fallback text-lg";
+                                                    span.innerText = item.iconEmoji;
+                                                    parent.appendChild(span);
+                                                  }
+                                                }}
+                                                alt={item.name[lang]}
+                                                className="w-full h-full object-contain"
+                                              />
+                                            </div>
+
+                                            <div className="flex items-center gap-1 mb-1">
+                                              <span className={`text-[7px] px-1 py-0.2 rounded font-mono font-bold uppercase ${isConsumable ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" : "bg-purple-500/20 text-purple-300 border border-purple-500/40"}`}>
+                                                {isConsumable ? (lang === "it" ? "Consumabile" : "Consumable") : (lang === "it" ? "Equipaggiabile" : "Equipable")}
+                                              </span>
+                                            </div>
+
+                                            <h4 className={`font-bold text-[9.5px] mb-0.5 leading-tight ${rarity.textColor}`}>{item.name[lang]}</h4>
+                                            <p className="text-[8.5px] text-gray-300 leading-tight font-mono mb-1 text-left w-full line-clamp-2">{item.description[lang]}</p>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                if (!canAfford) return;
+                                                const success = buyAndAddItemToInventory(item, price);
+                                                if (success) {
+                                                  showToast(lang === "it" ? `🛒 ${item.name[lang]} acquistato!` : `🛒 ${item.name[lang]} purchased!`);
+                                                }
+                                              }}
+                                              disabled={!canAfford}
+                                              className={`w-full py-1 rounded-lg font-bold font-mono text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 border transition-all ${canAfford ? "bg-amber-500 hover:bg-amber-400 text-gray-950 border-amber-400 cursor-pointer shadow" : "bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed"}`}
+                                            >
+                                              <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3 h-3 object-contain" />
+                                              <span>{price} Ryo</span>
+                                            </button>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            })()}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              useGameStore.getState().resolveCurrentNode();
+                            }}
+                            className="w-full py-2 bg-[#070b19] hover:bg-gray-900 text-amber-400 font-bold rounded-xl text-xs uppercase tracking-wider border-2 border-amber-500/50 hover:border-amber-400 transition-all cursor-pointer shadow-md"
+                          >
+                            ✓ {lang === "it" ? "Chiudi & Prosegui" : "Close & Continue"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1731,29 +2493,40 @@ export default function Home() {
                         </div>
                       ) : (
                         <div>
-                          {/* TAB SWITCHER: 3 CASUALI VS NEGOZIO RYO */}
+                          {/* TAB SWITCHER: 3 CASUALI VS NEGOZIO NINJA VS NEGOZIO STRUMENTI */}
                           <div className="flex bg-[#070b19] p-1 rounded-xl border border-gray-800 mb-3 gap-1">
                             <button
                               type="button"
                               onClick={() => setRecruitTab("random")}
-                              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${recruitTab === "random"
+                              className={`flex-1 py-1.5 px-1.5 rounded-lg text-[10px] sm:text-xs font-bold font-mono transition-all flex items-center justify-center gap-1 cursor-pointer ${recruitTab === "random"
                                 ? "bg-green-600 text-white shadow-md font-black"
                                 : "text-gray-400 hover:text-gray-200"
                                 }`}
                             >
                               <span>🎲</span>
-                              <span>{lang === "it" ? "3 Casuali (Gratis)" : "3 Random (Free)"}</span>
+                              <span>{lang === "it" ? "3 Casuali" : "3 Random"}</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setRecruitTab("shop")}
-                              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${recruitTab === "shop"
+                              className={`flex-1 py-1.5 px-1.5 rounded-lg text-[10px] sm:text-xs font-bold font-mono transition-all flex items-center justify-center gap-1 cursor-pointer ${recruitTab === "shop"
                                 ? "bg-yellow-500 text-gray-950 shadow-md font-black"
                                 : "text-yellow-400/70 hover:text-yellow-300"
                                 }`}
                             >
-                              <span>🛒</span>
-                              <span>{lang === "it" ? "Negozio Ryo" : "Ryo Shop"}</span>
+                              <span>🥷</span>
+                              <span>{lang === "it" ? "Ninja Ryo" : "Ninja Shop"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRecruitTab("items")}
+                              className={`flex-1 py-1.5 px-1.5 rounded-lg text-[10px] sm:text-xs font-bold font-mono transition-all flex items-center justify-center gap-1 cursor-pointer ${recruitTab === "items"
+                                ? "bg-purple-600 text-white shadow-md font-black"
+                                : "text-purple-300/70 hover:text-purple-200"
+                                }`}
+                            >
+                              <span>🎒</span>
+                              <span>{lang === "it" ? "Strumenti" : "Equipment"}</span>
                             </button>
                           </div>
 
@@ -1833,7 +2606,7 @@ export default function Home() {
                                 );
                               })()}
                             </>
-                          ) : (
+                          ) : recruitTab === "shop" ? (
                             <div>
                               <div className="flex justify-between items-center mb-2">
                                 <h3 className="text-xs font-bold text-yellow-400 uppercase tracking-wider">
@@ -1844,14 +2617,197 @@ export default function Home() {
                                   <span>{(user ? totalCoins : sessionCoins).toLocaleString()} ryo</span>
                                 </div>
                               </div>
-                              <div className="max-h-[270px] overflow-y-auto mb-3 pr-1 space-y-3">
+
+                              {/* NINJA SEARCH & FILTERS HEADER */}
+                              <div className="space-y-2 mb-2 text-left">
+                                <div className="relative flex items-center">
+                                  <span className="absolute left-2.5 text-xs text-gray-400">🔍</span>
+                                  <input
+                                    type="text"
+                                    value={ninjaSearchQuery}
+                                    onChange={(e) => setNinjaSearchQuery(e.target.value)}
+                                    placeholder={lang === "it" ? "Cerca ninja per nome..." : "Search ninja by name..."}
+                                    className="w-full bg-[#070b19]/90 border border-yellow-500/40 focus:border-yellow-400 text-white rounded-xl py-1.5 pl-8 pr-7 text-[11px] font-mono outline-none transition-all placeholder:text-gray-500"
+                                  />
+                                  {ninjaSearchQuery && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setNinjaSearchQuery("")}
+                                      className="absolute right-2 text-xs text-gray-400 hover:text-white"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] font-mono">
+                                  <div className="flex bg-black/50 p-0.5 rounded-lg border border-gray-800 gap-0.5">
+                                    {(["ALL", "S", "A", "B", "C"] as const).map((r) => (
+                                      <button
+                                        key={r}
+                                        type="button"
+                                        onClick={() => setNinjaRankFilter(r)}
+                                        className={`px-1.5 py-0.5 rounded-md font-bold uppercase transition-all ${ninjaRankFilter === r ? "bg-yellow-400 text-gray-950 font-black shadow" : "text-gray-400 hover:text-white"}`}
+                                      >
+                                        {r === "ALL" ? (lang === "it" ? "Tutti Rank" : "All Ranks") : r}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* CUSTOM CHAKRA NATURE DROPDOWN SELECTOR WITH PNG IMAGES */}
+                                  <div className="relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsNatureDropdownOpen(!isNatureDropdownOpen)}
+                                      className="bg-black/80 hover:bg-black/90 text-yellow-300 border border-yellow-500/40 hover:border-yellow-400 rounded-lg px-2 py-0.5 font-mono font-bold text-[10px] flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
+                                    >
+                                      {ninjaNatureFilter === "ALL" ? (
+                                        <>
+                                          <img src="/elements/chakra.png" alt="Chakra" className="w-3.5 h-3.5 object-contain shrink-0 filter drop-shadow" />
+                                          <span>{lang === "it" ? "Tutte le Nature" : "All Natures"}</span>
+                                        </>
+                                      ) : (
+                                        (() => {
+                                          const conf = (CHAKRA_NATURE_CONFIGS as Record<string, any>)[ninjaNatureFilter];
+                                          if (!conf) return <span>{ninjaNatureFilter}</span>;
+                                          return (
+                                            <>
+                                              <img src={conf.image} alt={conf.japaneseName} className="w-3.5 h-3.5 object-contain shrink-0" />
+                                              <span>{conf.japaneseName} ({conf.name[lang]})</span>
+                                            </>
+                                          );
+                                        })()
+                                      )}
+                                      <span className="text-[8px] text-yellow-400/70 ml-0.5">▼</span>
+                                    </button>
+
+                                    {isNatureDropdownOpen && (
+                                      <>
+                                        {/* BACKDROP TO CLOSE DROPDOWN ON CLICK OUTSIDE */}
+                                        <div
+                                          className="fixed inset-0 z-40"
+                                          onClick={() => setIsNatureDropdownOpen(false)}
+                                        />
+
+                                        {/* DROPDOWN OPTIONS POPOVER */}
+                                        <div className="absolute right-0 top-full mt-1 z-50 bg-[#0b1021] border-2 border-yellow-500/60 rounded-xl shadow-2xl p-1.5 min-w-[185px] space-y-0.5 max-h-[220px] overflow-y-auto">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setNinjaNatureFilter("ALL");
+                                              setIsNatureDropdownOpen(false);
+                                            }}
+                                            className={`w-full text-left px-2 py-1 rounded-lg font-mono text-[10px] font-bold flex items-center gap-2 transition-all ${ninjaNatureFilter === "ALL"
+                                              ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40"
+                                              : "text-gray-300 hover:bg-gray-800/80 hover:text-white"
+                                              }`}
+                                          >
+                                            <img src="/elements/chakra.png" alt="Chakra" className="w-4 h-4 object-contain shrink-0 filter drop-shadow" />
+                                            <span>{lang === "it" ? "Tutte le Nature del Chakra" : "All Chakra Natures"}</span>
+                                          </button>
+
+                                          {(
+                                            [
+                                              "Fire",
+                                              "Water",
+                                              "Wind",
+                                              "Lightning",
+                                              "Earth",
+                                              "Ice",
+                                              "Taijutsu",
+                                              "YinYang",
+                                            ] as const
+                                          ).map((natureKey) => {
+                                            const conf = CHAKRA_NATURE_CONFIGS[natureKey];
+                                            if (!conf) return null;
+                                            const isSelected = ninjaNatureFilter === natureKey;
+
+                                            return (
+                                              <button
+                                                key={natureKey}
+                                                type="button"
+                                                onClick={() => {
+                                                  setNinjaNatureFilter(natureKey);
+                                                  setIsNatureDropdownOpen(false);
+                                                }}
+                                                className={`w-full text-left px-2 py-1 rounded-lg font-mono text-[10px] font-bold flex items-center gap-2 transition-all ${isSelected
+                                                  ? "bg-amber-500/20 text-yellow-300 border border-amber-500/40"
+                                                  : "text-gray-300 hover:bg-gray-800/80 hover:text-white"
+                                                  }`}
+                                              >
+                                                <img
+                                                  src={conf.image}
+                                                  alt={conf.japaneseName}
+                                                  className="w-4 h-4 object-contain shrink-0 filter drop-shadow"
+                                                />
+                                                <span>
+                                                  {conf.japaneseName} ({conf.name[lang]})
+                                                </span>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setNinjaOnlySynergy(!ninjaOnlySynergy)}
+                                    className={`px-2 py-0.5 rounded-lg font-bold transition-all border flex items-center gap-1 ${ninjaOnlySynergy
+                                      ? "bg-amber-400 text-amber-950 border-amber-300 font-black shadow-[0_0_10px_rgba(251,191,36,0.6)]"
+                                      : "bg-black/50 text-amber-400/80 border-amber-500/30 hover:border-amber-400"
+                                      }`}
+                                  >
+                                    <span>✨</span>
+                                    <span>{lang === "it" ? "Solo Sinergie" : "Synergies Only"}</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="max-h-[270px] overflow-y-auto mb-3 px-2 pt-1 pb-1 space-y-4">
                                 {(() => {
                                   const isShippuden = activeSagaId === "shippuden_naruto";
                                   const teamCharIds = runTeam.map((n) => n.characterId);
-                                  const shopNinjas = Array.from(NINJA_MAP.values()).filter((n) => {
+                                  const rawShopNinjas = Array.from(NINJA_MAP.values()).filter((n) => {
                                     if (teamCharIds.includes(n.characterId)) return false;
                                     return isShippuden ? n.version === "shippuden" : n.version === "kid";
                                   });
+
+                                  const filteredShopNinjas = rawShopNinjas.filter((ninja) => {
+                                    const translatedName = translateNinjaName(ninja.id, ninja.name, lang).toLowerCase();
+                                    const q = ninjaSearchQuery.toLowerCase().trim();
+                                    const searchMatch = !q || translatedName.includes(q);
+                                    const rankMatch = ninjaRankFilter === "ALL" || (ninja.rank || "C") === ninjaRankFilter;
+                                    const natureMatch = ninjaNatureFilter === "ALL" || ninja.chakraNature === ninjaNatureFilter;
+                                    const matchesSynergy = getSynergiesUnlockedByCandidate(runTeam, ninja);
+                                    const synergyMatch = !ninjaOnlySynergy || matchesSynergy.length > 0;
+
+                                    return searchMatch && rankMatch && natureMatch && synergyMatch;
+                                  });
+
+                                  if (filteredShopNinjas.length === 0) {
+                                    return (
+                                      <div className="py-6 text-center bg-black/40 border border-yellow-500/20 rounded-xl p-4 my-2">
+                                        <span className="text-2xl mb-1 block">🔍</span>
+                                        <p className="text-xs font-bold text-yellow-400 mb-2">
+                                          {lang === "it" ? "Nessun ninja trovato con questi filtri" : "No ninjas found with current filters"}
+                                        </p>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setNinjaSearchQuery("");
+                                            setNinjaRankFilter("ALL");
+                                            setNinjaNatureFilter("ALL");
+                                            setNinjaOnlySynergy(false);
+                                          }}
+                                          className="px-3 py-1 bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-bold rounded-lg text-[10px] uppercase font-mono tracking-wider cursor-pointer"
+                                        >
+                                          ↺ {lang === "it" ? "Resetta Filtri" : "Reset Filters"}
+                                        </button>
+                                      </div>
+                                    );
+                                  }
 
                                   const PRICE_BY_RANK: Record<string, number> = {
                                     S: 300,
@@ -1864,15 +2820,14 @@ export default function Home() {
                                   const ranks: Array<"S" | "A" | "B" | "C"> = ["S", "A", "B", "C"];
 
                                   return ranks.map((rankKey) => {
-                                    const rankNinjas = shopNinjas.filter((n) => (n.rank || "C") === rankKey);
+                                    const rankNinjas = filteredShopNinjas.filter((n) => (n.rank || "C") === rankKey);
                                     if (rankNinjas.length === 0) return null;
 
                                     const price = PRICE_BY_RANK[rankKey];
                                     const rarity = RARITY_CONFIGS[rankKey];
 
                                     return (
-                                      <div key={rankKey} className="space-y-1.5">
-                                        {/* RANK CATEGORY HEADER / SEPARATOR */}
+                                      <div key={rankKey} className="space-y-2">
                                         <div className="flex items-center gap-2 border-b border-gray-800 pb-1 pt-1">
                                           <span className={`text-xs px-2 py-0.5 rounded-md font-extrabold ${rarity.badgeBg} ${rarity.badgeTextColor}`}>
                                             RANK {rankKey}
@@ -1883,8 +2838,7 @@ export default function Home() {
                                           <div className="flex-1 h-[1px] bg-gradient-to-r from-gray-800 to-transparent" />
                                         </div>
 
-                                        {/* NINJA CARDS GRID FOR THIS RANK */}
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-3 gap-2 pt-2">
                                           {rankNinjas.map((ninja) => {
                                             const translatedName = translateNinjaName(ninja.id, ninja.name, lang);
                                             const canAfford = currentCoins >= price;
@@ -1905,14 +2859,17 @@ export default function Home() {
                                                 }}
                                                 style={rarity.cardStyle}
                                                 className={`relative p-2 rounded-xl transition-all flex flex-col justify-between items-center text-center ${canAfford ? "cursor-pointer hover:scale-105 shadow-md" : "opacity-50 cursor-not-allowed"
-                                                  } ${rarity.cardBorder} ${rarity.cardBg} ${
-                                                    hasSynergy ? "ring-2 ring-amber-400 border-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.8)]" : ""
+                                                  } ${rarity.cardBorder} ${rarity.cardBg} ${hasSynergy ? "ring-2 ring-amber-400 border-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.8)]" : ""
                                                   }`}
                                               >
-                                                {/* SYNERGY HIGHLIGHT BOUNCING BADGE */}
                                                 {hasSynergy && (
-                                                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#070b19] text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-[0_0_12px_rgba(251,191,36,0.9)] border border-yellow-200 z-30 whitespace-nowrap animate-bounce flex items-center gap-0.5">
-                                                    <span>{matches[0].label[lang]}</span>
+                                                  <div className="w-[calc(100%+16px)] -mt-2 -mx-2 mb-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#070b19] py-1 px-1 rounded-t-[10px] border-b border-yellow-200/80 shadow-md flex flex-col items-center justify-center leading-tight">
+                                                    <div className="text-[7.5px] font-black tracking-wider uppercase flex items-center gap-0.5 text-amber-950">
+                                                      <span>{matches[0].status === "activates" ? (lang === "it" ? "✨ ATTIVA SINERGIA" : "✨ ACTIVATES SYNERGY") : (lang === "it" ? "⬆️ POTENZIA SINERGIA" : "⬆️ UPGRADES SYNERGY")}</span>
+                                                    </div>
+                                                    <div className="text-[8.5px] sm:text-[9px] font-black leading-tight text-center px-0.5 break-words">
+                                                      {matches[0].synergy.name[lang]}
+                                                    </div>
                                                   </div>
                                                 )}
 
@@ -1926,7 +2883,6 @@ export default function Home() {
                                                   {translatedName}
                                                 </h4>
 
-                                                {/* CHAKRA NATURE TYPE BADGE */}
                                                 <div className="my-1 flex items-center justify-center">
                                                   <ChakraNatureBadge
                                                     nature={ninja.chakraNature}
@@ -1941,11 +2897,199 @@ export default function Home() {
                                                   </div>
                                                 )}
 
-                                                {/* PRICE TAG */}
                                                 <div className="w-full flex items-center justify-center gap-1 bg-black/70 py-0.5 px-1 rounded-lg border border-yellow-500/40 text-[9px] font-mono font-bold text-yellow-300 shadow-inner">
                                                   <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3 h-3 object-contain" />
                                                   <span>{price} ryo</span>
                                                 </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            </div>
+                          ) : (
+                            /* TAB: STRUMENTI & EQUIPAGGIAMENTO SHOP */
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1">
+                                  <span>🎒</span>
+                                  <span>{lang === "it" ? "NEGOZIO STRUMENTI RYO" : "RYO EQUIPMENT SHOP"}</span>
+                                </h3>
+                                <div className="text-[10px] font-mono text-yellow-300 bg-black/60 px-2 py-0.5 rounded border border-yellow-500/40 flex items-center gap-1">
+                                  <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3.5 h-3.5 object-contain" />
+                                  <span>{(user ? totalCoins : sessionCoins).toLocaleString()} ryo</span>
+                                </div>
+                              </div>
+
+                              {/* ITEM SEARCH & FILTERS FOR RECRUIT TAB */}
+                              <div className="space-y-2 mb-2 text-left">
+                                <div className="relative flex items-center">
+                                  <span className="absolute left-2.5 text-xs text-gray-400">🔍</span>
+                                  <input
+                                    type="text"
+                                    value={itemSearchQuery}
+                                    onChange={(e) => setItemSearchQuery(e.target.value)}
+                                    placeholder={lang === "it" ? "Cerca oggetto per nome o effetto..." : "Search item by name or effect..."}
+                                    className="w-full bg-[#070b19]/90 border border-purple-500/40 focus:border-purple-400 text-white rounded-xl py-1.5 pl-8 pr-7 text-[11px] font-mono outline-none transition-all placeholder:text-gray-500"
+                                  />
+                                  {itemSearchQuery && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setItemSearchQuery("")}
+                                      className="absolute right-2 text-xs text-gray-400 hover:text-white"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] font-mono">
+                                  <div className="flex bg-black/50 p-0.5 rounded-lg border border-gray-800 gap-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setItemTypeFilter("ALL")}
+                                      className={`px-2 py-0.5 rounded-md font-bold transition-all ${itemTypeFilter === "ALL" ? "bg-amber-500 text-gray-950 font-black shadow" : "text-gray-400 hover:text-white"}`}
+                                    >
+                                      {lang === "it" ? "Tutti i tipi" : "All Types"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setItemTypeFilter("consumable")}
+                                      className={`px-2 py-0.5 rounded-md font-bold transition-all ${itemTypeFilter === "consumable" ? "bg-emerald-500 text-gray-950 font-black shadow" : "text-emerald-400/70 hover:text-emerald-300"}`}
+                                    >
+                                      🧪 {lang === "it" ? "Consumabili" : "Consumables"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setItemTypeFilter("assignable")}
+                                      className={`px-2 py-0.5 rounded-md font-bold transition-all ${itemTypeFilter === "assignable" ? "bg-purple-500 text-white font-black shadow" : "text-purple-300/70 hover:text-purple-200"}`}
+                                    >
+                                      📿 {lang === "it" ? "Equipaggiabili" : "Equipable"}
+                                    </button>
+                                  </div>
+
+                                  <div className="flex bg-black/50 p-0.5 rounded-lg border border-gray-800 gap-0.5">
+                                    {(["ALL", "S", "A", "B", "C"] as const).map((r) => (
+                                      <button
+                                        key={r}
+                                        type="button"
+                                        onClick={() => setItemRankFilter(r)}
+                                        className={`px-1.5 py-0.5 rounded-md font-bold uppercase transition-all ${itemRankFilter === r ? "bg-purple-600 text-white font-black shadow" : "text-gray-400 hover:text-white"}`}
+                                      >
+                                        {r === "ALL" ? (lang === "it" ? "Tutti Rank" : "All Ranks") : r}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="max-h-[250px] overflow-y-auto mb-3 px-1 pt-1 pb-1 space-y-3 text-left">
+                                {(() => {
+                                  const filteredShopItems = GAME_ITEMS_CATALOG.filter((item) => {
+                                    const name = item.name[lang].toLowerCase();
+                                    const desc = item.description[lang].toLowerCase();
+                                    const q = itemSearchQuery.toLowerCase().trim();
+                                    const searchMatch = !q || name.includes(q) || desc.includes(q);
+                                    const typeMatch = itemTypeFilter === "ALL" || item.type === itemTypeFilter;
+                                    const rankMatch = itemRankFilter === "ALL" || (item.rarity || "C") === itemRankFilter;
+
+                                    return searchMatch && typeMatch && rankMatch;
+                                  });
+
+                                  if (filteredShopItems.length === 0) {
+                                    return (
+                                      <div className="py-6 text-center bg-black/40 border border-purple-500/20 rounded-xl p-4 my-2">
+                                        <span className="text-2xl mb-1 block">🔍</span>
+                                        <p className="text-xs font-bold text-purple-300 mb-2">
+                                          {lang === "it" ? "Nessun oggetto trovato con questi filtri" : "No items found with current filters"}
+                                        </p>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setItemSearchQuery("");
+                                            setItemTypeFilter("ALL");
+                                            setItemRankFilter("ALL");
+                                          }}
+                                          className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg text-[10px] uppercase font-mono tracking-wider cursor-pointer"
+                                        >
+                                          ↺ {lang === "it" ? "Resetta Filtri" : "Reset Filters"}
+                                        </button>
+                                      </div>
+                                    );
+                                  }
+
+                                  return (["S", "A", "B", "C"] as Array<"S" | "A" | "B" | "C">).map((rankKey) => {
+                                    const rankItems = filteredShopItems.filter((i) => (i.rarity || "C") === rankKey);
+                                    if (rankItems.length === 0) return null;
+                                    const rarity = RARITY_CONFIGS[rankKey];
+
+                                    return (
+                                      <div key={rankKey} className="space-y-1.5">
+                                        <div className="flex items-center gap-2 border-b border-gray-800 pb-0.5">
+                                          <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold ${rarity.badgeBg} ${rarity.badgeTextColor}`}>
+                                            RANK {rankKey}
+                                          </span>
+                                          <div className="flex-1 h-[1px] bg-gradient-to-r from-gray-800 to-transparent" />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                          {rankItems.map((item) => {
+                                            const price = item.price || 100;
+                                            const currentCoins = user ? totalCoins : sessionCoins;
+                                            const canAfford = currentCoins >= price;
+                                            const isConsumable = item.type === "consumable";
+
+                                            return (
+                                              <div
+                                                key={item.id}
+                                                className={`p-2 rounded-xl border flex flex-col justify-between items-center text-center transition-all ${rarity.cardBorder} ${rarity.cardBg} ${canAfford ? "hover:scale-[1.02] shadow-sm" : "opacity-60"}`}
+                                              >
+                                                <div className="w-10 h-10 p-1 bg-black/60 rounded-lg border border-white/10 flex items-center justify-center mb-1 shrink-0">
+                                                  <img
+                                                    src={`/items/${item.id}.png`}
+                                                    onError={(e) => {
+                                                      (e.currentTarget as HTMLElement).style.display = "none";
+                                                      const parent = (e.currentTarget as HTMLElement).parentElement;
+                                                      if (parent && !parent.querySelector(".emoji-fallback")) {
+                                                        const span = document.createElement("span");
+                                                        span.className = "emoji-fallback text-lg";
+                                                        span.innerText = item.iconEmoji;
+                                                        parent.appendChild(span);
+                                                      }
+                                                    }}
+                                                    alt={item.name[lang]}
+                                                    className="w-full h-full object-contain"
+                                                  />
+                                                </div>
+
+                                                <div className="flex items-center gap-1 mb-1">
+                                                  <span className={`text-[7px] px-1 py-0.2 rounded font-mono font-bold uppercase ${isConsumable ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" : "bg-purple-500/20 text-purple-300 border border-purple-500/40"}`}>
+                                                    {isConsumable ? (lang === "it" ? "Consumabile" : "Consumable") : (lang === "it" ? "Equipaggiabile" : "Equipable")}
+                                                  </span>
+                                                </div>
+
+                                                <h4 className={`font-bold text-[9.5px] mb-0.5 leading-tight ${rarity.textColor}`}>{item.name[lang]}</h4>
+                                                <p className="text-[8.5px] text-gray-300 leading-tight font-mono mb-1 text-left w-full line-clamp-2">{item.description[lang]}</p>
+
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    if (!canAfford) return;
+                                                    const success = buyAndAddItemToInventory(item, price);
+                                                    if (success) {
+                                                      showToast(lang === "it" ? `🛒 ${item.name[lang]} acquistato!` : `🛒 ${item.name[lang]} purchased!`);
+                                                    }
+                                                  }}
+                                                  disabled={!canAfford}
+                                                  className={`w-full py-1 rounded-lg font-bold font-mono text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 border transition-all ${canAfford ? "bg-amber-500 hover:bg-amber-400 text-gray-950 border-amber-400 cursor-pointer shadow" : "bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed"}`}
+                                                >
+                                                  <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3 h-3 object-contain" />
+                                                  <span>{price} Ryo</span>
+                                                </button>
                                               </div>
                                             );
                                           })}
@@ -1978,22 +3122,56 @@ export default function Home() {
                 {/* OVERLAY: CAMPFIRE HEALING ACTION */}
                 {currentNode && currentNode.type === "heal" && !currentNode.resolved && (
                   <div className="absolute inset-0 bg-black/85 z-30 flex items-center justify-center p-4 sm:p-5 animate-fade-in">
-                    <div className="bg-[#0f152d] border-4 border-green-500 rounded-3xl p-5 sm:p-8 shadow-2xl w-full max-w-sm text-center">
-                      <img src="/ramen.png" alt="Ramen" className="w-16 h-16 sm:w-20 sm:h-20 object-contain mx-auto mb-3 sm:mb-4 filter drop-shadow-[0_0_15px_rgba(34,197,94,0.6)] animate-bounce" />
-                      <h3 className="text-xl sm:text-3xl font-black text-green-400 mb-2 uppercase tracking-wider">
+                    <div className="bg-[#0f152d] border-4 border-green-500 rounded-3xl p-5 sm:p-7 shadow-2xl w-full max-w-sm text-center">
+                      <img src="/ramen.png" alt="Ramen" className="w-16 h-16 sm:w-20 sm:h-20 object-contain mx-auto mb-3 filter drop-shadow-[0_0_15px_rgba(34,197,94,0.6)] animate-bounce" />
+                      <h3 className="text-xl sm:text-2xl font-black text-green-400 mb-1 uppercase tracking-wider">
                         {lang === "it" ? "RAMEN ICHIRAKU" : "ICHIRAKU RAMEN"}
                       </h3>
-                      <p className="text-xs sm:text-sm font-semibold text-slate-200 mb-4 sm:mb-6">
+                      <p className="text-xs font-semibold text-slate-200 mb-4">
                         {lang === "it"
-                          ? "Ripristina il 100% di HP e Chakra a tutta la squadra!"
-                          : "Restores 100% HP & Chakra for the entire team!"}
+                          ? "Scegli come ristorare le forze della tua squadra:"
+                          : "Choose how to restore your team's strength:"}
                       </p>
-                      <button
-                        onClick={applyHealingAtCampfire}
-                        className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold rounded-2xl shadow-xl transition-all uppercase tracking-wider text-sm sm:text-base border-b-4 border-green-950 cursor-pointer hover:scale-105 active:scale-95"
-                      >
-                        {lang === "it" ? "MANGIA RAMEN" : "EAT RAMEN"}
-                      </button>
+
+                      <div className="flex flex-col gap-2.5 mb-2">
+                        {/* OPTION 1: 100% HEAL FOR 25 RYO */}
+                        <button
+                          onClick={() => {
+                            const currentCoins = user ? totalCoins : sessionCoins;
+                            if (currentCoins < 25) {
+                              showToast(lang === "it" ? "⚠️ Ryo insufficienti per la Ciotola Suprema!" : "⚠️ Not enough Ryo for Supreme Bowl!");
+                              return;
+                            }
+                            applyHealingAtCampfire(100, 25);
+                          }}
+                          className="w-full py-2.5 px-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-extrabold rounded-xl shadow-md transition-all text-xs uppercase tracking-wider border-b-2 border-green-950 cursor-pointer flex justify-between items-center"
+                        >
+                          <div className="text-left">
+                            <div className="font-black">🍜 {lang === "it" ? "Ciotola Suprema" : "Supreme Bowl"}</div>
+                            <div className="text-[9px] text-green-100 font-normal">100% HP & 100% Chakra</div>
+                          </div>
+                          <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded text-yellow-300 font-mono text-[10px] font-bold">
+                            <img src="/coin.png" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }} alt="Ryo" className="w-3 h-3 object-contain" />
+                            <span>25 ryo</span>
+                          </div>
+                        </button>
+
+                        {/* OPTION 2: 50% EMERGENCY FREE HEAL */}
+                        <button
+                          onClick={() => {
+                            applyHealingAtCampfire(50, 0);
+                          }}
+                          className="w-full py-2.5 px-3 bg-gray-800 hover:bg-gray-750 text-gray-200 font-bold rounded-xl border border-gray-700 transition-all text-xs uppercase tracking-wider cursor-pointer flex justify-between items-center"
+                        >
+                          <div className="text-left">
+                            <div className="font-bold">🥣 {lang === "it" ? "Brodo d'Emergenza" : "Emergency Broth"}</div>
+                            <div className="text-[9px] text-gray-400 font-normal">50% HP & 50% Chakra</div>
+                          </div>
+                          <div className="text-emerald-400 font-mono text-[10px] font-bold bg-black/50 px-2 py-1 rounded">
+                            {lang === "it" ? "Gratis" : "Free"}
+                          </div>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2062,20 +3240,20 @@ export default function Home() {
                             </div>
 
                             <div className="min-w-0">
-                               <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                                 {(() => {
-                                   const rankKey = (item.rarity as keyof typeof RARITY_CONFIGS) || "C";
-                                   const itemRarity = RARITY_CONFIGS[rankKey];
-                                   return (
-                                     <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-black ${itemRarity.badgeBg} ${itemRarity.badgeTextColor}`}>
-                                       RANK {rankKey}
-                                     </span>
-                                   );
-                                 })()}
-                                 <div className="font-extrabold text-xs text-white leading-tight">{item.name[lang]}</div>
-                               </div>
-                               <div className="text-[9px] text-gray-300 whitespace-pre-line font-mono font-semibold leading-snug">{item.description[lang]}</div>
-                             </div>
+                              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                {(() => {
+                                  const rankKey = (item.rarity as keyof typeof RARITY_CONFIGS) || "C";
+                                  const itemRarity = RARITY_CONFIGS[rankKey];
+                                  return (
+                                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-black ${itemRarity.badgeBg} ${itemRarity.badgeTextColor}`}>
+                                      RANK {rankKey}
+                                    </span>
+                                  );
+                                })()}
+                                <div className="font-extrabold text-xs text-white leading-tight">{item.name[lang]}</div>
+                              </div>
+                              <div className="text-[9px] text-gray-300 whitespace-pre-line font-mono font-semibold leading-snug">{item.description[lang]}</div>
+                            </div>
                           </div>
 
                           <div className="shrink-0">
@@ -2176,7 +3354,7 @@ export default function Home() {
                     { id: "zabuza", name: "Zabuza" },
                     { id: "orochimaru_shippuden", name: "Orochimaru" },
                     { id: "gaara_kid", name: "Gaara" },
-                  ] : [
+                  ] : activeSagaId === "shippuden_naruto" ? [
                     { id: "deidara_boss", name: "Deidara" },
                     { id: "hidan_boss", name: "Hidan" },
                     { id: "itachi_shippuden", name: "Itachi" },
@@ -2187,6 +3365,14 @@ export default function Home() {
                     { id: "madara_boss", name: "Madara" },
                     { id: "obito_tt", name: "Obito 10T" },
                     { id: "madara_tt", name: "Madara 10T" },
+                  ] : [
+                    { id: "zabuza", name: "P.5 Zabuza" },
+                    { id: "itachi_shippuden", name: "P.10 Itachi" },
+                    { id: "jiraiya_shippuden", name: "P.15 Sannin" },
+                    { id: "pain_boss", name: "P.20 Pain" },
+                    { id: "tsunade_shippuden", name: "P.25 5 Kage" },
+                    { id: "madara_boss", name: "P.30 Madara" },
+                    { id: "madara_tt", name: "P.35+ 10T" },
                   ];
 
                   return (
@@ -2624,6 +3810,17 @@ export default function Home() {
           }}
         />
       )}
+      <DailyQuestsModal
+        isOpen={showDailyQuestsModal}
+        onClose={() => setShowDailyQuestsModal(false)}
+        onOpenAuthModal={() => {
+          setShowAchievementsModal(false);
+          setAuthModalRegisterMode(true);
+          setShowAuthModal(true);
+        }}
+      />
+      <SurvivalCampModal />
+      <ChaosDraftModal />
 
       {/* SAGA COMPLETION VICTORY CELEBRATION MODAL */}
       {completedSagaVictory && (
@@ -2815,6 +4012,18 @@ export default function Home() {
                     <span className="text-slate-300 font-medium">{t.shippudenRuns}:</span>
                     <span className="font-bold text-blue-400">{shippudenRunsCount}</span>
                   </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-300 font-medium">{t.towerRuns}:</span>
+                    <span className="font-bold text-red-400">{towerRunsCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-300 font-medium">{t.survivalRuns}:</span>
+                    <span className="font-bold text-amber-400">{survivalRunsCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-300 font-medium">{t.chaosDraftRuns}:</span>
+                    <span className="font-bold text-purple-400">{chaosDraftRunsCount}</span>
+                  </div>
                 </div>
 
                 {/* Settings Item: Language & Tutorial */}
@@ -2839,6 +4048,40 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
+
+                {/* Daily Quests Link */}
+                <button
+                  onClick={() => {
+                    setShowDailyQuestsModal(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left bg-[#070b19]/80 hover:bg-[#0f152d] border border-gray-800 hover:border-amber-500/40 p-4 rounded-2xl flex items-center justify-between text-sm text-slate-100 font-semibold transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center p-1 shrink-0">
+                      <img
+                        src="/achievements/node_conqueror_1.png"
+                        alt="Sfide"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = "/trophy.png";
+                        }}
+                        className="w-full h-full object-contain filter drop-shadow-[0_0_4px_rgba(255,159,28,0.7)]"
+                      />
+                    </div>
+                    <span>{lang === "it" ? "Sfide Giornaliere" : "Daily Missions"}</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[10px] font-mono font-black px-2 py-0.5 rounded-md border ${unclaimedQuestsCount > 0
+                          ? "bg-amber-500 text-black border-yellow-200 animate-pulse"
+                          : "bg-black/60 text-amber-300 border-amber-500/40"
+                        }`}
+                    >
+                      {completedQuestsCount}/{dailyQuestsList.length || 3}
+                    </span>
+                    <span className="text-[#ff9f1c]">➔</span>
+                  </div>
+                </button>
 
                 {/* Credits Link */}
                 <button

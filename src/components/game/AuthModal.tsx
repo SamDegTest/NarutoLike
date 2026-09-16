@@ -216,10 +216,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialRegister =
   const processRegistration = async (emailVal: string, passVal: string, userVal: string, keepProgress: boolean) => {
     setShowProgressChoice(false);
     if (!keepProgress) {
-      // User wants to reset guest progress on new account
       useGameStore.getState().clearLocalSave();
     }
-    const res = await signUp(emailVal, passVal, userVal);
+    const res = await signUp(emailVal, passVal, userVal, keepProgress);
     if (res?.error) {
       setErrorMessage(res.error.message);
     } else if (res?.needsEmailConfirmation) {
@@ -278,9 +277,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialRegister =
       if (isRegister) {
         const guestScore = useGameStore.getState().totalScore;
         const guestRuns = useGameStore.getState().totalRunsCount;
+        const guestCoins = typeof window !== "undefined" ? Number(localStorage.getItem("guest_coins_cache") || "0") : 0;
 
-        // If user played as guest before registering, ask whether to keep progress
-        if ((guestScore > 0 || guestRuns > 0) && !showProgressChoice) {
+        // If user played as guest before registering, ask whether to keep progress & coins
+        if ((guestScore > 0 || guestRuns > 0 || guestCoins > 0) && !showProgressChoice) {
           setPendingFormEvent({ email, pass: password, user: username });
           setShowProgressChoice(true);
           return;
@@ -340,15 +340,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialRegister =
         {showProgressChoice ? (
           <div className="text-center py-4 space-y-4 animate-fade-in">
             <div className="w-16 h-16 mx-auto bg-amber-500/20 border-2 border-amber-400 rounded-full flex items-center justify-center text-3xl">
-              🏆
+              🪙
             </div>
             <h3 className="text-xl font-extrabold text-amber-300 uppercase tracking-wider">
-              {lang === "it" ? "Salvare i Progressi Ospite?" : "Save Guest Progress?"}
+              {lang === "it" ? "Mantenere le Monete e i Progressi?" : "Keep Coins & Progress?"}
             </h3>
             <p className="text-xs text-gray-300 leading-relaxed font-mono">
               {lang === "it"
-                ? `Hai accumulato ${useGameStore.getState().totalScore.toLocaleString()} punti e ${useGameStore.getState().totalRunsCount} run da ospite. Vuoi trasferirli sul nuovo profilo o ricominciare da capo?`
-                : `You earned ${useGameStore.getState().totalScore.toLocaleString()} points and ${useGameStore.getState().totalRunsCount} runs as guest. Do you want to save them to your new profile or start fresh?`}
+                ? `Hai accumulato ${(typeof window !== "undefined" ? Number(localStorage.getItem("guest_coins_cache") || "0") : 0).toLocaleString()} monete, ${useGameStore.getState().totalScore.toLocaleString()} punti e ${useGameStore.getState().totalRunsCount} run da ospite. Vuoi trasferirli sul nuovo profilo o ricominciare da 0 monete?`
+                : `You earned ${(typeof window !== "undefined" ? Number(localStorage.getItem("guest_coins_cache") || "0") : 0).toLocaleString()} coins, ${useGameStore.getState().totalScore.toLocaleString()} points and ${useGameStore.getState().totalRunsCount} runs as guest. Do you want to keep them on your new profile or start fresh with 0 coins?`}
             </p>
 
             <div className="flex flex-col gap-2.5 pt-2">
@@ -361,7 +361,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialRegister =
                 }}
                 className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-extrabold text-xs rounded-xl uppercase tracking-wider shadow-lg border-b-4 border-green-950 cursor-pointer"
               >
-                ✨ {lang === "it" ? "Salva Punti & Run sul Profilo" : "Save Points & Runs to Profile"}
+                ✨ {lang === "it" ? "Mantenere Monete & Progressi" : "Keep Coins & Progress"}
               </button>
 
               <button
@@ -373,7 +373,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialRegister =
                 }}
                 className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs rounded-xl uppercase tracking-wider border border-gray-700 cursor-pointer"
               >
-                🔄 {lang === "it" ? "Ricomincia da Capo (Reset Dati)" : "Start Fresh (Reset Data)"}
+                🔄 {lang === "it" ? "Iniziare da 0 Monete (Reset Dati)" : "Start Fresh (0 Coins)"}
               </button>
             </div>
           </div>

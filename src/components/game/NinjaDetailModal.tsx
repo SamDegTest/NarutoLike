@@ -25,14 +25,16 @@ export function NinjaDetailModal({ ninja, onClose, onUnequipItem }: Props) {
   const level = (ninja as any).level || 1;
 
   const runTeam = useGameStore((state) => state.runTeam);
+  const activeSagaId = useGameStore((state) => state.activeSagaId);
   const activeConsumableEffects = useGameStore((state) => state.activeConsumableEffects);
-  const activeSynergies = getActiveSynergies(runTeam.length > 0 ? runTeam : [(ninja as any)]);
+  const activeSynergies = getActiveSynergies(runTeam.length > 0 ? runTeam : [(ninja as any)], activeSagaId);
 
   const effStats = getNinjaEffectiveStats(
     ninja as RunNinja,
     activeConsumableEffects,
     runTeam.length > 0 ? runTeam : [(ninja as any)],
-    lang
+    lang,
+    activeSagaId
   );
 
   const currentHp = (ninja as any).currentHp !== undefined ? (ninja as any).currentHp : effStats.hpMax.total;

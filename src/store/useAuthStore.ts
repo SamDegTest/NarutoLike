@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { supabase } from "@/lib/supabaseClient";
 import { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { useGameStore } from "./useGameStore";
+import { ACHIEVEMENTS, getAchievementRewardCoins } from "@/data/achievements";
 
 interface AuthState {
   user: User | null;
@@ -12,7 +13,7 @@ interface AuthState {
   loading: boolean;
   
   initialize: () => Promise<void>;
-  signUp: (email: string, password: string, username: string) => Promise<{ error: any; needsEmailConfirmation?: boolean }>;
+  signUp: (email: string, password: string, username: string, keepCoins?: boolean) => Promise<{ error: any; needsEmailConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   uploadAvatar: (file: File) => Promise<{ error: any; url?: string }>;
@@ -33,6 +34,48 @@ function getDerivedUsername(profileUsername?: string | null, user?: User | null)
   return null;
 }
 
+async function applyPendingSignupCoinsIfNeeded(userId: string) {
+  if (typeof window === "undefined") return;
+  const pending = localStorage.getItem("pending_signup_coins");
+  if (pending !== null) {
+    const runCoinsToSave = Math.max(0, Number(pending) || 0);
+    localStorage.removeItem("pending_signup_coins");
+    localStorage.removeItem("guest_coins_cache");
+
+    // Award achievement reward coins for all achievements unlocked while playing as guest
+    let achievementBonusCoins = 0;
+    try {
+      const unlockedMapStr = localStorage.getItem("unlockedAchievementsMap") || "{}";
+      const unlockedMap: Record<string, string> = JSON.parse(unlockedMapStr);
+      for (const achId of Object.keys(unlockedMap)) {
+        const ach = ACHIEVEMENTS.find((a) => a.id === achId);
+        if (ach) {
+          achievementBonusCoins += getAchievementRewardCoins(ach);
+        }
+      }
+    } catch (e) {
+      console.error("Error calculating achievement bonus coins for new user:", e);
+    }
+
+    const totalCoinsToSave = runCoinsToSave + achievementBonusCoins;
+
+    useGameStore.setState({ totalCoins: totalCoinsToSave, sessionCoins: totalCoinsToSave });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("totalCoins", String(totalCoinsToSave));
+    }
+
+    try {
+      await supabase.from("profiles").upsert({
+        id: userId,
+        total_coins: totalCoinsToSave,
+        updated_at: new Date(),
+      });
+    } catch (e) {
+      console.error("Error applying pending signup coins to DB:", e);
+    }
+  }
+}
+
 export const DEFAULT_SHINOBI_TITLE = "Novizio di Konoha 🍃";
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -50,6 +93,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session) {
+      await applyPendingSignupCoinsIfNeeded(session.user.id);
+
       // Fetch profile username, avatarUrl, selected_title
       const { data: profile } = await supabase
         .from("profiles")
@@ -69,11 +114,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       // Load cloud save
       await useGameStore.getState().loadCloudSave();
+    } else {
+      // Load guest save from localStorage
+      useGameStore.getState().loadGuestRunFromLocalStorage();
     }
     
     // Listen for auth changes
     supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
       if (session) {
+        await applyPendingSignupCoinsIfNeeded(session.user.id);
+
         const { data: profile } = await supabase
           .from("profiles")
           .select("username, avatar_url, selected_title")
@@ -101,9 +151,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: false });
   },
 
-  signUp: async (email, password, username) => {
+  signUp: async (email, password, username, keepCoins = true) => {
     set({ loading: true });
     const redirectUrl = typeof window !== "undefined" ? window.location.href.split("#")[0] : undefined;
+
+    const guestCoinsCache = typeof window !== "undefined" ? Number(localStorage.getItem("guest_coins_cache") || "0") : 0;
+    const initialCoins = keepCoins ? Math.max(0, guestCoinsCache) : 0;
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pending_signup_coins", String(initialCoins));
+      localStorage.removeItem("guest_coins_cache");
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -120,29 +178,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     if (data.user) {
-      // If auto-authenticated or session available, upsert profile and game save
       if (data.session) {
         set({ session: data.session, user: data.user, username, selectedTitle: DEFAULT_SHINOBI_TITLE, loading: false });
 
-        // Upsert profile details with default title
         await supabase.from("profiles").upsert({
           id: data.user.id,
           username,
           selected_title: DEFAULT_SHINOBI_TITLE,
           max_level_reached: 1,
+          total_coins: initialCoins,
           updated_at: new Date(),
         });
 
-        // Upsert save file
+        await applyPendingSignupCoinsIfNeeded(data.user.id);
+
         await supabase.from("game_saves").upsert({
           id: data.user.id,
           updated_at: new Date(),
         });
 
-        // Save guest run & statistics to DB immediately
         await useGameStore.getState().saveToCloud();
       } else {
-        // Email confirmation is required by Supabase project settings
         set({ loading: false });
       }
     }
@@ -166,7 +222,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true });
     let emailToUse = identifier.trim();
 
-    // If identifier is a username (does not contain '@'), resolve to email via RPC function
     if (!emailToUse.includes("@")) {
       const { data: resolvedEmail, error: rpcError } = await supabase.rpc("get_email_by_username", {
         p_username: emailToUse,
@@ -191,6 +246,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     if (data.session) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("guest_coins_cache");
+        localStorage.removeItem("pending_signup_coins");
+        localStorage.removeItem("narutolike_guest_run_save");
+      }
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("username, avatar_url, selected_title")
@@ -208,7 +269,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         loading: false 
       });
       
-      // Load existing account data from DB (do NOT save guest data on login)
       await useGameStore.getState().loadCloudSave();
     }
 

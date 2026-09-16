@@ -12,6 +12,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "secret_elixir",
     type: "consumable",
     rarity: "S",
+    price: 300,
     name: { it: "Elisir del Clan Senju", en: "Senju Clan Elixir" },
     description: {
       it: "• Cura 100% HP e 100% Chakra (tutta la squadra)\n• Rianima i ninja caduti al 50% HP",
@@ -25,6 +26,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "forbidden_jutsu_scroll",
     type: "consumable",
     rarity: "S",
+    price: 350,
     name: { it: "Rotolo Proibito delle Tecniche Segrete", en: "Forbidden Jutsu Scroll" },
     description: {
       it: "• Evolve e potenzia 1 Jutsu a scelta di 1 ninja al livello successivo",
@@ -37,6 +39,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "chakra_ointment",
     type: "consumable",
     rarity: "A",
+    price: 200,
     name: { it: "Unguento del Rospo Eremita", en: "Sage Toad Ointment" },
     description: {
       it: "• +60% Attacco a tutta la squadra (durata: 3 battaglie)",
@@ -52,6 +55,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "iron_shield_talisman",
     type: "consumable",
     rarity: "A",
+    price: 180,
     name: { it: "Talismano della Difesa d'Acciaio", en: "Iron Defense Talisman" },
     description: {
       it: "• +60% Difesa a tutta la squadra (durata: 3 battaglie)",
@@ -67,6 +71,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "speed_pill",
     type: "consumable",
     rarity: "A",
+    price: 220,
     name: { it: "Pillola del Lampo Giallo", en: "Yellow Flash Speed Pill" },
     description: {
       it: "• +60% Velocità a tutta la squadra (durata: 3 battaglie)",
@@ -82,6 +87,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "gold_cat_talisman",
     type: "consumable",
     rarity: "B",
+    price: 130,
     name: { it: "Maneki-Neko della Fortuna Dorata", en: "Golden Fortune Maneki-Neko" },
     description: {
       it: "• +150% Monete Ryo extra (durata: 5 battaglie)",
@@ -94,6 +100,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "war_tonic",
     type: "consumable",
     rarity: "C",
+    price: 60,
     name: { it: "Tonico da Guerra dei Saggi", en: "Sage War Tonic" },
     description: {
       it: "• Cura 75% HP (tutta la squadra)\n• Ripristina 75% Chakra (tutta la squadra)",
@@ -111,6 +118,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "hokage_necklace",
     type: "assignable",
     rarity: "S",
+    price: 380,
     name: { it: "Collana del Primo Hokage", en: "First Hokage's Necklace" },
     description: {
       it: "• +250 HP Max\n• +100 Chakra Max",
@@ -126,6 +134,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "kusanagi_sword",
     type: "assignable",
     rarity: "S",
+    price: 400,
     name: { it: "Spada Kusanagi di Orochimaru", en: "Kusanagi Sword of Orochimaru" },
     description: {
       it: "• +65 Attacco\n• +30 Velocità\n• +40 Chakra Max",
@@ -142,6 +151,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "yata_mirror",
     type: "assignable",
     rarity: "S",
+    price: 350,
     name: { it: "Scudo Spezzo-Illusioni di Yata", en: "Yata Mirror Shield" },
     description: {
       it: "• +60 Difesa\n• +150 HP Max",
@@ -157,6 +167,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "weights_of_lee",
     type: "assignable",
     rarity: "A",
+    price: 250,
     name: { it: "Pesi da Caviglia di Rock Lee", en: "Rock Lee's Ankle Weights" },
     description: {
       it: "• +70 Velocità\n• +35 Attacco",
@@ -172,6 +183,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "choku_tomoe_amulet",
     type: "assignable",
     rarity: "A",
+    price: 260,
     name: { it: "Amuleto Mangekyō Sharingan", en: "Mangekyō Sharingan Amulet" },
     description: {
       it: "• +50 Attacco\n• +35 Velocità\n• +25 Difesa",
@@ -188,6 +200,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "chakra_blade",
     type: "assignable",
     rarity: "B",
+    price: 140,
     name: { it: "Lama di Chakra di Asuma", en: "Chakra Blade of Asuma" },
     description: {
       it: "• +55 Attacco\n• +60 Chakra Max",
@@ -203,6 +216,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "anbu_mask",
     type: "assignable",
     rarity: "B",
+    price: 130,
     name: { it: "Maschera della Volpe Anbu", en: "Fox Anbu Mask" },
     description: {
       it: "• +45 Velocità\n• +35 Difesa\n• +60 HP Max",
@@ -219,6 +233,7 @@ export const GAME_ITEMS_CATALOG: GameItem[] = [
     id: "forehead_protector",
     type: "assignable",
     rarity: "C",
+    price: 50,
     name: { it: "Coprifronte della Foglia Rinforzato", en: "Reinforced Headband" },
     description: {
       it: "• +100 HP Max\n• +35 Difesa",
@@ -277,3 +292,5 @@ export function sampleRandomItems(count: number = 3): GameItem[] {
 
   return items;
 }
+
+export const ALL_ITEMS: GameItem[] = GAME_ITEMS_CATALOG;

@@ -95,6 +95,9 @@ export interface GameItem {
     defense?: number;
     speed?: number;
   };
+
+  // Prezzo nello shop
+  price?: number;
 }
 
 export interface InventoryItem {
@@ -125,3 +128,25 @@ export interface PowerUpItem {
   oldJutsuId?: string;
   newJutsuId?: string;
 }
+
+export type SagaId = "classic_naruto" | "shippuden_naruto" | "endless_tower" | "survival_war" | "chaos_draft";
+
+export interface SurvivalSupplyChoice {
+  id: string;
+  type: "heal" | "stat_boost" | "jutsu" | "item" | "recruit";
+  title: { it: string; en: string };
+  description: { it: string; en: string };
+  icon: string;
+  healPercent?: number;
+  statBoost?: { attack?: number; defense?: number; hpMax?: number; speed?: number };
+  rewardItem?: GameItem;
+}
+
+export interface ChaosDraftPackage {
+  id: string;
+  packageName: { it: string; en: string };
+  theme: { it: string; en: string };
+  ninjas: Ninja[];
+  bonusItem?: GameItem;
+}
+
