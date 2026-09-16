@@ -13,6 +13,25 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ onClose }) => 
 
   const patchLogs = [
     {
+      version: "v1.6.0",
+      date: "16-09-2026",
+      notes: lang === "it" ? [
+        "Modalità Speciali & Sfida: Introdotte 3 nuove modalità uniche selezionabili dalla homepage (Torre Infinita procedurale con auree dimensionali, Grande Guerra Ninja a ondate di sopravvivenza con accampamento rifornimenti, e Lo Tsukuyomi Infinito con Draft caotico di pacchetti ninja).",
+        "Sistema Sfide Giornaliere (Daily Quests): Aggiunto il sistema di missioni giornaliere con reset automatico a mezzanotte, tracciamento in tempo reale dei progressi e ricompense in Ryo, corredato da un widget rapido nella home.",
+        "Ricerca & Filtri nei Trofei: Integrata una barra di ricerca istantanea (per nome, titolo o descrizione sia in italiano che in inglese) e nuovi filtri rapidi di stato (Tutti, Sbloccati, Bloccati) con contatori in tempo reale nella finestra Trofei & Titoli Shinobi.",
+        "Personalizzazione Controlli da Tastiera: Aggiunto il supporto completo alla rimappatura dei tasti rapidi con persistenza cloud automatica sul profilo giocatore.",
+        "Restyling Selettore Modalità: Ottimizzato il selettore delle modalità (Storia vs Speciali & Sfida) con altezze e dimensioni perfettamente simmetriche e bilanciate su tutti i dispositivi.",
+        "Rafforzamento Persistenza Cloud: Migliorata la sincronizzazione dello stato di gioco, delle run attive e delle monete Ryo tra store locale e database Supabase per garantire zero perdite di dati."
+      ] : [
+        "Special & Challenge Modes: Introduced 3 new standalone modes playable from the home screen (procedural Endless Tower with changing dimensional auras, Great Ninja War endless survival with supply camp management, and Infinite Tsukuyomi with chaotic draft packages).",
+        "Daily Quests System: Added a full daily missions engine with automatic midnight reset, live progress tracking, and claimable Ryo rewards, accompanied by a quick-access home screen widget.",
+        "Trophies Search & Status Filters: Integrated real-time search (by name, title, or description in both Italian & English) and quick status filter pills (All, Unlocked, Locked) with live counters in the Trophies & Shinobi Titles modal.",
+        "Customizable Keyboard Keybindings: Added full in-game key remapping support with automatic cloud persistence to the player's profile.",
+        "Mode Switcher UI Redesign: Fully aligned and balanced the mode tab switcher (Story vs Special Modes & Challenges) ensuring identical dimensions and seamless responsive layout across devices.",
+        "Cloud Persistence Reinforcement: Strengthened run state and Ryo coin synchronization between local Zustand storage and Supabase database for zero data loss."
+      ]
+    },
+    {
       version: "v1.5.0",
       date: "18-08-2026",
       notes: lang === "it" ? [

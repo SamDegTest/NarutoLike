@@ -30,6 +30,8 @@ CREATE TABLE public.profiles (
   total_coins INT NOT NULL DEFAULT 0,
   selected_title TEXT,
   unlocked_achievements JSONB DEFAULT '{}'::jsonb,
+  custom_keybindings JSONB DEFAULT '{}'::jsonb,
+  daily_quests JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -65,6 +67,7 @@ CREATE TABLE public.game_saves (
   active_power_ups JSONB DEFAULT '[]'::jsonb,
   inventory JSONB DEFAULT '[]'::jsonb,
   defeated_bosses JSONB DEFAULT '[]'::jsonb,
+  daily_quests JSONB DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

@@ -278,7 +278,7 @@ export const ChakraChartModal: React.FC<ChakraChartModalProps> = ({ onClose, ini
 
             <div className="grid grid-cols-1 gap-3.5">
               {SYNERGIES.map((syn) => {
-                const activeResults = getActiveSynergies(runTeam);
+                const activeResults = getActiveSynergies(runTeam, activeSagaId);
                 const matchedRes = activeResults.find((r) => r.synergy.id === syn.id);
                 const isActiveInCurrentRun = matchedRes !== undefined;
 

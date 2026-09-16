@@ -34,6 +34,7 @@ export const TutorialOverlay: React.FC = () => {
   const hasUsedScroll = activePowerUps.some((p) => p.usedOnNinjaId);
 
   const availableRecruitChoices = useGameStore((state) => state.availableRecruitChoices);
+  const availableItemChoices = useGameStore((state) => state.availableItemChoices);
 
   // Auto-advance step 1 -> step 2 when starter ninja is selected and run starts
   useEffect(() => {
@@ -42,40 +43,50 @@ export const TutorialOverlay: React.FC = () => {
     }
   }, [isTutorialActive, tutorialStep, isRunActive]);
 
-  // Auto-advance step 2 -> step 3 when player finishes using the scroll (hasUsedScroll becomes true)
+  const hasOpenedStep2ItemChoicesRef = React.useRef(false);
+
+  // Track if Step 2 item choices modal was opened
   useEffect(() => {
-    if (isTutorialActive && tutorialStep === 2 && isRunActive && hasUsedScroll) {
+    if (isTutorialActive && tutorialStep === 2 && availableItemChoices && availableItemChoices.length > 0) {
+      hasOpenedStep2ItemChoicesRef.current = true;
+    }
+  }, [isTutorialActive, tutorialStep, availableItemChoices]);
+
+  // Auto-advance step 2 -> step 3 when player picks an item (availableItemChoices becomes null)
+  useEffect(() => {
+    if (isTutorialActive && tutorialStep === 2 && isRunActive && (hasOpenedStep2ItemChoicesRef.current || hasUsedScroll) && !availableItemChoices) {
+      hasOpenedStep2ItemChoicesRef.current = false;
       useGameStore.setState({ tutorialStep: 3 });
     }
-  }, [isTutorialActive, tutorialStep, isRunActive, hasUsedScroll]);
+  }, [isTutorialActive, tutorialStep, isRunActive, hasUsedScroll, availableItemChoices]);
+
+  const hasStartedStep3ActionRef = React.useRef(false);
 
   // Track if Step 3 node action was initiated (recruitment opened or battle started)
-  const [hasStartedStep3Action, setHasStartedStep3Action] = useState(false);
-
   useEffect(() => {
     if (isTutorialActive && tutorialStep === 3) {
       if (availableRecruitChoices || isBattleActive) {
-        setHasStartedStep3Action(true);
+        hasStartedStep3ActionRef.current = true;
       }
     }
   }, [isTutorialActive, tutorialStep, availableRecruitChoices, isBattleActive]);
 
-  // Auto-advance step 3 -> step 4 ONLY when the action has STARTED and is NOW COMPLETED (recruitment overlay closed AND battle not active)
+  // Auto-advance step 3 -> step 4 ONLY when the action has STARTED and is NOW COMPLETED
   useEffect(() => {
-    if (isTutorialActive && tutorialStep === 3 && isRunActive && hasStartedStep3Action) {
-      // Advance ONLY when recruitment is finished (choices closed) AND battle is completed/inactive
+    if (isTutorialActive && tutorialStep === 3 && isRunActive && hasStartedStep3ActionRef.current) {
       if (!availableRecruitChoices && !isBattleActive) {
+        hasStartedStep3ActionRef.current = false;
         useGameStore.setState({ tutorialStep: 4 });
       }
     }
-  }, [isTutorialActive, tutorialStep, isRunActive, hasStartedStep3Action, availableRecruitChoices, isBattleActive]);
+  }, [isTutorialActive, tutorialStep, isRunActive, availableRecruitChoices, isBattleActive]);
 
   // Map tutorial steps to target selector attributes
   const stepTargetSelectors: Record<number, string[]> = {
     1: ['[data-tutorial="starter-selection"]'],
-    2: pendingJutsuToLearn
-      ? ['[data-tutorial="scroll-modal"]']
-      : ['[data-tutorial="team-panel"]', '[data-tutorial="map-section"]'],
+    2: availableItemChoices
+      ? ['[data-tutorial="item-modal"]']
+      : ['[data-tutorial="node-powerup"]'],
     3: availableRecruitChoices
       ? ['[data-tutorial="recruit-modal"]']
       : isBattleActive
@@ -138,7 +149,7 @@ export const TutorialOverlay: React.FC = () => {
       clearInterval(interval);
       window.removeEventListener("resize", updateRect);
     };
-  }, [isTutorialActive, tutorialStep, showEndModal, pendingJutsuToLearn, availableRecruitChoices, isBattleActive]);
+  }, [isTutorialActive, tutorialStep, showEndModal, pendingJutsuToLearn, availableItemChoices, availableRecruitChoices, isBattleActive]);
 
   // RENDER END OF TUTORIAL SCREEN
   if (isTutorialActive && showEndModal) {
@@ -238,16 +249,16 @@ export const TutorialOverlay: React.FC = () => {
 
   const stepTexts: Record<number, string> = {
     1: t.tutorialStep1Text,
-    2: pendingJutsuToLearn
-      ? (t.tutorialStep2TextPhase2 || "Ottimo! Ora che hai attivato il Rotolo, clicca sulla carta del tuo ninja nella squadra a sinistra per potenziarlo!")
+    2: availableItemChoices
+      ? (t.tutorialStep2TextPhase2 || "Ottimo! Ora scegli 1 oggetto da aggiungere al tuo Zaino per potenziare la tua squadra!")
       : t.tutorialStep2Text,
     3: t.tutorialStep3Text,
     4: t.tutorialStep4Text,
     5: t.tutorialStep5Text,
   };
 
-  // Action is required for step 1, step 2 (until scroll used), and step 3 (must pick a node)
-  const isActionRequired = tutorialStep === 1 || (tutorialStep === 2 && !hasUsedScroll) || tutorialStep === 3;
+  // Action is required for step 1, step 2 (until scroll/item used), and step 3 (must pick a node)
+  const isActionRequired = tutorialStep === 1 || tutorialStep === 2 || tutorialStep === 3;
 
   // Determine tooltip placement (above or below target)
   const isBottomHalf = targetRect ? targetRect.top > window.innerHeight / 2 : false;
@@ -315,7 +326,7 @@ export const TutorialOverlay: React.FC = () => {
         className={`fixed z-[202] flex items-center justify-center p-1.5 sm:p-4 pointer-events-auto transition-all duration-300 ${
           tutorialStep === 3 && availableRecruitChoices
             ? "top-1 left-1 sm:top-2 sm:left-2 right-auto bottom-auto max-w-[210px] sm:max-w-[240px] lg:bottom-6 lg:right-6 lg:left-auto lg:top-auto lg:max-w-sm"
-            : tutorialStep === 2 && pendingJutsuToLearn
+            : tutorialStep === 2 && availableItemChoices
             ? "top-1 right-1 sm:top-2 sm:right-2 left-auto bottom-auto max-w-[210px] sm:max-w-[240px] lg:bottom-6 lg:right-6 lg:top-auto lg:max-w-sm"
             : targetRect
             ? isBottomHalf
@@ -358,7 +369,7 @@ export const TutorialOverlay: React.FC = () => {
             <div className="my-1.5 flex items-center justify-center">
               {tutorialStep === 2 && (
                 <img
-                  src="/sprites/jutsus/Scrolls.png"
+                  src="/items.png"
                   alt="Rotolo Proibito"
                   className="w-10 h-10 sm:w-12 sm:h-12 object-contain filter drop-shadow-[0_0_8px_rgba(255,159,28,0.8)]"
                 />
@@ -412,7 +423,7 @@ export const TutorialOverlay: React.FC = () => {
           )}
 
           {/* Action Prompt */}
-          <p className="text-[10px] sm:text-xs text-gray-200 leading-tight sm:leading-relaxed mb-2 font-mono">
+          <p className="text-[10px] sm:text-xs text-gray-200 leading-tight sm:leading-relaxed mb-2 font-mono whitespace-pre-line text-left">
             {tutorialStep === 3 && availableRecruitChoices
               ? (lang === "it" ? "Seleziona un ninja dall'Accademia per aggiungerlo al tuo team!" : "Select a ninja from the Academy to add to your team!")
               : stepTexts[tutorialStep]}
@@ -432,8 +443,8 @@ export const TutorialOverlay: React.FC = () => {
             {isActionRequired ? (
               <span className="w-full text-center text-[10px] sm:text-xs font-bold font-mono text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1.5 rounded-xl animate-pulse block">
                 {tutorialStep === 2
-                  ? pendingJutsuToLearn
-                    ? (t.tutorialActionRequiredUseScroll || "Clicca sul tuo ninja nella squadra a sinistra per usare il rotolo!")
+                  ? availableItemChoices
+                    ? (t.tutorialActionRequiredUseScroll || "Seleziona uno dei 3 oggetti gratuiti per proseguire!")
                     : "Clicca sul nodo del Rotolo in cima alla mappa!"
                   : tutorialStep === 3
                   ? "Scegli ed esegui un nodo evidenziato sulla mappa!"

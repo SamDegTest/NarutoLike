@@ -9,6 +9,7 @@ import { TRANSLATIONS, translateNinjaName } from "@/data/translations";
 import { getNinjaEffectiveStats } from "@/utils/statUtils";
 import { NINJA_MAP } from "@/data/ninjas";
 import { Ninja } from "@/types/index";
+import { isKeyMatchingAction } from "@/lib/keybindings";
 
 function getElementImage(symbol: string): string {
   switch (symbol) {
@@ -24,6 +25,7 @@ function getElementImage(symbol: string): string {
 export function BattleScreen() {
   const { playerTeam: finalPlayerTeam, opponentTeam: finalOpponentTeam, battleStatus, battleSteps, claimVictory, resetBattle } = useBattleStore();
   const { endRun, selectSaga } = useGameStore();
+  const customKeybindings = useGameStore((state) => state.customKeybindings);
   const { language: lang } = useLanguageStore();
   const t = TRANSLATIONS[lang];
 
@@ -55,13 +57,13 @@ export function BattleScreen() {
   const stepsCount = battleSteps.length;
   const isFinished = currentStepIndex >= stepsCount - 1;
 
-  // Spacebar/Enter shortcut to skip battle animation or claim victory
+  // Customizable shortcut to skip battle animation or claim victory
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) return;
 
-      if (e.code === "Space" || e.code === "Enter") {
+      if (isKeyMatchingAction(e.key, "fast_advance", customKeybindings)) {
         e.preventDefault();
         if (isFinished) {
           if (battleStatus === "victory") {
@@ -79,7 +81,7 @@ export function BattleScreen() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFinished, battleStatus, stepsCount, claimVictory, resetBattle, endRun, selectSaga]);
+  }, [isFinished, battleStatus, stepsCount, claimVictory, resetBattle, endRun, selectSaga, customKeybindings]);
 
   // Current step state
   const currentStep = battleSteps[currentStepIndex] || {

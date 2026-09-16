@@ -12,7 +12,23 @@ interface UserProfileModalProps {
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onOpenInviteModal }) => {
   const { user, username, avatarUrl, uploadAvatar, signOut } = useAuthStore();
-  const { totalRunsCount, classicRunsCount, shippudenRunsCount, currentLevel, totalScore, classicHighScore, shippudenHighScore, totalCoins } = useGameStore();
+  const {
+    totalRunsCount,
+    classicRunsCount,
+    shippudenRunsCount,
+    towerRunsCount,
+    towerMaxFloor,
+    towerHighScore,
+    survivalMaxWave,
+    survivalHighScore,
+    survivalRunsCount,
+    chaosDraftHighScore,
+    chaosDraftRunsCount,
+    totalScore,
+    classicHighScore,
+    shippudenHighScore,
+    totalCoins,
+  } = useGameStore();
   const lang = useLanguageStore((state) => state.language);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -113,8 +129,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onO
         />
 
         {/* Avatar Container with Upload trigger */}
-        <div 
-          onClick={handleAvatarClick} 
+        <div
+          onClick={handleAvatarClick}
           className="relative w-24 h-24 mx-auto mb-4 rounded-2xl border-4 border-amber-500 shadow-xl overflow-hidden cursor-pointer group bg-black/50"
           title={lang === "it" ? "Clicca per cambiare la foto dal tuo dispositivo" : "Click to change photo from device"}
         >
@@ -295,9 +311,44 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, onO
             </div>
           </div>
 
+          <div className="bg-[#070b19] border border-red-500/30 rounded-xl p-2.5 text-center col-span-2">
+            <div className="text-[10px] text-red-300 uppercase tracking-wider font-mono flex items-center justify-center gap-1.5">
+              <span>🏯</span>
+              <span>{lang === "it" ? "Torre Mugen" : "Mugen Tower"}</span>
+            </div>
+            <div className="text-xs font-mono text-gray-300 mt-1 flex items-center justify-around">
+              <span>Record: <strong className="text-red-400">{towerMaxFloor > 0 ? `${lang === "it" ? "Piano" : "Floor"} ${towerMaxFloor}` : "-"}</strong></span>
+              <span>Punteggio: <strong className="text-amber-300">{towerHighScore.toLocaleString()} pts</strong></span>
+              <span>Scalate: <strong className="text-red-300">{towerRunsCount}</strong></span>
+            </div>
+          </div>
+
+          <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-2.5 text-center col-span-2">
+            <div className="text-[10px] text-amber-300 uppercase tracking-wider font-mono flex items-center justify-center gap-1.5">
+              <span>⚔️</span>
+              <span>{lang === "it" ? "Grande Guerra Ninja" : "Ninja War (Survival)"}</span>
+            </div>
+            <div className="text-xs font-mono text-gray-300 mt-1 flex items-center justify-around">
+              <span>Ondata: <strong className="text-amber-400">{survivalMaxWave > 0 ? `${lang === "it" ? "Ondata" : "Wave"} ${survivalMaxWave}` : "-"}</strong></span>
+              <span>Punti: <strong className="text-amber-300">{survivalHighScore.toLocaleString()} pts</strong></span>
+              <span>Guerre: <strong className="text-amber-200">{survivalRunsCount}</strong></span>
+            </div>
+          </div>
+
+          <div className="bg-[#070b19] border border-purple-500/30 rounded-xl p-2.5 text-center col-span-2">
+            <div className="text-[10px] text-purple-300 uppercase tracking-wider font-mono flex items-center justify-center gap-1.5">
+              <span>🌌</span>
+              <span>{lang === "it" ? "Lo Tsukuyomi Infinito (Draft)" : "Infinite Tsukuyomi (Draft)"}</span>
+            </div>
+            <div className="text-xs font-mono text-gray-300 mt-1 flex items-center justify-around">
+              <span>Miglior Punteggio: <strong className="text-purple-300">{chaosDraftHighScore.toLocaleString()} pts</strong></span>
+              <span>Partite: <strong className="text-purple-200">{chaosDraftRunsCount}</strong></span>
+            </div>
+          </div>
+
           <div className="bg-[#070b19] border border-amber-500/30 rounded-xl p-2.5 text-center col-span-2">
             <div className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">
-              {lang === "it" ? "Statistiche Partite (Run)" : "Run Statistics"}
+              {lang === "it" ? "Statistiche Partite Saghe" : "Saga Run Statistics"}
             </div>
             <div className="text-xs font-mono text-gray-300 mt-1 flex items-center justify-around">
               <span>Totali: <strong className="text-amber-300">{totalRunsCount}</strong></span>

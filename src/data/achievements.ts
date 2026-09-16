@@ -4,10 +4,13 @@ export interface AchievementStats {
   totalRuns: number;
   classicRuns: number;
   shippudenRuns: number;
+  towerRuns?: number;
   maxLevel: number;
   totalScore: number;
   classicHighScore: number;
   shippudenHighScore: number;
+  towerMaxFloor?: number;
+  towerHighScore?: number;
   defeatedBosses: string[];
   hasCompletedTutorial?: boolean;
 }
@@ -998,6 +1001,59 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: { it: "Sconfiggi tutti gli 8 Boss e gioca 50+ Run.", en: "Defeat all 8 Bosses and play 50+ runs." },
     icon: "🌌",
     check: (stats) => stats.defeatedBosses.length >= 8 && stats.totalRuns >= 50,
+  },
+  // ==========================================
+  // OBIETTIVI TORRE INFINITA (MUGEN TSUKUYOMI)
+  // ==========================================
+  {
+    id: "tower_first_floor",
+    category: "progression",
+    title: { it: "Ingresso nella Torre 🏯", en: "Entering the Tower 🏯" },
+    name: { it: "Primi Passi nel Sogno", en: "First Steps into the Dream" },
+    description: { it: "Supera il Piano 1 della Torre Infinita.", en: "Clear Floor 1 of the Endless Tower." },
+    icon: "🏯",
+    rewardCoins: 50,
+    check: (stats) => (stats.towerMaxFloor || 0) >= 1,
+  },
+  {
+    id: "tower_guardian_floor5",
+    category: "progression",
+    title: { it: "Guardiano dei Piani ⚔️", en: "Floor Guardian ⚔️" },
+    name: { it: "Superamento del Piano 5", en: "Clearing Floor 5" },
+    description: { it: "Raggiungi e supera il Piano 5 della Torre Infinita.", en: "Reach and clear Floor 5 of the Endless Tower." },
+    icon: "⚔️",
+    rewardCoins: 150,
+    check: (stats) => (stats.towerMaxFloor || 0) >= 5,
+  },
+  {
+    id: "tower_warrior_floor10",
+    category: "progression",
+    title: { it: "Guerriero del Tsukuyomi 🌕", en: "Tsukuyomi Warrior 🌕" },
+    name: { it: "Superamento del Piano 10", en: "Clearing Floor 10" },
+    description: { it: "Raggiungi e supera il Piano 10 della Torre Infinita.", en: "Reach and clear Floor 10 of the Endless Tower." },
+    icon: "🌕",
+    rewardCoins: 300,
+    check: (stats) => (stats.towerMaxFloor || 0) >= 10,
+  },
+  {
+    id: "tower_master_floor20",
+    category: "mastery",
+    title: { it: "Maestro dell'Illusione 👁️", en: "Master of Illusion 👁️" },
+    name: { it: "Superamento del Piano 20", en: "Clearing Floor 20" },
+    description: { it: "Raggiungi e supera il Piano 20 della Torre Infinita.", en: "Reach and clear Floor 20 of the Endless Tower." },
+    icon: "👁️",
+    rewardCoins: 600,
+    check: (stats) => (stats.towerMaxFloor || 0) >= 20,
+  },
+  {
+    id: "tower_legend_floor30",
+    category: "mastery",
+    title: { it: "DOMINATORE DELLA TORRE ETERNA 👑", en: "ETERNAL TOWER OVERLORD 👑" },
+    name: { it: "Superamento del Piano 30", en: "Clearing Floor 30" },
+    description: { it: "Raggiungi e supera il Piano 30 della Torre Infinita.", en: "Reach and clear Floor 30 of the Endless Tower." },
+    icon: "👑",
+    rewardCoins: 1200,
+    check: (stats) => (stats.towerMaxFloor || 0) >= 30,
   },
 ];
 

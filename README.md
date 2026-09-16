@@ -9,7 +9,7 @@ Il gameplay è strutturato in capitoli (Saghe) a livelli incrementali, in cui il
 ## 🎮 Funzionalità Principali
 
 ### 📖 Saghe e Modalità Storia
-* **Naruto Classico (Bambini)**: Rivivi la prima serie di Naruto affrontando nemici storici come Mizuki, Haku, Zabuza, Orochimaru e il temibile Gaara (Boss Finale).
+* **Naruto Classico**: Rivivi la prima serie di Naruto affrontando nemici storici come Mizuki, Haku, Zabuza, Orochimaru e il temibile Gaara (Boss Finale).
 * **Naruto Shippuden**: Sbloccata sconfiggendo Gaara, questa modalità introduce i ninja cresciuti con nuove tecniche e boss leggendari (Itachi Uchiha, Jiraiya, Orochimaru, Sasuke Susanoo e Naruto KCM).
 * **Selezione della Saga**: Schermata iniziale con card illustrative a dimensione intera per valorizzare sfondi verticali ad alto impatto visivo.
 

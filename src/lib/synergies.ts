@@ -33,8 +33,11 @@ export interface SynergyConfig {
   tiers: SynergyTier[];
 }
 
+import { useGameStore } from "@/store/useGameStore";
+
 export function getSynergyDisplayMembers(syn: SynergyConfig, sagaId?: string | null): SynergyMemberRequirement[] {
-  if (sagaId === "naruto_classic" && syn.membersKid && syn.membersKid.length > 0) {
+  const currentSaga = sagaId ?? (typeof window !== "undefined" ? useGameStore.getState().activeSagaId : null);
+  if (currentSaga === "classic_naruto" && syn.membersKid && syn.membersKid.length > 0) {
     return syn.membersKid;
   }
   return syn.members;
@@ -313,7 +316,7 @@ export const SYNERGIES: SynergyConfig[] = [
   },
 
   // ==========================================
-  // 8. CLAN UZUMAKI (KID & SHIPPUDEN)
+  // 8. CLAN UZUMAKI (SHIPPUDEN)
   // ==========================================
   {
     id: "clan_uzumaki",
@@ -327,9 +330,6 @@ export const SYNERGIES: SynergyConfig[] = [
     members: [
       { characterId: "naruto", name: { it: "Naruto Uzumaki", en: "Naruto Uzumaki" }, sprite: "/sprites/naruto_shippuden.png" },
       { characterId: "pain", name: { it: "Pain / Nagato", en: "Pain / Nagato" }, sprite: "/sprites/pain_boss.png" },
-    ],
-    membersKid: [
-      { characterId: "naruto", name: { it: "Naruto Uzumaki (Kid)", en: "Naruto Uzumaki (Kid)" }, sprite: "/sprites/naruto_kid.png" },
     ],
     tiers: [
       {
@@ -345,7 +345,7 @@ export const SYNERGIES: SynergyConfig[] = [
   },
 
   // ==========================================
-  // 9. CLAN UCHIHA (KID & SHIPPUDEN)
+  // 9. CLAN UCHIHA (SHIPPUDEN)
   // ==========================================
   {
     id: "clan_uchiha",
@@ -361,9 +361,6 @@ export const SYNERGIES: SynergyConfig[] = [
       { characterId: "itachi", name: { it: "Itachi Uchiha", en: "Itachi Uchiha" }, sprite: "/sprites/itachi_shippuden.png" },
       { characterId: "obito", name: { it: "Obito Uchiha", en: "Obito Uchiha" }, sprite: "/sprites/obito_boss.png" },
       { characterId: "madara", name: { it: "Madara Uchiha", en: "Madara Uchiha" }, sprite: "/sprites/madara_boss.png" },
-    ],
-    membersKid: [
-      { characterId: "sasuke", name: { it: "Sasuke Uchiha (Kid)", en: "Sasuke Uchiha (Kid)" }, sprite: "/sprites/sasuke_kid.png" },
     ],
     tiers: [
       {
@@ -710,17 +707,19 @@ export interface ActiveSynergyResult {
   totalMembersCount: number;
 }
 
-export function getActiveSynergies(team: RunNinja[]): ActiveSynergyResult[] {
+export function getActiveSynergies(team: RunNinja[], sagaId?: string | null): ActiveSynergyResult[] {
   if (!team || team.length === 0) return [];
 
+  const currentSagaId = sagaId ?? (typeof window !== "undefined" ? useGameStore.getState().activeSagaId : null);
   const results: ActiveSynergyResult[] = [];
 
   SYNERGIES.forEach((syn) => {
+    const displayMembers = getSynergyDisplayMembers(syn, currentSagaId);
     let activeCount = 0;
 
     if (syn.matchType === "characterIds") {
       const teamCharIds = team.map((n) => n.characterId);
-      syn.members.forEach((mem) => {
+      displayMembers.forEach((mem) => {
         if (teamCharIds.includes(mem.characterId)) {
           activeCount++;
         }
@@ -773,7 +772,7 @@ export function getActiveSynergies(team: RunNinja[]): ActiveSynergyResult[] {
         maxTierIndex,
         isMaxTier: matchedTierIndex === maxTierIndex,
         activeCount,
-        totalMembersCount: syn.members.length,
+        totalMembersCount: displayMembers.length,
       });
     }
   });
@@ -781,8 +780,8 @@ export function getActiveSynergies(team: RunNinja[]): ActiveSynergyResult[] {
   return results;
 }
 
-export function getSynergyStatMultipliers(team: RunNinja[]) {
-  const activeResults = getActiveSynergies(team);
+export function getSynergyStatMultipliers(team: RunNinja[], sagaId?: string | null) {
+  const activeResults = getActiveSynergies(team, sagaId);
   let atkMult = 1;
   let defMult = 1;
   let hpMult = 1;
@@ -810,11 +809,12 @@ export interface CandidateSynergyMatch {
 
 export function getSynergiesUnlockedByCandidate(
   currentTeam: RunNinja[],
-  candidate: { id: string; characterId: string; clan?: string; teamGroup?: string }
+  candidate: { id: string; characterId: string; clan?: string; teamGroup?: string },
+  sagaId?: string | null
 ): CandidateSynergyMatch[] {
   if (!candidate || !currentTeam) return [];
 
-  const activeNow = getActiveSynergies(currentTeam);
+  const activeNow = getActiveSynergies(currentTeam, sagaId);
   const activeNowMap = new Map<string, number>();
   activeNow.forEach((a) => activeNowMap.set(a.synergy.id, a.tierIndex));
 
@@ -827,7 +827,7 @@ export function getSynergiesUnlockedByCandidate(
   } as RunNinja;
 
   const simulatedTeam = [...currentTeam, mockNinja];
-  const activeWithCandidate = getActiveSynergies(simulatedTeam);
+  const activeWithCandidate = getActiveSynergies(simulatedTeam, sagaId);
 
   const matches: CandidateSynergyMatch[] = [];
 
